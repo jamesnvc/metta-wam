@@ -240,6 +240,32 @@ vim.api.nvim_create_autocmd(
 })
 ```
 
+If you get an error saying `Error executing lua: .... attempt to call field 'nvim_create_autocmd'`, try this instead:
+
+```lua
+function startMettaLSP(ev)
+    local mettalogDir = '/path/to/metta-wam'
+    vim.lsp.start({
+          name = 'metta_lsp',
+          cmd = { 'swipl',
+                  '-l', mettalogDir .. '/libraries/lsp_server_metta/prolog/lsp_server_metta.pl',
+                  '-g', 'lsp_server_metta:main',
+                  '-t', 'halt',
+                  '--', 'stdio' },
+          cmd_cwd = mettalogDir,
+          cmd_env = { METTALOG_DIR = mettalogDir;
+                      SWIPL_PACK_PATH = mettalogDir .. '/libraries'; },
+          root_dir = vim.fs.root(ev.buf, {'README.md'}),
+    })
+end
+
+vim.cmd([[
+  autocmd! FileType metta :call luaeval('startMettaLSP()')
+]])
+```
+
+
+
 Alternatively, you can start the LSP server manually by running the following command in the metta-wam directory:
 
 ```bash
