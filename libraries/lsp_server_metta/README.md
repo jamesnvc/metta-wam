@@ -24,10 +24,10 @@ NOTE: this will at some point be added to the MeTTalog installation and become u
 
 This is a slightly modified version of the directions found at https://www.swi-prolog.org/howto/Pack.html
 
-* Make sure that you are in the `metta-wam/src/packs` directory. From the `metta-wam` directory:
+* Make sure that you are in the `metta-wam/libraries` directory. From the `metta-wam` directory:
 
 ```bash
-cd src/packs
+cd libraries
 ```
 
 * Create a `.tgz` (tarred and gzipped) file. Note that the suffix should be `.tgz`, not the more usual `.tar.gz`.
