@@ -134,10 +134,10 @@ completion_context(Uri, line_char(Line0, Char0), Context) :-
     ; Context = Context0 ).
 
 % Handle the 'textDocument/completion' Request
-handle_completions("textDocument/completion", Msg, _{id: Id, result: CompletionList}) :-
-    _{id: Id, params: Params} :< Msg,
-    _{textDocument: _{uri: Uri}, position: Position} :< Params,
-    compute_completions_combined(Uri, Position, CompletionList), !.
+%% handle_completions("textDocument/completion", Msg, _{id: Id, result: CompletionList}) :-
+%%     _{id: Id, params: Params} :< Msg,
+%%     _{textDocument: _{uri: Uri}, position: Position} :< Params,
+%%     compute_completions_combined(Uri, Position, CompletionList), !.
 handle_completions("textDocument/completion", Msg, _{id: Msg.id, result: []}) :- !.
 
 % Handle the 'completionItem/resolve' Request
