@@ -74,12 +74,11 @@ completions_at(File, Position, Completions) :-
                   directory_file_path(_, F, Path),
                   memberchk(F, ['corelib.metta', 'stdlib_mettalog.metta']) )
               ),
-              (( Atom = [':>', Defn|_]
-               ; Atom = [':', [Defn|_]|_]
-               ; Atom = [':', Defn|_]
-               ; Atom = ['=', [Defn|_]|_]
-               ; Atom = ['=', Defn|_]
-               )),
+              member(Atom, [[':>', Defn|_],
+                            [':', [Defn|_]|_],
+                            [':', Defn|_],
+                            ['=', [Defn|_]|_],
+                            ['=', Defn|_]]),
               atom(Defn),
               atom_concat(Prefix, _, Defn),
               Result = _{label: Defn,
