@@ -25,7 +25,7 @@
 _Before you get started make sure `pip` and `venv` are working good._
 
 
-Linux/WSL/OS X
+Linux/WSL/macOS
 Clone and set up MeTTaLog with the following commands:
 ```
 git clone https://github.com/trueagi-io/metta-wam
