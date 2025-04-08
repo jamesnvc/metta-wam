@@ -1,4 +1,4 @@
-#!/bin/bash -vex
+#!/usr/bin/env bash -vex
 # Run this file with source ./INSTALL.md
 # ```
 #
@@ -51,7 +51,7 @@ export METTALOG_DIR=$(dirname "$MeTTa")  # Get the directory where the script is
 cd "$METTALOG_DIR" || { echo "Failed to navigate to $METTALOG_DIR"; return 1; }
 
 # Optionally ignore changes to `.bash_history`.
-if [ -f .bash_history ]; then 
+if [ -f .bash_history ]; then
     (cd $METTALOG_DIR ; git update-index --assume-unchanged .bash_history) || true
 fi
 
@@ -61,6 +61,7 @@ FORCE_REINSTALL_SWI=0
 SWI_INSTALL="src"
 EASY_INSTALL="?"
 INSTALL_TYPE="non_docker"
+SYSTEM_TYPE=$(uname)
 
 # ## Detect environment (GitHub Actions, Jenkins, Docker, etc.)
 # Automatically detect if the script is being run in a specific environment (GitHub Actions, Jenkins, Docker).
@@ -68,7 +69,7 @@ if [ -n "$GITHUB_ACTIONS" ]; then
     echo -e "${BLUE}GitHub Actions environment detected${NC}."
     INSTALL_TYPE="github_vm"
     export PIP_BREAK_SYSTEM_PACKAGES=1
-    export ALLOW_MODIFY_SYSTEM=1    
+    export ALLOW_MODIFY_SYSTEM=1
     SWI_INSTALL="ppa"
     EASY_INSTALL="Y"
 elif [ ! -z "$JENKINS_URL" ]; then
@@ -82,7 +83,7 @@ elif [ -f /.dockerenv ] || grep -qa docker /proc/1/cgroup; then
     echo -e "${BLUE}Docker environment detected${NC}."
     INSTALL_TYPE="docker_vm"
     export PIP_BREAK_SYSTEM_PACKAGES=1
-    export ALLOW_MODIFY_SYSTEM=1        
+    export ALLOW_MODIFY_SYSTEM=1
     SWI_INSTALL="src"
     EASY_INSTALL="Y"
 else
@@ -163,23 +164,39 @@ SWI_DEV_DEPS="build-essential autoconf git cmake libpython3-dev libgmp-dev libss
     libxinerama-dev libxft-dev libxpm-dev libunwind-dev libxt-dev pkg-config libdb-dev libpcre3 libpcre3-dev \
     libpcre2-dev libpcrecpp0v5 libpcre16-3 libpcre32-3 libpcrecpp0v5 libqt5widgets5 qtbase5-dev \
     libgoogle-perftools-dev"
-    
-# Required for JPL    
+
+# Required for JPL
 SWI_DEV_DEPS+=" junit junit4 libhamcrest-java default-jdk default-jdk-headless"
 
-# Required for VENV    
+# Required for VENV
 SWI_DEV_DEPS+=" python3-venv"
 
-# Required for EDITLINE    
+# Required for EDITLINE
 SWI_DEV_DEPS+=" libedit-dev"
 
-# Required to Fix "Could NOT find LibYAML (missing: LIBYAML_INCLUDE_DIR YAML_LIBRARY)"    
+# Required to Fix "Could NOT find LibYAML (missing: LIBYAML_INCLUDE_DIR YAML_LIBRARY)"
 SWI_DEV_DEPS+=" libyaml-dev"
 
 
 # Function to check if a package is installed
 is_package_installed() {
     dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "install ok installed"
+}
+
+install_package() {
+    case $SYSTEM_TYPE in
+        Linux)
+            # [TODO] check if dpkg/apt/rpm is installed, use what's appropriate
+            sudo apt-get update
+            sudo apt-get install -y "$1"
+            return $?
+            ;;
+        Darwin)
+            # [TODO] check if brew is installed
+            brew install "$1"
+            return $?
+            ;;
+    esac
 }
 
 # ## Install SWI-Prolog dependencies
@@ -191,7 +208,7 @@ install_swi_devel_deps() {
 
     # Loop through each package in SWI_DEV_DEPS to check if it's installed
     for package in $SWI_DEV_DEPS; do
-        if ! is_package_installed "$package"; then            
+        if ! is_package_installed "$package"; then
             missing_packages+=("$package")
         fi
     done
@@ -206,8 +223,7 @@ install_swi_devel_deps() {
 
     if [ "$UPDATE_SYSTEM" -eq 1 ]; then
         echo -e "${BLUE}Installing missing dependencies...${NC}"
-        sudo apt-get update
-        sudo apt-get install -y "${missing_packages[@]}" && {
+        install_package "${missing_packages[@]}" && {
             echo -e "${GREEN}All missing build dependencies installed successfully${NC}."
             return 0
         } || {
@@ -240,6 +256,10 @@ install_swi() {
 }
 
 install_swi_from_ppa_UP() {
+    if [ "$SYSTEM_TYPE" != "Linux" ]; then
+        echo -e "${RED}PPA install only works on Linux${NC}"
+        return 1
+    fi
     echo -e "${BLUE}Installing SWI-Prolog Devel PPA UPGRADING..${NC}."
     if false && confirm_with_default "N" "Blank out APT SOURCES"; then
         echo -e "${BLUE}Blanking out APT SOURCES.${NC}."
@@ -251,9 +271,13 @@ install_swi_from_ppa_UP() {
     echo -e "${BLUE}Remove existing installation if any before reinstalling/upgrading..${NC}."
     sudo apt-get remove -y swi-prolog??*
     sudo apt-get install -y swi-prolog
-    }
-    
+}
+
 install_swi_from_ppa() {
+    if [ "$SYSTEM_TYPE" != "Linux" ]; then
+        echo -e "${RED}PPA install only works on Linux${NC}"
+        return 1
+    fi
     install_swi_devel_deps
     echo -e "${BLUE}Installing SWI-Prolog Devel PPA..${NC}."
     sudo add-apt-repository ppa:swi-prolog/devel -y
@@ -265,11 +289,11 @@ install_swi_from_ppa() {
 # SWI-Prolog from source
 install_swi_from_src() {
     echo -e "${BLUE}Installing SWI-Prolog from SRC..${NC}."
-    
+
     if [ -n "$SWI_INSTALL_VERSION" ]; then
         rm -rf swipl-devel
     fi
-    
+
     install_swi_devel_deps || return 1
 
 
@@ -279,7 +303,7 @@ install_swi_from_src() {
         cd swipl-devel && git pull && cd ..
     else
         echo -e "${BLUE}Cloning SWI-Prolog source code..${NC}."
-        git clone https://github.com/SWI-Prolog/swipl-devel.git        
+        git clone https://github.com/SWI-Prolog/swipl-devel.git
     fi
 
     if [ -n "$SWI_INSTALL_VERSION" ]; then
@@ -293,7 +317,7 @@ install_swi_from_src() {
         echo -e "${BLUE}Special submodule update for ${SWI_INSTALL_VERSION} version of SWI-Prolog..${NC}."
         git -C . submodule update --init packages/ltx2htm packages/pldoc packages/nlp packages/archive packages/clib packages/http packages/sgml packages/ssl packages/zlib
     fi
-   
+
     cd swipl-devel && git submodule update --init  && {
         echo -e "${GREEN}Submodules updated successfully${NC}."
     } || {
@@ -303,12 +327,12 @@ install_swi_from_src() {
 
     # Configure and build
     echo -e "${BLUE}Configuring and building SWI-Prolog..${NC}."
-    
+
     if [ -n "$SWI_INSTALL_VERSION" ]; then
         echo -e "${BLUE}Unsetting LD_PRELOAD to avoid interference during the build..${NC}."
         unset LD_PRELOAD
     fi
-    
+
     mkdir -p build && cd build
     cmake .. && make && {
         echo -e "${GREEN}SWI-Prolog configured and built successfully${NC}."
@@ -357,6 +381,19 @@ install_or_update_swipl() {
     fi
 }
 
+install_python_venv() {
+    case $SYSTEM_TYPE in
+        Darwin)
+            # python3 generally comes with venv, debian distros just package differently
+            python3 -m pip install venv
+            return $?
+            ;;
+        Linux)
+            install_package python3-venv
+            return $?
+            ;;
+        esac
+}
 
 # Ask the user if EASY_INSTALL is still '?'
 if [ "$EASY_INSTALL" == "?" ]; then
@@ -385,8 +422,8 @@ print_var() {
 }
 
 # List of variables to print
-vars_to_print=("INSTALL_TYPE" "FORCE_REINSTALL_SWI" "SWI_INSTALL" "EASY_INSTALL" 
-  "PIP_BREAK_SYSTEM_PACKAGES"  
+vars_to_print=("INSTALL_TYPE" "FORCE_REINSTALL_SWI" "SWI_INSTALL" "EASY_INSTALL"
+  "PIP_BREAK_SYSTEM_PACKAGES"
   "ALLOW_MODIFY_SYSTEM"
   "UPDATE_SYSTEM"
    "RPWD" "MeTTa" "METTALOG_DIR" "SWI_INSTALL_VERSION")
@@ -407,14 +444,13 @@ ensure_venv_and_pip() {
         return 1  # Return because Python3 is required.
     fi
 
-    # Check if python3-venv package is installed using dpkg
-    if ! dpkg-query -W -f='${Status}' python3-venv 2>/dev/null | grep -q "install ok installed"; then
+    # Check if python3-venv package
+    if ! python3 -m venv --help &> /dev/null; then
         echo -e "${YELLOW}Python venv package is not installed. Installing python3-venv...${NC}"
 
         # Only allow system modifications if UPDATE_SYSTEM is set to 1
         if [ "$UPDATE_SYSTEM" -eq 1 ]; then
-            sudo apt-get update
-            sudo apt-get install -y python3-venv
+            install_python_venv
             if [ $? -ne 0 ]; then
                 echo -e "${RED}Failed to install Python venv. Exiting${NC}."
                 return 1
@@ -430,13 +466,12 @@ ensure_venv_and_pip() {
     fi
 
     # Check if pip is installed
-    if ! command -v pip3 &> /dev/null; then
+    if ! python3 -m pip --help &> /dev/null; then
         echo -e "${YELLOW}pip is not installed. Installing pip...${NC}"
 
         # Only allow system modifications if UPDATE_SYSTEM is set to 1
         if [ "$UPDATE_SYSTEM" -eq 1 ]; then
-            sudo apt-get update
-            sudo apt-get install -y python3-pip
+            install_package python3-pip
             if [ $? -ne 0 ]; then
                 echo -e "${RED}Failed to install pip. Exiting${NC}."
                 return 1
@@ -497,13 +532,13 @@ if ! swipl -g "use_module(library(janus)), halt(0)." -t "halt(1)" 2>/dev/null; t
     if [ "${EASY_INSTALL}" == "Y" ] || confirm_with_default "Y" "Would you like to install Python (Janus) support?"; then
         echo -e "${BLUE}Installing Janus for SWI-Prolog..${NC}."
        ensure_venv_and_pip || return 1
-	    pip install git+https://github.com/SWI-Prolog/packages-swipy.git	    
-	    if [ $? -ne 0 ]; then
-	       	echo -e "${RED}Failed to install Janus. Exiting script${NC}."
-		    return 1
-	    else
+      python3 -m pip install git+https://github.com/SWI-Prolog/packages-swipy.git
+      if [ $? -ne 0 ]; then
+          echo -e "${RED}Failed to install Janus. Exiting script${NC}."
+        return 1
+      else
             echo -e "${GREEN}Janus installed successfully${NC}."
-	    fi
+      fi
     else
         echo -e "${YELLOW}Skipping Janus Python support installation${NC}."
     fi
@@ -528,7 +563,7 @@ if false && ! python3 -c "import pyswip" &> /dev/null; then
     if [ "${EASY_INSTALL}" == "Y" ] || confirm_with_default "Y" "Would you like to install PySWIP?"; then
         echo -e "${BLUE}Installing PySWIP..${NC}."
         ensure_venv_and_pip || return 1
-        pip install git+https://github.com/logicmoo/pyswip.git || return 1
+        python3 -m pip install git+https://github.com/logicmoo/pyswip.git || return 1
         echo -e "${GREEN}PySWIP installation complete${NC}."
     else
         echo -e "${YELLOW}Skipping PySWIP installation${NC}."
@@ -587,7 +622,7 @@ check_metalog_in_path() {
         echo "# Source MeTTaLog environment" >> "${HOME}/.bashrc"
         echo "source \"$env_file\"" >> "${HOME}/.bashrc"
         echo -e "${GREEN}MeTTaLog added to .bashrc${NC}."
-    else 
+    else
         echo -e "${GREEN}MeTTaLog was already in your .bashrc${NC}."
     fi
 
@@ -625,5 +660,3 @@ cd "$RPWD"  # Return to the original directory.
 # End of the script
 
 # ```
-
-
