@@ -1,3 +1,5 @@
+:- module(metta_compiler_lib_douglas, []).
+
 :- dynamic(transpiler_clause_store/9).
 :- discontiguous transpiler_clause_store/9.
 

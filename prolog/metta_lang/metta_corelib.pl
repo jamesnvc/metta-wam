@@ -1,3 +1,4 @@
+:- module(metta_corelib, []).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert

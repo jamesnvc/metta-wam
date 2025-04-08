@@ -1,3 +1,4 @@
+:- module(metta_proof, []).
 
 interpC(Goal):-
   interpC(Goal, Proof),

@@ -1,3 +1,5 @@
+:- module(metta_mizer, []).
+
 % Disables the optimizer. This predicate always fails, effectively serving as a no-op.
 % disable_optimizer :- false.
 disable_optimizer.

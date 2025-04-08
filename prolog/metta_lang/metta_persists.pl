@@ -1,3 +1,4 @@
+:- module(metta_persists, []).
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
 :- ensure_loaded(metta_interp).

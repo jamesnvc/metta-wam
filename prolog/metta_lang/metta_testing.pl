@@ -1,3 +1,4 @@
+:- module(metta_testing, []).
 /*
   this is part of (H)MUARC  https://logicmoo.org/xwiki/bin/view/Main/ARC/
 

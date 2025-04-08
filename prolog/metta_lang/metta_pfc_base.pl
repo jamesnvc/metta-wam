@@ -1,3 +1,11 @@
+:- module(metta_pfc_base, [ pfcDefault/2,
+                            op(500, fx, '~'),
+                            op(1050, xfx, ('==>')),
+                            op(1050, xfx, '<==>'),
+                            op(1050, xfx, ('<-')),
+                            op(1100, fx, ('==>')),
+                            op(1150, xfx, ('::::'))
+                          ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -1138,12 +1146,6 @@ pfcLoad.
 %   Author : Tim Finin, finin@prc.unisys.com
 %   Purpose: syntactic sugar for Pfc - operator definitions and term expansions.
 
-:- op(500, fx, '~').           % Declares '~' as a prefix operator with precedence 500.
-:- op(1050, xfx, ('==>')).       % Declares '==>' as an infix operator with precedence 1050.
-:- op(1050, xfx, '<==>').      % Declares '<==>' as an infix operator with precedence 1050.
-:- op(1050, xfx, ('<-')).        % Declares '<-' as an infix operator with precedence 1050.
-:- op(1100, fx, ('==>')).        % Declares '==>' as a prefix operator with precedence 1100.
-:- op(1150, xfx, ('::::')).      % Declares '::::' as an infix operator with precedence 1150.
 
 % declare that pfctmp:knows_will_table_as/2 can be modified at runtime.
 :- dynamic(pfctmp:knows_will_table_as/2).

@@ -55,6 +55,8 @@
 % PROGRAM FUNCTION:  This is the main flybase program.
 %*********************************************************************************************
 
+:- use_module(metta/swi_support).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED

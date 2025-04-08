@@ -1,3 +1,5 @@
+:- module(metta_parser, [ process_expressions/3,
+                          make_DL/4 ]).
 /* <not-a-module> Metta File Processor
 
 This module provides utilities to process `.metta` files by reading S-expressions and comments from an input stream

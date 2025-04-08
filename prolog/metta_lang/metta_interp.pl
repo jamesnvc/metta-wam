@@ -1,3 +1,8 @@
+:- module(metta_interp, [ find_missing_cuts/0,
+                          find_missing_cuts/1,
+                          on_metta_setup/1,
+                          is_win64/0
+                        ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert

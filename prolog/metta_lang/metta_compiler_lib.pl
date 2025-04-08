@@ -1,3 +1,7 @@
+:- module(metta_compiler_lib, []).
+
+:- use_module(metta_interp).
+
 :- dynamic(transpiler_predicate_store/7).
 :- discontiguous transpiler_predicate_store/7.
 

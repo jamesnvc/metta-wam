@@ -1,3 +1,4 @@
+:- module(metta_typed_functions, []).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter/Runtime
  * Description: This file is part of the source code for a transpiler designed to convert

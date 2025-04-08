@@ -1,3 +1,5 @@
+:- module(metta_compiler_lib_roy, []).
+
 :- dynamic(transpiler_predicate_store/4).
 :- discontiguous transpiler_predicate_store/4.
 

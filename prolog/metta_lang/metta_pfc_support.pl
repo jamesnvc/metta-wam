@@ -1,3 +1,4 @@
+:- module(metta_pfc_support, []).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -57,6 +58,8 @@
 % Douglas Miles
 
 */
+
+:- use_module(metta_pfc_base).
 
 %*********************************************************************************************
 % PROGRAM FUNCTION:  Implements forward chaining, tracks changes, and provides proofs of safety.

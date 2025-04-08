@@ -1,3 +1,4 @@
+:- module(metta_subst, []).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -50,6 +51,8 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+:- use_module(metta_interp).
 
 %self_subst(X):- var(X),!.
 %self_subst(X):- string(X),!.
