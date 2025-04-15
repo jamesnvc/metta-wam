@@ -20,7 +20,8 @@ setup_message_hook :-
 
 search_for_definition(_Mod:Pred/Arity) :-
     %using dumb text search because at this point we can't really trust any tools
-    format(string(Search), "^~w", [Pred]),
+    ( Arity =:= 0 -> End = " " ; End = "[(]" ),
+    format(string(Search), "^~w~w", [Pred, End]),
     debug(loading_message, "Searching for ~w...", [Search]),
     run_grep(Search, Files),
     debug(loading_message, "FOUND PRED IN ~q~n", [Files]),
@@ -78,6 +79,54 @@ handle_msg(Msg) :-
     debug(loading_message(other), "MESSAGE ~q~n", [Msg]),
     true.
 
+add_use_if_needed(Path, Module) :-
+    debug(loading_message, "ADDING USE FOR ~w IN ~w", [Module, Path]),
+    LastModuleAt = acc(0),
+    AlreadyImported = acc(false),
+    setup_call_cleanup(
+        prolog_open_source(Path, Stream),
+        add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module),
+        prolog_close_source(Stream)),
+    debug(loading_message, "FINISHED SEARCH", []),
+    arg(1, AlreadyImported, false),
+    arg(1, LastModuleAt, UseModuleEnd),
+    debug(loading_message, "INSERTING AT ~w", [UseModuleEnd]),
+    insert_use_module(Path, Module, UseModuleEnd),
+    debug(loading_message, "ADDED", []).
+
+add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module) :-
+    repeat,
+    prolog_read_source_term(Stream, Term, _Ex, [subterm_positions(SubTermPos),
+                                                syntax_errors(dec10)]),
+    once(( Term = (:- use_module(ImpModule)) ;
+               Term = (:- use_module(ImpModule, _)) ;
+                   Term = (:- module(_, _)) ;
+                       Term = end_of_file )),
+    debug(loading_message, "FOUND TERM ~q", [Term]),
+    ( Term = end_of_file
+      *-> !
+      ; ( Term = (:- module(_, _))
+          *-> arg(2, SubTermPos, ModuleEndAt0),
+              succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+              nb_setarg(1, LastModuleAt, ModuleEndAt),
+              fail
+          ; (  ImpModule = Module
+               *-> debug(loading_message, "Already imported", []),
+                   nb_setarg(1, AlreadyImported, true), !
+               ;  arg(2, SubTermPos, ModuleEndAt0),
+                  succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+                  nb_setarg(1, LastModuleAt, ModuleEndAt),
+                  fail  ) ) ).
+
+insert_use_module(Path, ModuleName, UseEnd) :-
+    format(string(UseModule), "~n:- use_module(~w).~n", [ModuleName]),
+    read_file_to_string(Path, FileContent, []),
+    sub_string(FileContent, 0, UseEnd, After, Before),
+    sub_string(FileContent, UseEnd, After, _, AfterContent),
+    atomics_to_string([Before, UseModule, AfterContent], NewContentString),
+    setup_call_cleanup(open(Path, write, S), format(S, "~s", NewContentString), close(S)).
+
+
 add_to_export(Path, PredIndicator) :-
     debug(loading_message, "ADDING ~q TO ~q", [PredIndicator, Path]),
     setup_call_cleanup(
@@ -90,14 +139,14 @@ add_to_export(Path, PredIndicator) :-
           arg(1, SubTermPos, TermStart),
           arg(2, SubTermPos, TermEnd),
           debug(loading_message, "Found module term at ~w -> ~w", [TermStart, TermEnd]),
-          insert_into_file(Path, TermStart, TermEnd, Module, ExportList, PredIndicator)
+          insert_export_into_file(Path, TermStart, TermEnd, Module, ExportList, PredIndicator)
         ),
         prolog_close_source(Stream)).
 
-insert_into_file(_Path, _Start, _End, Mod, OldExports, NewExport) :-
+insert_export_into_file(_Path, _Start, _End, Mod, OldExports, NewExport) :-
     member(NewExport, OldExports),
     debug(loading_message, "~q is already exported in ~w!", [NewExport, Mod]), !.
-insert_into_file(Path, Start, End, Mod, OldExports, NewExport) :-
+insert_export_into_file(Path, Start, End, Mod, OldExports, NewExport) :-
     debug(loading_message, "Adding to ~w to exports in ~w", [NewExport, Path]),
     read_file_to_string(Path, FileContents, []),
     formatted_module(Mod, [NewExport|OldExports], ModuleString),
