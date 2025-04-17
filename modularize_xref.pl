@@ -242,7 +242,7 @@ insert_export_into_file(Path, Start, End, Mod, OldExports, NewExports) :-
 formatted_module(Module, ExportList, Str) :-
     format(string(ModuleStart), ":- module(~w, [ ", [Module]),
     string_length(ModuleStart, IndentLen),
-    maplist([Term, TermStr]>>format(string(TermStr), "~w", [Term]),
+    maplist([Term, TermStr]>>format(string(TermStr), "~q", [Term]),
             ExportList, ExportList1),
     add_indent_to_rest(IndentLen, ExportList1, ExportList2),
     atomics_to_string(ExportList2, ",\n", ExportListStr),
