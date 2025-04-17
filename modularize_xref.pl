@@ -3,6 +3,7 @@
 :- use_module(library(apply)).
 :- use_module(library(apply_macros)).
 :- use_module(library(readutil)).
+:- use_module(library(lists)).
 :- use_module(library(rbtrees)).
 :- use_module(library(prolog_source)).
 :- use_module(library(yall)).
@@ -18,8 +19,8 @@ main([DirPath]) :-
     add_modules_if_needed(DirPath),
     load_xrefs(DirPath, FileDefs),
     files_imported_exported(FileDefs, FileImports, FileExports),
-    findall(F, ( member(file_import('prolog/metta_lang/metta_subst.pl', F), FileImports) ), Test),
-    debug(modularize_xref, "IMPORTS ~q", [Test]).
+    FileImports = [A|_],
+    debug(modularize_xref, "IMPORTS ~q", [A]).
 
 files_imported_exported(FileDefs, FileImports, FileExports) :-
     definition_file_mapping(FileDefs, PredToDefFile),
@@ -30,12 +31,8 @@ files_imported([], _, []).
 files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileImports) :-
     findall(file_import(File, Import),
             ( member(Call, Calls),
-              rb_lookup(Call, Exporters, PredToDefFile),
-              % TODO: how to choose which to export from if there are more than one?
-              % ask the user?
-              sort(Exporters, Exporters0),
-              Exporters0 = [ImportFile|_],
-              file_module(ImportFile, Import),
+              rb_lookup(Call, ExporterFile, PredToDefFile),
+              file_module(ExporterFile, Import),
               ( Exporters = [_, _|_]
               -> debug(modularize_xref(high), "~w is defined by ~w; picking ~w", [Call, Exporters, Import])
               ; true )
@@ -43,21 +40,40 @@ files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileIm
             FileImports, ImportsTail),
     files_imported(Rest, PredToDefFile, ImportsTail).
 
+:- dynamic definers_choice/2.
 
-check_definitions(Mapping) :-
-    forall(rb_in(Defn, Files, Mapping),
-           ( Files = [_]
-           -> true
-           ; maplist(file_module, Files, Modules),
-             debug(modularize_xref(high), "Multiple defn's for ~w: ~w", [Defn, Modules]) )).
+check_definitions(Mapping0, Mapping1) :-
+    rb_map_kv(find_source_for, Mapping0, Mapping1).
+
+find_source_for(_, [File], File) :- !.
+find_source_for(_, File, File) :- atom(File), !.
+find_source_for(_, Files, Choice) :-
+    sort(Files, FilesS),
+    definers_choice(FilesS, Choice), !.
+find_source_for(Defn, Files, Choice) :-
+    stream_property(user_input, tty(true)),
+    length(Files, NChoices),
+    sort(Files, Choices),
+    numlist(1, NChoices, Nums),
+    maplist([N, F, S]>>format(string(S), "~w. ~w", [N, F]), Nums, Files, ChoicesStrings),
+    atomics_to_string(ChoicesStrings, "\n", ChoicesStr),
+    repeat,
+    format(user_output, "Predicate ~w is defined in ~s~nWhich should export it: [1-~w]",
+          [Defn, ChoicesStr, NChoices]),
+    read_line_to_string(user_input, InputString),
+    number_string(Number, InputString),
+    integer(Number),
+    between(1, NChoices, Number),
+    nth1(Number, Choices, Choice), !,
+    assertz(definers_choice(Choices, Choice)).
 
 definition_file_mapping(FileDefs, Mapping) :-
     rb_empty(Mapping0),
     foldl([file_def_call_ex(File, Defns, _, Exports), Tree0, Tree]>>
               ( add_definitions_to_mapping(File, Defns, Tree0, Tree1),
                 add_exports_to_mapping(File, Exports, Tree1, Tree) ),
-          FileDefs, Mapping0, Mapping),
-    check_definitions(Mapping).
+          FileDefs, Mapping0, Mapping1),
+    check_definitions(Mapping1, Mapping).
 
 add_exports_to_mapping(File, Exports, Mapping0, Mapping) :-
     foldl({File}/[Defn, T0, T1]>>rb_insert(T0, Defn, File, T1),
@@ -67,8 +83,12 @@ add_definitions_to_mapping(File, Definitions, Mapping0, Mapping) :-
     foldl({File}/[Defn, T0, T1]>>
               ( rb_insert_new(T0, Defn, [File], T1)
               ->  true
-              ; rb_apply(T0, Defn, append([File]), T1) ),
+              ; rb_apply(T0, Defn, maybe_add_definition(File), T1) ),
           Definitions, Mapping0, Mapping).
+
+maybe_add_definition(File, OldVal, NewVal) :-
+    is_list(OldVal), !, NewVal = [File|OldVal].
+maybe_add_definition(_, V, V).
 
 load_xrefs(DirPath, FileDefs) :-
     findall(
@@ -78,7 +98,7 @@ load_xrefs(DirPath, FileDefs) :-
           \+ ( atom_concat('_', _, BaseName) ),
           xref_source(File, [ silent(true), comments(ignore) ]),
           findall(Pred/Arity, ( xref_exported(File, Head),
-                                functor(Head, Pred/Arity) ),
+                                functor(Head, Pred, Arity) ),
                   AlreadyExported),
           findall(Pred/Arity,
                   ( xref_defined(File, Defn, How),
@@ -220,3 +240,29 @@ add_indent_to_rest_(Indent, [L|Rest], [L1|OutRest]) :-
     maplist(=(0' ), IndentCodes),
     format(string(L1), "~s~s", [IndentCodes, L]),
     add_indent_to_rest_(Indent, Rest, OutRest).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% red-black tree helper
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% like rb_map/3, but call with key as well as value
+
+:- meta_predicate rb_map_kv(+, 3, -).
+
+rb_map_kv(t(Nil,Tree),Goal,NewTree2) =>
+    NewTree2 = t(Nil,NewTree),
+    map_kv(Tree,Goal,NewTree,Nil).
+
+map_kv(black('',_,_,''),_,Nil0,Nil) => Nil0 = Nil.
+map_kv(red(L,K,V,R),Goal,NewTree,Nil) =>
+    NewTree = red(NL,K,NV,NR),
+    call(Goal,K,V,NV),
+    map_kv(L,Goal,NL,Nil),
+    map_kv(R,Goal,NR,Nil).
+map_kv(black(L,K,V,R),Goal,NewTree,Nil) =>
+    NewTree = black(NL,K,NV,NR),
+    call(Goal,K,V,NV),
+    map_kv(L,Goal,NL,Nil),
+    map_kv(R,Goal,NR,Nil).
+
+:- meta_predicate map_kv(?, 3, ?, ?).
