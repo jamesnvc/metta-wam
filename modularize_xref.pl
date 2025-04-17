@@ -20,17 +20,16 @@ main([DirPath]) :-
     add_modules_if_needed(DirPath),
     load_xrefs(DirPath, FileDefs),
     files_imported_exported(FileDefs, FileImports, FileExports),
-    forall( member(file_exports(File, Exports), FileExports),
-          add_to_export(File, Exports) ),
-    once(
-        setof(file_import(File, Module),
-              Pred^FileImports^(
-                  member(file_import(File, Pred, ImportFile), FileImports),
-                  file_module(ImportFile, Module)
-              ),
-              UniqueFileImports)),
+    setof(file_import(File, Module),
+          Pred^ImportFile^(
+              member(file_import(File, Pred, ImportFile), FileImports),
+              file_module(ImportFile, Module)
+          ),
+          UniqueFileImports),
     forall( member(file_import(File, Module), UniqueFileImports),
-          add_use_if_needed(File, Module) ).
+          add_use_if_needed(File, Module) ),
+    forall( member(file_exports(File, Exports), FileExports),
+          add_to_export(File, Exports) ).
 
 files_imported_exported(FileDefs, FileImports, FileExports) :-
     definition_file_mapping(FileDefs, PredToDefFile),
@@ -171,11 +170,12 @@ add_use_if_needed(Path, Module) :-
         add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Module),
         prolog_close_source(Stream)),
     debug(loading_message, "FINISHED SEARCH", []),
-    arg(1, AlreadyImported, false),
+    arg(1, AlreadyImported, false), !,
     arg(1, LastModuleAt, UseModuleEnd),
     debug(loading_message, "INSERTING AT ~w", [UseModuleEnd]),
     insert_use_module(Path, Module, UseModuleEnd),
     debug(loading_message, "ADDED", []).
+add_use_if_needed(_, _).
 
 add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Module) :-
     repeat,
