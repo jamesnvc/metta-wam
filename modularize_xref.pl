@@ -4,6 +4,7 @@
 :- use_module(library(apply_macros)).
 :- use_module(library(readutil)).
 :- use_module(library(lists)).
+:- use_module(library(ordsets)).
 :- use_module(library(rbtrees)).
 :- use_module(library(prolog_source)).
 :- use_module(library(yall)).
@@ -19,31 +20,42 @@ main([DirPath]) :-
     add_modules_if_needed(DirPath),
     load_xrefs(DirPath, FileDefs),
     files_imported_exported(FileDefs, FileImports, FileExports),
-    FileImports = [A|_],
-    debug(modularize_xref, "IMPORTS ~q", [A]).
+    forall( member(file_exports(File, Exports), FileExports),
+          add_to_export(File, Exports) ),
+    setof(file_import(File, Module),
+          Pred^FileImports^(
+              member(file_import(File, Pred, ImportFile), FileImports),
+              file_module(ImportFile, Module)
+          ),
+          UniqueFileImports),
+    forall( member(file_import(File, Module), UniqueFileImports),
+          add_use_if_needed(File, Module) ).
 
 files_imported_exported(FileDefs, FileImports, FileExports) :-
     definition_file_mapping(FileDefs, PredToDefFile),
     files_imported(FileDefs, PredToDefFile, FileImports0),
-    sort(FileImports0, FileImports).
+    sort(FileImports0, FileImports),
+    files_exported(FileImports, FileExports).
+
+files_exported(Imports, Exports) :-
+    findall(file_exports(File, Defs),
+            aggregate(set(Def),
+                      Importer^member(file_import(Importer, Def, File), Imports),
+                      Defs),
+            Exports).
 
 files_imported([], _, []).
 files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileImports) :-
-    findall(file_import(File, Import),
+    findall(file_import(File, Call, ExporterFile),
             ( member(Call, Calls),
-              rb_lookup(Call, ExporterFile, PredToDefFile),
-              file_module(ExporterFile, Import),
-              ( Exporters = [_, _|_]
-              -> debug(modularize_xref(high), "~w is defined by ~w; picking ~w", [Call, Exporters, Import])
-              ; true )
-            ),
+              rb_lookup(Call, ExporterFile, PredToDefFile) ),
             FileImports, ImportsTail),
     files_imported(Rest, PredToDefFile, ImportsTail).
 
 :- dynamic definers_choice/2.
 
 check_definitions(Mapping0, Mapping1) :-
-    rb_map_kv(find_source_for, Mapping0, Mapping1).
+    rb_map_kv(Mapping0,find_source_for, Mapping1).
 
 find_source_for(_, [File], File) :- !.
 find_source_for(_, File, File) :- atom(File), !.
@@ -58,7 +70,7 @@ find_source_for(Defn, Files, Choice) :-
     maplist([N, F, S]>>format(string(S), "~w. ~w", [N, F]), Nums, Files, ChoicesStrings),
     atomics_to_string(ChoicesStrings, "\n", ChoicesStr),
     repeat,
-    format(user_output, "Predicate ~w is defined in ~s~nWhich should export it: [1-~w]",
+    format(user_output, "Predicate ~w is defined in~n~s~nWhich should export it: [1-~w]",
           [Defn, ChoicesStr, NChoices]),
     read_line_to_string(user_input, InputString),
     number_string(Number, InputString),
@@ -66,6 +78,9 @@ find_source_for(Defn, Files, Choice) :-
     between(1, NChoices, Number),
     nth1(Number, Choices, Choice), !,
     assertz(definers_choice(Choices, Choice)).
+find_source_for(Defn, Files, Choice) :-
+    debug(modularize_xref, "COULDN'T FIGURE OUT SOURCE FOR ~w ~w", [Defn, Files]),
+    Files = [Choice|_].
 
 definition_file_mapping(FileDefs, Mapping) :-
     rb_empty(Mapping0),
@@ -194,8 +209,8 @@ insert_use_module(Path, ModuleName, UseEnd) :-
     setup_call_cleanup(open(Path, write, S), format(S, "~s", NewContentString), close(S)).
 
 
-add_to_export(Path, PredIndicator) :-
-    debug(loading_message, "ADDING ~q TO ~q", [PredIndicator, Path]),
+add_to_export(Path, PredIndicators) :-
+    debug(loading_message, "ADDING ~q TO ~q", [PredIndicators, Path]),
     setup_call_cleanup(
         prolog_open_source(Path, Stream),
         ( repeat,
@@ -206,17 +221,18 @@ add_to_export(Path, PredIndicator) :-
           arg(1, SubTermPos, TermStart),
           arg(2, SubTermPos, TermEnd),
           debug(loading_message, "Found module term at ~w -> ~w", [TermStart, TermEnd]),
-          insert_export_into_file(Path, TermStart, TermEnd, Module, ExportList, PredIndicator)
+          insert_export_into_file(Path, TermStart, TermEnd, Module, ExportList, PredIndicators)
         ),
         prolog_close_source(Stream)).
 
-insert_export_into_file(_Path, _Start, _End, Mod, OldExports, NewExport) :-
-    member(NewExport, OldExports),
-    debug(loading_message, "~q is already exported in ~w!", [NewExport, Mod]), !.
-insert_export_into_file(Path, Start, End, Mod, OldExports, NewExport) :-
-    debug(loading_message, "Adding to ~w to exports in ~w", [NewExport, Path]),
+insert_export_into_file(Path, Start, End, Mod, OldExports, NewExports) :-
+    sort(NewExports, NewExportsSorted),
+    sort(OldExports, OldExportsSorted),
+    ord_subtract(NewExportsSorted, OldExportsSorted, ToExport),
+    debug(loading_message, "Adding to ~w to exports in ~w", [ToExport, Path]),
     read_file_to_string(Path, FileContents, []),
-    formatted_module(Mod, [NewExport|OldExports], ModuleString),
+    append(ToExport, OldExports, Exports),
+    formatted_module(Mod, Exports, ModuleString),
     sub_string(FileContents, 0, Start, After, Before),
     After0 is After - (End - Start),
     sub_string(FileContents, End, After0, _, Remainder),
