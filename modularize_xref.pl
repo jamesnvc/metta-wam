@@ -1,0 +1,222 @@
+:- module(modularize_xref, []).
+
+:- use_module(library(apply)).
+:- use_module(library(apply_macros)).
+:- use_module(library(readutil)).
+:- use_module(library(rbtrees)).
+:- use_module(library(prolog_source)).
+:- use_module(library(yall)).
+
+:- initialization(main, main).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Main
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+main([DirPath]) :-
+    debug(modularize_xref),
+    add_modules_if_needed(DirPath),
+    load_xrefs(DirPath, FileDefs),
+    files_imported_exported(FileDefs, FileImports, FileExports),
+    findall(F, ( member(file_import('prolog/metta_lang/metta_subst.pl', F), FileImports) ), Test),
+    debug(modularize_xref, "IMPORTS ~q", [Test]).
+
+files_imported_exported(FileDefs, FileImports, FileExports) :-
+    definition_file_mapping(FileDefs, PredToDefFile),
+    files_imported(FileDefs, PredToDefFile, FileImports0),
+    sort(FileImports0, FileImports).
+
+files_imported([], _, []).
+files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileImports) :-
+    findall(file_import(File, Import),
+            ( member(Call, Calls),
+              rb_lookup(Call, Exporters, PredToDefFile),
+              % TODO: how to choose which to export from if there are more than one?
+              % ask the user?
+              sort(Exporters, Exporters0),
+              Exporters0 = [ImportFile|_],
+              file_module(ImportFile, Import),
+              ( Exporters = [_, _|_]
+              -> debug(modularize_xref(high), "~w is defined by ~w; picking ~w", [Call, Exporters, Import])
+              ; true )
+            ),
+            FileImports, ImportsTail),
+    files_imported(Rest, PredToDefFile, ImportsTail).
+
+
+check_definitions(Mapping) :-
+    forall(rb_in(Defn, Files, Mapping),
+           ( Files = [_]
+           -> true
+           ; maplist(file_module, Files, Modules),
+             debug(modularize_xref(high), "Multiple defn's for ~w: ~w", [Defn, Modules]) )).
+
+definition_file_mapping(FileDefs, Mapping) :-
+    rb_empty(Mapping0),
+    foldl([file_def_call_ex(File, Defns, _, Exports), Tree0, Tree]>>
+              ( add_definitions_to_mapping(File, Defns, Tree0, Tree1),
+                add_exports_to_mapping(File, Exports, Tree1, Tree) ),
+          FileDefs, Mapping0, Mapping),
+    check_definitions(Mapping).
+
+add_exports_to_mapping(File, Exports, Mapping0, Mapping) :-
+    foldl({File}/[Defn, T0, T1]>>rb_insert(T0, Defn, File, T1),
+          Exports, Mapping0, Mapping).
+
+add_definitions_to_mapping(File, Definitions, Mapping0, Mapping) :-
+    foldl({File}/[Defn, T0, T1]>>
+              ( rb_insert_new(T0, Defn, [File], T1)
+              ->  true
+              ; rb_apply(T0, Defn, append([File]), T1) ),
+          Definitions, Mapping0, Mapping).
+
+load_xrefs(DirPath, FileDefs) :-
+    findall(
+        file_def_call_ex(File, Defns, Called, AlreadyExported),
+        ( directory_member(DirPath, File, [ recursive(true), file_type(prolog) ]),
+          file_base_name(File, BaseName),
+          \+ ( atom_concat('_', _, BaseName) ),
+          xref_source(File, [ silent(true), comments(ignore) ]),
+          findall(Pred/Arity, ( xref_exported(File, Head),
+                                functor(Head, Pred/Arity) ),
+                  AlreadyExported),
+          findall(Pred/Arity,
+                  ( xref_defined(File, Defn, How),
+                    How \= imported(_),
+                    How \= multifile(_),
+                    Defn \= ':'(_, _),
+                    functor(Defn, Pred, Arity)
+                  ),
+                  Defns0),
+          sort(Defns0, Defns),
+          findall(Pred/Arity,
+                  ( xref_called(File, Call, _By),
+                    Call \= ':'(_, _),
+                    functor(Call, Pred, Arity) ),
+                  Called0),
+          sort(Called0, Called1),
+          ord_subtract(Called1, Defns, Called)
+        ),
+        FileDefs
+    ).
+add_modules_if_needed(DirPath) :-
+    forall( directory_member(DirPath, File, [ recursive(true), file_type(prolog) ]),
+            add_module_if_needed(File)
+    ).
+
+add_module_if_needed(File) :-
+    file_base_name(File, Name),
+    atom_concat("_", _, Name), !.
+add_module_if_needed(File) :-
+    setup_call_cleanup(open(File, read, S), read_term(S, Term, []), close(S)),
+    Term = (:- module(_, _)), !.
+add_module_if_needed(File) :-
+    read_file_to_string(File, Content, []),
+    file_module(File, Module),
+    format(string(ModuleHeader), ":- module(~w, []).~n", [Module]),
+    setup_call_cleanup(
+        open(File, write, S),
+        ( write(S, ModuleHeader), write(S, Content) ),
+        close(S)).
+
+file_module(Path, Module) :-
+    file_base_name(Path, BaseName),
+    file_name_extension(Module, '.pl', BaseName).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Adding imports & exports
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+add_use_if_needed(Path, Module) :-
+    debug(loading_message, "ADDING USE FOR ~w IN ~w", [Module, Path]),
+    LastModuleAt = acc(0),
+    AlreadyImported = acc(false),
+    setup_call_cleanup(
+        prolog_open_source(Path, Stream),
+        add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Module),
+        prolog_close_source(Stream)),
+    debug(loading_message, "FINISHED SEARCH", []),
+    arg(1, AlreadyImported, false),
+    arg(1, LastModuleAt, UseModuleEnd),
+    debug(loading_message, "INSERTING AT ~w", [UseModuleEnd]),
+    insert_use_module(Path, Module, UseModuleEnd),
+    debug(loading_message, "ADDED", []).
+
+add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Module) :-
+    repeat,
+    prolog_read_source_term(Stream, Term, _Ex, [subterm_positions(SubTermPos),
+                                                syntax_errors(dec10)]),
+    once(( Term = (:- use_module(ImpModule)) ;
+               Term = (:- use_module(ImpModule, _)) ;
+                   Term = (:- module(_, _)) ;
+                       Term = end_of_file )),
+    debug(loading_message, "FOUND TERM ~q", [Term]),
+    ( Term = end_of_file
+      *-> !
+      ; ( Term = (:- module(_, _))
+          *-> arg(2, SubTermPos, ModuleEndAt0),
+              succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+              nb_setarg(1, LastModuleAt, ModuleEndAt),
+              fail
+          ; (  ImpModule = Module
+               *-> debug(loading_message, "Already imported", []),
+                   nb_setarg(1, AlreadyImported, true), !
+               ;  arg(2, SubTermPos, ModuleEndAt0),
+                  succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+                  nb_setarg(1, LastModuleAt, ModuleEndAt),
+                  fail  ) ) ).
+
+insert_use_module(Path, ModuleName, UseEnd) :-
+    format(string(UseModule), "~n:- use_module(~w).~n", [ModuleName]),
+    read_file_to_string(Path, FileContent, []),
+    sub_string(FileContent, 0, UseEnd, After, Before),
+    sub_string(FileContent, UseEnd, After, _, AfterContent),
+    atomics_to_string([Before, UseModule, AfterContent], NewContentString),
+    setup_call_cleanup(open(Path, write, S), format(S, "~s", NewContentString), close(S)).
+
+
+add_to_export(Path, PredIndicator) :-
+    debug(loading_message, "ADDING ~q TO ~q", [PredIndicator, Path]),
+    setup_call_cleanup(
+        prolog_open_source(Path, Stream),
+        ( repeat,
+          prolog_read_source_term(Stream, Term, _Ex, [subterm_positions(SubTermPos),
+                                                      syntax_errors(dec10)]),
+          once(( Term = (:- module(Module, ExportList)) ; Term = end_of_file )), !,
+          ( var(Module) -> throw(couldnt_find_module) ; true ),
+          arg(1, SubTermPos, TermStart),
+          arg(2, SubTermPos, TermEnd),
+          debug(loading_message, "Found module term at ~w -> ~w", [TermStart, TermEnd]),
+          insert_export_into_file(Path, TermStart, TermEnd, Module, ExportList, PredIndicator)
+        ),
+        prolog_close_source(Stream)).
+
+insert_export_into_file(_Path, _Start, _End, Mod, OldExports, NewExport) :-
+    member(NewExport, OldExports),
+    debug(loading_message, "~q is already exported in ~w!", [NewExport, Mod]), !.
+insert_export_into_file(Path, Start, End, Mod, OldExports, NewExport) :-
+    debug(loading_message, "Adding to ~w to exports in ~w", [NewExport, Path]),
+    read_file_to_string(Path, FileContents, []),
+    formatted_module(Mod, [NewExport|OldExports], ModuleString),
+    sub_string(FileContents, 0, Start, After, Before),
+    After0 is After - (End - Start),
+    sub_string(FileContents, End, After0, _, Remainder),
+    atomics_to_string([Before, ModuleString, Remainder], NewContentString),
+    setup_call_cleanup(open(Path, write, S), format(S, "~s", NewContentString), close(S)).
+
+formatted_module(Module, ExportList, Str) :-
+    format(string(ModuleStart), ":- module(~w, [ ", [Module]),
+    string_length(ModuleStart, IndentLen),
+    maplist([Term, TermStr]>>format(string(TermStr), "~w", [Term]),
+            ExportList, ExportList1),
+    add_indent_to_rest(IndentLen, ExportList1, ExportList2),
+    atomics_to_string(ExportList2, ",\n", ExportListStr),
+    format(string(Str), "~s~s ])", [ModuleStart, ExportListStr]).
+
+add_indent_to_rest(Indent, [L|Rest], [L|OutRest]) :-
+    add_indent_to_rest_(Indent, Rest, OutRest).
+add_indent_to_rest_(_Indent, [], []).
+add_indent_to_rest_(Indent, [L|Rest], [L1|OutRest]) :-
+    length(IndentCodes, Indent),
+    maplist(=(0' ), IndentCodes),
+    format(string(L1), "~s~s", [IndentCodes, L]),
+    add_indent_to_rest_(Indent, Rest, OutRest).
