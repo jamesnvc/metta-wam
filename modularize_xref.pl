@@ -22,12 +22,13 @@ main([DirPath]) :-
     files_imported_exported(FileDefs, FileImports, FileExports),
     forall( member(file_exports(File, Exports), FileExports),
           add_to_export(File, Exports) ),
-    setof(file_import(File, Module),
-          Pred^FileImports^(
-              member(file_import(File, Pred, ImportFile), FileImports),
-              file_module(ImportFile, Module)
-          ),
-          UniqueFileImports),
+    once(
+        setof(file_import(File, Module),
+              Pred^FileImports^(
+                  member(file_import(File, Pred, ImportFile), FileImports),
+                  file_module(ImportFile, Module)
+              ),
+              UniqueFileImports)),
     forall( member(file_import(File, Module), UniqueFileImports),
           add_use_if_needed(File, Module) ).
 
