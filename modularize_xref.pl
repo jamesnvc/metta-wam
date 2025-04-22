@@ -30,7 +30,14 @@ main([DirPath]) :-
     forall( member(file_import(File, Module, Predicates), UniqueFileImports),
             add_use_if_needed(File, Module, Predicates) ),
     forall( member(file_exports(File, Exports), FileExports),
-            add_to_export(File, Exports) ).
+            add_to_export(File, Exports) ),
+    findall(File,
+            member(file_def_call_ex(File, _, _, _), FileDefs),
+            AllFiles),
+    maplist(file_module, AllFiles, AllModules),
+    forall(member(File, AllFiles),
+          forall(member(Module, AllModules),
+                remove_ensure_loaded(File, Module))).
 
 % also convert top-level declaration calling of goals into initialization/2
 % can we automatically deduce missing meta_predicates calls?
@@ -165,6 +172,9 @@ file_module(Path, Module) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Adding imports & exports
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%imports
+
 add_use_if_needed(Path, Module, Predicates) :-
     LastModuleAt = acc(0),
     AlreadyImported = acc(false),
@@ -188,9 +198,9 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
                                                 syntax_errors(dec10)]),
     once(( Term = (:- use_module(ImpModule)) ;
                Term = (:- use_module(ImpModule, _)) ;
-                   Term = (:- module(_, _)) ;
-                       Term = end_of_file )),
-    debug(loading_message, "FOUND TERM ~q", [Term]),
+                   Term = (:- ensure_loaded(_)) ;
+                       Term = (:- module(_, _)) ;
+                           Term = end_of_file )),
     ( Term = end_of_file
       *-> !
       ; ( Term = (:- module(_, _))
@@ -198,7 +208,7 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
               succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
               nb_setarg(1, LastModuleAt, ModuleEndAt),
               fail
-          ; (  ImpModule = Module
+          ; (  nonvar(ImpModule), ImpModule = Module
                *-> debug(loading_message, "Already imported", []),
                    arg(1, SubTermPos, ImportStart),
                    arg(2, SubTermPos, ImportEnd0), ImportEnd is ImportEnd0 + 1, % to get the full-stop
@@ -209,7 +219,39 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
                   nb_setarg(1, LastModuleAt, ModuleEndAt),
                   fail  ) ) ).
 
-% also need to import operators
+% remove ensure_loaded/1
+
+remove_ensure_loaded(Path, Module) :-
+    setup_call_cleanup(prolog_open_source(Path, Stream),
+                       find_ensure_loaded(Stream, Module, TermPos),
+                       prolog_close_source(Stream)), !,
+    splice_out_term_in_file(Path, TermPos).
+remove_ensure_loaded(_, _).
+
+find_ensure_loaded(Stream, Module, TermPos) :-
+    repeat,
+    prolog_read_source_term(Stream, Term, _, [ subterm_positions(TermPos),
+                                               syntax_errors(dec10) ]),
+    ( Term = end_of_file *-> !, fail
+    ; Term = (:- ensure_loaded(Module)), !,
+      arg(2, TermPos, End0),
+      End is End0 + 1, % include full stop
+      setarg(2, TermPos, End) ).
+
+splice_out_term_in_file(Path, TermPos) :-
+    arg(1, TermPos, Start),
+    arg(2, TermPos, End),
+    read_file_to_string(Path, FileContent, []),
+    sub_string(FileContent, 0, Start, After, BeforeContent),
+    After1 is After - (End - Start),
+    sub_string(FileContent, End, After1, _, AfterContent),
+    setup_call_cleanup(open(Path, write, S),
+                       format(S, "~s~s", [BeforeContent, AfterContent]),
+                       close(S)).
+
+
+% TODO: also need to import operators
+
 update_existing_use_module_if_needed((:- use_module(Module)), SubTermPos, Path, Module, Predicates) :- !,
     arg(1, SubTermPos, OldUseStart),
     arg(2, SubTermPos, OldUseEnd),
@@ -226,7 +268,7 @@ update_existing_use_module_if_needed((:- use_module(Module)), SubTermPos, Path, 
     After1 is After - (OldUseEnd - OldUseStart),
     sub_string(FileContent, OldUseEnd, After1, _, AfterContent),
     atomics_to_string([Before, UseModule, AfterContent], NewContentString),
-    setup_call_cleanup(open(Path, write, S), format(S, "~s", NewContentString), close(S)).
+    setup_call_cleanup(open(Path, write, S), format(S, "~s", [NewContentString]), close(S)).
 update_existing_use_module_if_needed((:- use_module(Module, ExistingImports)), SubTermPos, Path, Module, Predicates) :-
     sort(ExistingImports, ExistingImports0),
     sort(Predicates, Predicates0),
@@ -238,6 +280,8 @@ update_existing_use_module_if_needed(_, _, _, _, _).
 
 insert_use_module(Path, ModuleName, Predicates, UseEnd) :-
     update_existing_use_module_if_needed((:- use_module(ModuleName)), t(UseEnd, UseEnd), Path, ModuleName, Predicates).
+
+% exports
 
 add_to_export(Path, PredIndicators) :-
     debug(loading_message, "ADDING ~q TO ~q", [PredIndicators, Path]),
