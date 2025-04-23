@@ -1,4 +1,18 @@
-:- module(metta_printer, []).
+:- module(metta_printer, [ into_hyphens/2,
+                           once_writeq_nl_now/2,
+                           paren_pair_functor/3,
+                           pp_metta/1,
+                           ppc/2,
+                           print_pl_source/1,
+                           prolog_term_start/1,
+                           py_is_enabled/0,
+                           w_color/2,
+                           with_concepts/2,
+                           with_indents/2,
+                           write_dvar/1,
+                           write_src/1,
+                           write_src_nl/1,
+                           write_src_woi/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -63,7 +77,49 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_compiler_roy, [ compound_name_list/3 ]).
+:- use_module(metta_convert, [ p2m/2 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             woc/1 ]).
+:- use_module(metta_eval, [ as_tf/2 ]).
+:- use_module(metta_interp, [ descend_and_transform/3 ]).
+:- use_module(metta_loader, [ mlog_sym/1 ]).
+:- use_module(metta_parser, [ parse_sexpr/2 ]).
+:- use_module(metta_python, [ py_is_py/1,
+                              py_ppp/1 ]).
+:- use_module(metta_repl, [ cls/0 ]).
+:- use_module(metta_space, [ has_type/2,
+                             is_an_arg_type/2 ]).
+:- use_module(metta_utils, [ subst001/4,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             must_det_ll/1,
+                             option_else/3,
+                             symbol/1,
+                             symbol_chars/2,
+                             symbol_concat/3,
+                             symbol_contains/2,
+                             symbol_length/2,
+                             symbol_number/2,
+                             symbol_string/2,
+                             symbolic_list_concat/3,
+                             with_option/2,
+                             with_option/3 ]).
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 % ===============================
 %       PRINTERS

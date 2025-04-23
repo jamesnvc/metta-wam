@@ -1,4 +1,30 @@
-:- module(swi_support, [ set_option_value/2 ]).
+:- module(swi_support, [ atom_contains/2,
+                         catch_ignore/1,
+                         if_t/2,
+                         is_scryer/0,
+                         must_det_ll/1,
+                         non_empty_atom/1,
+                         option_else/3,
+                         option_value/2,
+                         symbol/1,
+                         symbol_chars/2,
+                         symbol_concat/3,
+                         symbol_contains/2,
+                         symbol_length/2,
+                         symbol_number/2,
+                         symbol_string/2,
+                         symbolic/1,
+                         symbolic_list_concat/2,
+                         symbolic_list_concat/3,
+                         symbolics_to_string/2,
+                         with_cwd/2,
+                         with_option/2,
+                         with_option/3,
+                         set_option_value/2,
+                         must_det_ll/1
+                       ]).
+:- use_module(metta_interp, [ is_compatio/0 ]).
+
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -750,7 +776,7 @@ upcase_symbol(A, B) :- upcase_atom(A, B).
 metta_python :- ensure_loaded(library(metta_python)).
 
 % Conditionally execute if the predicate must_det_ll/1 is not defined (this block does nothing if the condition fails).
-:- if((fail, \+ current_predicate(must_det_ll/1))).
+:- if((\+ current_predicate(must_det_ll/1))).
 
 % Calls the given Goal and throws an exception if Goal fails.
 % Usage: must_det_ll(+Goal).

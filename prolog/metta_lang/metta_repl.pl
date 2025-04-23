@@ -1,4 +1,11 @@
-:- module(metta_repl, []).
+:- module(metta_repl, [ cls/0,
+                        eval/2,
+                        inside_assert/2,
+                        into_named_vars/2,
+                        maybe_set_var_names/1,
+                        repl/0,
+                        repl_read/1,
+                        term_dont_cares/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -60,7 +67,73 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_compiler_roy, [ compile_for_exec/3 ]).
+:- use_module(metta_corelib, [ metta_atom/2,
+                               nop/1 ]).
+:- use_module(metta_debug, [ if_trace/2,
+                             is_debugging/1,
+                             output_language/2,
+                             reset_eval_num/0,
+                             sub_var_safely/2,
+                             with_debug/2 ]).
+:- use_module(metta_eval, [ is_returned/1 ]).
+:- use_module(metta_interp, [ always_exec/1,
+                              catch_err/3,
+                              current_self/1,
+                              default_depth/1,
+                              do_metta/5,
+                              do_show_options_values/0,
+                              eval_H/4,
+                              fbug/1,
+                              file_hides_results/1,
+                              find_missing_cuts/0,
+                              in_answer_io/1,
+                              is_compatio/0,
+                              is_conz/1,
+                              is_transpiling/0,
+                              is_win64/0,
+                              metta_interp_mode/2,
+                              not_in_eq/2,
+                              rtrace_on_error/1,
+                              switch_to_mettalog/0,
+                              switch_to_mettarust/0,
+                              top_self/1,
+                              use_metta_compiler/0,
+                              user_io/1,
+                              write_answer_output/0,
+                              writeqln/1 ]).
+:- use_module(metta_parser, [ metta_file_comment/5,
+                              parse_sexpr/2 ]).
+:- use_module(metta_printer, [ with_indents/2,
+                               write_dvar/1,
+                               write_src/1,
+                               write_src_woi/1 ]).
+:- use_module(metta_testing, [ color_g_mesg/2,
+                               string_replace/4 ]).
+:- use_module(metta_utils, [ intersection/5,
+                             pp_m/2,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             option_else/3,
+                             option_value/2,
+                             set_option_value/2,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbolic/1,
+                             symbolic_list_concat/3,
+                             symbolics_to_string/2,
+                             with_option/3 ]).
+
+
+
+
+
+
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED

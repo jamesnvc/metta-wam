@@ -1,4 +1,21 @@
-:- module(metta_loader, []).
+:- module(metta_loader, [ cache_file/2,
+                          check_silent_loading/0,
+                          connl/0,
+                          dvar_name/2,
+                          import_metta/2,
+                          include_metta/2,
+                          load_metta/1,
+                          load_metta/2,
+                          mangle_iz/2,
+                          mlog_sym/1,
+                          no_cons_reduce/0,
+                          register_module/2,
+                          register_module/3,
+                          silent_loading/0,
+                          svar_fixvarname_dont_capitalize/2,
+                          untyped_to_metta/2,
+                          use_cache_file/2,
+                          use_corelib_file/0 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -64,7 +81,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 %!  when_tracing(+Goal) is det.
 %
@@ -847,8 +864,8 @@ import_metta1(Self, RelFilename):-
     include_metta_directory_file(Self, Directory, Filename)))).
 
 % Ensure Metta persistency and parsing functionalities are loaded.
-:- ensure_loaded(metta_persists).
-:- ensure_loaded(metta_parser).
+
+
 
 %!  include_metta(+Self, +Filename) is det.
 %
@@ -1830,6 +1847,62 @@ make_metta_file_buffer(TFMakeFile, FileName, InStream) :-
 :- use_module(library(system)).   % for absolute_file_name/3
 :- use_module(library(filesex)).  % For make_directory_path/1, etc.
 :- use_module(library(lists)).
+:- use_module(metta_compiler_roy, [ must_det_lls/1 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_interp, [ catch_err/3,
+                              current_self/1,
+                              fbug/1,
+                              fbugio/1,
+                              gen_interp_stubs/3,
+                              is_compatio/0,
+                              is_converting/0,
+                              is_devel/0,
+                              maybe_into_top_self/2,
+                              metta_dir/1,
+                              metta_type/3,
+                              not_compat_io/1,
+                              pfcAdd_Now/1 ]).
+:- use_module(metta_parser, [ maybe_name_vars/1,
+                              process_expressions/3,
+                              read_metta/2,
+                              svar_fixvarname/2 ]).
+:- use_module(metta_printer, [ write_src_nl/1 ]).
+:- use_module(metta_python, [ py_is_module/1 ]).
+:- use_module(metta_repl, [ eval/2,
+                            repl/0 ]).
+:- use_module(metta_space, [ 'get-atoms'/2 ]).
+:- use_module(metta_testing, [ load_answer_file/1,
+                               loonit_report/0,
+                               set_exec_num/2,
+                               test_alarm/0 ]).
+:- use_module(metta_utils, [ pp_m/1,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ atom_contains/2,
+                             if_t/2,
+                             is_scryer/0,
+                             must_det_ll/1,
+                             option_value/2,
+                             symbol/1,
+                             symbol_chars/2,
+                             symbol_concat/3,
+                             symbol_contains/2,
+                             symbol_length/2,
+                             symbolic/1,
+                             symbolic_list_concat/2,
+                             symbolic_list_concat/3,
+                             with_cwd/2,
+                             with_option/3 ]).
+
+
+
+
+
+
+
+
+
+
+
 
 /** cache_file(+Original, -CachedFile) is det.
 

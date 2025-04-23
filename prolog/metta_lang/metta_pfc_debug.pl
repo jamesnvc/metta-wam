@@ -1,4 +1,19 @@
-:- module(metta_pfc_debug, []).
+:- module(metta_pfc_debug, [ brake/1,
+                             get_why_uu/1,
+                             lookup_spft/3,
+                             pfcError/2,
+                             pfcFact/1,
+                             pfcTF1/1,
+                             pfcTraceExecution/0,
+                             pfcTraceMsg/1,
+                             pfcTraceMsg/2,
+                             pfcTraceRem/1,
+                             pfcWarn/1,
+                             pfcWarn/2,
+                             pfcWhy/1,
+                             pfcWhy1/1,
+                             printLine/0,
+                             unwrap_litr0/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -59,7 +74,16 @@
 
 */
 
-:- use_module(metta_pfc_base).
+:- use_module(metta_pfc_base, [ bagof_or_nil/3,
+                                call_u/1,
+                                is_file_ref/1,
+                                must_ex/1,
+                                pfcCallSystem/1,
+                                pfcDefault/2,
+                                pfcType/2,
+                                pfc_call/1,
+                                quietly_ex/1,
+                                setof_or_nil/3 ]).
 
 %*********************************************************************************************
 % PROGRAM FUNCTION:  Implements forward chaining, tracks changes, and provides proofs of safety.
@@ -196,7 +220,7 @@ pfc_listing_module :- nop(module(pfc_listing,
 lqu :- listing(que/2).
 
 % Ensure that the file `metta_pfc_base` is loaded.
-:- ensure_loaded(metta_pfc_base).
+
 %   File   : pfcdebug.pl
 %   Author : Tim Finin, finin@prc.unisys.com
 %   Author : Dave Matuszek, dave@prc.unisys.com
@@ -2416,6 +2440,32 @@ pfcWhy_sub_sub(P) :-
 
 % Import the lists library for list processing.
 :- use_module(library(lists)).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_ontology, [ a/2 ]).
+:- use_module(metta_pfc_support, [ clear_proofs/0,
+                                   find_mfl/2,
+                                   justifications/2,
+                                   matches_why_UU/1,
+                                   nb_hasval/2,
+                                   nb_pushval/2,
+                                   pfcGetSupport/2,
+                                   reset_shown_justs/0 ]).
+:- use_module(metta_printer, [ write_src/1 ]).
+:- use_module(metta_testing, [ color_g_mesg_ok/2 ]).
+:- use_module(metta_utils, [ ibreak/0,
+                             my_maplist/2,
+                             pp/1 ]).
+:- use_module(swi_support, [ symbolic_list_concat/3 ]).
+
+
+
+
+
+
+
+
 
 % Declare `t_l:whybuffer/2` as a dynamic predicate, allowing it to be modified during runtime.
 :- dynamic(t_l:whybuffer/2).

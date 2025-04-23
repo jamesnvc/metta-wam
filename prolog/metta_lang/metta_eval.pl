@@ -1,4 +1,42 @@
-:- module(metta_eval, []).
+:- module(metta_eval, [ as_tf/2,
+                        call_ndet/2,
+                        catch_metta_return/2,
+                        catch_warn/1,
+                        'change-state!'/5,
+                        coerce/3,
+                        do_expander/4,
+                        eval_10/6,
+                        eval_20/6,
+                        eval_21/6,
+                        eval_args/2,
+                        eval_args/4,
+                        eval_call/2,
+                        eval_selfless/6,
+                        'get-metatype'/2,
+                        'get-state'/2,
+                        get_type/2,
+                        is_True/1,
+                        is_and/1,
+                        is_host_function/3,
+                        is_host_predicate/3,
+                        is_make_new_kb/3,
+                        is_returned/1,
+                        is_system_pred/1,
+                        is_valid_nb_state/1,
+                        last_element/2,
+                        len_or_unbound/2,
+                        loonit_assert_source_tf_empty/6,
+                        metta_atom_iter/5,
+                        nb_bind/2,
+                        nb_bound/2,
+                        'new-state'/4,
+                        println_impl/1,
+                        same_len_copy/2,
+                        self_eval/1,
+                        typed_list/3,
+                        unify_enough/2,
+                        using_all_spaces/0,
+                        with_output_to_str/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -54,14 +92,14 @@
 
 % When the the `metta_interp` library is loaded, it makes sure the rest of the files are intially loaded in
 % the correct order independent of which file is loaded first the needed predicates and ops are defined.
-:- ensure_loaded(metta_interp).
+
 
 % post match modew
 %:- style_check(-singleton).
-:- multifile(fake_notrace/1).
-:- meta_predicate(fake_notrace(0)).
-:- meta_predicate(color_g_mesg(+,0)).
-:- multifile(color_g_mesg/2).
+%:- multifile(fake_notrace/1).
+%:- meta_predicate(fake_notrace(0)).
+%:- meta_predicate(color_g_mesg(+,0)).
+%:- multifile(color_g_mesg/2).
 
 %self_eval0(X):- var(X),!,fail.
 self_eval0(X):- \+ callable(X),!.
@@ -3903,7 +3941,159 @@ is_empty(E):- E=='Empty'.
 %is_empty(E):- notrace(( nonvar(E), sub_var_safely('Empty',E))),!.
 
 
-:- ensure_loaded(metta_subst).
+
+:- use_module(metta_compiler, [ transpiler_predicate_store/7 ]).
+:- use_module(metta_compiler_roy, [ cl_list_to_set/2,
+                                    compile_for_assert/3,
+                                    into_list_args/2,
+                                    iz_conz/1,
+                                    must_det_lls/1 ]).
+:- use_module(metta_corelib, [ metta_atom/2,
+                               nop/1,
+                               oo_new/3,
+                               oo_set_attibutes/3 ]).
+:- use_module(metta_debug, [ check_trace/1,
+                             if_trace/2,
+                             if_tracemsg/2,
+                             indentq_d/3,
+                             is_debugging/1,
+                             maybe_trace/1,
+                             reset_eval_num/0,
+                             sub_term_safely/2,
+                             sub_var_safely/2,
+                             trace_eval/6,
+                             trace_if_debug/2,
+                             with_debug/2,
+                             woc/1 ]).
+:- use_module(metta_interp, [ catch_err/3,
+                              ctime_eval/2,
+                              current_self/1,
+                              dcall0000000000/1,
+                              default_depth/1,
+                              do_metta/5,
+                              eval_H/2,
+                              fake_notrace/1,
+                              false_flag/0,
+                              fbug/1,
+                              find_missing_cuts/0,
+                              function_arity/3,
+                              get_metta_atom_from/2,
+                              if_or_else/2,
+                              into_space/4,
+                              is_False/1,
+                              is_flag/1,
+                              is_metta_data_functor/1,
+                              is_metta_space/1,
+                              is_testing/0,
+                              load_ontology/0,
+                              make_empty/2,
+                              make_empty/3,
+                              make_nop/2,
+                              make_nop/3,
+                              metta_atom_asserted/2,
+                              metta_compiled_predicate/3,
+                              metta_defn/3,
+                              metta_type/3,
+                              nocut/0,
+                              pfcAdd_Now/1,
+                              rtrace_on_error/1,
+                              rtrace_on_failure/1,
+                              s2p/2,
+                              time_eval/2,
+                              trace_on_fail/0,
+                              trace_on_pass/0,
+                              true_flag/0,
+                              user_io/1,
+                              wtime_eval/2,
+                              wtimed_call/2 ]).
+:- use_module(metta_loader, [ import_metta/2,
+                              include_metta/2,
+                              load_metta/2,
+                              no_cons_reduce/0,
+                              register_module/2,
+                              register_module/3 ]).
+:- use_module(metta_parser, [ read_metta/2,
+                              svar_fixvarname/2 ]).
+:- use_module(metta_printer, [ write_src/1,
+                               write_src_woi/1 ]).
+:- use_module(metta_python, [ 'extend-py!'/2,
+                              is_rust_operation/1,
+                              make_py_dot/3,
+                              py_call_method_and_args/3,
+                              py_is_function/1,
+                              py_is_py/1,
+                              py_pp_str/2,
+                              rust_metta_run/2 ]).
+:- use_module(metta_repl, [ eval/2,
+                            repl/0 ]).
+:- use_module(metta_server, [ metta_concurrent_maplist/3,
+                              metta_concurrent_maplist/5,
+                              metta_concurrent_maplist/6,
+                              metta_concurrent_maplist/7,
+                              metta_hyperpose/6 ]).
+:- use_module(metta_space, [ 'atom-count'/2,
+                             'save-space!'/2 ]).
+:- use_module(metta_subst, [ is_space_op/1 ]).
+:- use_module(metta_testing, [ color_g_mesg/2,
+                               loonit_asserts/3,
+                               tst_call_limited/1 ]).
+:- use_module(metta_typed_functions, [ arrow_type/3,
+                                       assignable_to/2,
+                                       freeist/3,
+                                       function_declaration/9,
+                                       get_ftype/6 ]).
+:- use_module(metta_types, [ adjust_args_9/9,
+                             can_assign/2,
+                             dont_put_attr/3,
+                             get_operator_typedef/5,
+                             get_operator_typedef_R/5,
+                             get_type/4,
+                             get_type_each/4,
+                             get_types/4,
+                             get_value_type/4,
+                             into_typed_arg/5,
+                             is_pro_eval_kind/1,
+                             is_syspred/3,
+                             is_type/1,
+                             is_user_defined_head/2,
+                             is_user_defined_head/3,
+                             is_user_defined_head_f/2,
+                             narrow_types/3,
+                             throw_metta_return/1,
+                             thrown_metta_return/1,
+                             type_conform/2,
+                             type_violation/2 ]).
+:- use_module(metta_utils, [ always_rethrow/1,
+                             maplist/6,
+                             maplist/7,
+                             subst001/4,
+                             subst0011a/4,
+                             super_safety_checks/1,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             must_det_ll/1,
+                             option_else/3,
+                             option_value/2,
+                             symbol/1,
+                             symbol_concat/3 ]).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 solve_quadratic(A, B, I, J, K) :-
     %X in -1000..1000,  % Define a domain for X

@@ -1,4 +1,26 @@
-:- module(metta_compiler_roy, []).
+:- module(metta_compiler_roy, [ =~ / 2,
+                                arg_properties_widen/3,
+                                as_functor_args/3,
+                                as_functor_args/4,
+                                as_p1_exec/2,
+                                cl_list_to_set/2,
+                                combine_code/3,
+                                compile_for_assert/3,
+                                compile_for_exec/3,
+                                compound_name_list/3,
+                                compound_non_cons/1,
+                                for_all/2,
+                                fullvar/1,
+                                functs_to_preds/2,
+                                get_operator_typedef_props/5,
+                                into_list_args/2,
+                                iz_conz/1,
+                                list_to_conjunction/2,
+                                must_det_lls/1,
+                                strip_m/2,
+                                transpile_eval/2,
+                                transpiler_depends_on/4,
+                                u_assign/2 ]).
 
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
@@ -68,15 +90,43 @@
 % Setting the Rust backtrace to Full
 :- setenv('RUST_BACKTRACE',full).
 % Loading various library files
-:- ensure_loaded(swi_support).
-:- ensure_loaded(metta_testing).
-:- ensure_loaded(metta_utils).
+
+
+
 %:- ensure_loaded(metta_reader).
-:- ensure_loaded(metta_interp).
-:- ensure_loaded(metta_space).
+
+
 :- dynamic(transpiler_clause_store/9).
 :- dynamic(transpiler_predicate_store/4).
-:- ensure_loaded(metta_compiler_lib).
+
+:- use_module(metta_compiler_douglas, [ compile_flow_control1/6,
+                                        compile_flow_control2/6,
+                                        compile_test_then_else/7,
+                                        transpile_call_prefix/1,
+                                        transpile_impl_prefix/1,
+                                        transpiler_stub_created/3 ]).
+:- use_module(metta_convert, [ p2m/2,
+                               sexpr_s2p/2 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_eval, [ as_tf/2,
+                            eval_args/2,
+                            get_type/2,
+                            is_host_function/3,
+                            is_host_predicate/3,
+                            self_eval/1 ]).
+:- use_module(metta_interp, [ current_self/1 ]).
+:- use_module(metta_mizer, [ ok_to_append/1,
+                             p2s/2 ]).
+:- use_module(metta_parser, [ memorize_varnames/1,
+                              subst_vars/2,
+                              subst_vars/4 ]).
+:- use_module(metta_printer, [ print_pl_source/1 ]).
+:- use_module(metta_testing, [ color_g_mesg/2 ]).
+:- use_module(metta_types, [ get_operator_typedef/5 ]).
+:- use_module(swi_support, [ symbol/1,
+                             symbol_concat/3 ]).
 
 % ==============================
 % MeTTa to Prolog transpilation (which uses the Host SWI-Prolog compiler)
@@ -1075,7 +1125,7 @@ f2p(_HeadIs, _LazyVars, RetResult, ResultLazy, Convert, Converted) :- % HeadIs\=
 f2p(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted):-
    Convert=[Fn|_],
    atom(Fn),
-   compile_flow_control(HeadIs,LazyVars,RetResult,ResultLazy, Convert, Converted),!.
+   metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,ResultLazy, Convert, Converted),!.
 
 % !(compile-body! (call-fn! compile_body (call-p writeln "666"))
 f2p(HeadIs, _LazyVars, RetResult, ResultLazy, Convert, Converted) :- HeadIs\=@=Convert,
@@ -1142,13 +1192,13 @@ update_laziness(x(X,_),x(_,Y),x(X,Y)).
 f2p(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted):- fail,
    Convert=[Fn|_],
    atom(Fn),
-   compile_flow_control1(HeadIs,LazyVars,RetResult,ResultLazy, Convert, Converted),!.
+   metta_compiler_douglas:compile_flow_control1(HeadIs,LazyVars,RetResult,ResultLazy, Convert, Converted),!.
 
 % unsupprted flow contols
 f2p(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted):- fail,
    Convert=[Fn|_],
    atom(Fn),
-   compile_flow_control2(HeadIs,LazyVars,RetResult,ResultLazy, Convert, Converted),!.
+   metta_compiler_douglas:compile_flow_control2(HeadIs,LazyVars,RetResult,ResultLazy, Convert, Converted),!.
 
 f2p(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- HeadIs\=@=Convert,
    Convert=[Fn|Args],
@@ -1195,7 +1245,7 @@ f2p(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- HeadIs\=@=Co
 f2p(HeadIs,LazyVars,RetResult,ResultLazy,Convert,Converted):-fail,
 Convert=[Fn|_],
 atom(Fn),
-compile_flow_control3(HeadIs,LazyVars,RetResult,ResultLazy,Convert,Converted),!.
+metta_compiler_douglas:compile_flow_control3(HeadIs,LazyVars,RetResult,ResultLazy,Convert,Converted),!.
 
 % The catch-all If no specific case is matched, consider Convert as already converted.
 %f2p(_HeadIs,_RetResult,x_assign(Convert,Res), x_assign(Convert,Res)):- !.
@@ -1253,10 +1303,13 @@ do_arg_eval(HeadIs,LazyVars,Arg,x(E,lazy),RetArg,Converted) :- !,
    ).
 do_arg_eval(HeadIs,LazyVars,Arg,x(doeval,eager),NewArg,Code) :- f2p(HeadIs,LazyVars,NewArg,x(doeval,eager),Arg,Code).
 
-:- discontiguous(compile_flow_control/6).
+:- multifile(metta_compiler_douglas:compile_flow_control/6).
+:- discontiguous(metta_compiler_douglas:compile_flow_control/6).
 :- discontiguous(compile_flow_control3/6).
-:- discontiguous(compile_flow_control2/6).
-:- discontiguous(compile_flow_control1/6).
+:- multifile(metta_compiler_douglas:compile_flow_control2/6).
+:- discontiguous(metta_compiler_douglas:compile_flow_control2/6).
+:- multifile(metta_compiler_douglas:compile_flow_control1/6).
+:- discontiguous(metta_compiler_douglas:compile_flow_control1/6).
 
 
 in_type_set(Set,Type):-Set==Type,!.
@@ -1292,7 +1345,7 @@ add_assignment(A,B,CodeOld,CodeNew) :-
       A=B,CodeNew=CodeOld
    ;  append(CodeOld,[[assign,A,B]],CodeNew)).
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
    Convert=['case',Value,Cases],!,
    f2p(HeadIs,LazyVars,ValueResult,x(doeval,eager),Value,ValueCode),
    compile_flow_control_case(HeadIs,LazyVars,RetResult,LazyEval,ValueResult,Cases,Converted0),
@@ -1307,7 +1360,7 @@ compile_flow_control_case(HeadIs,LazyVars,RetResult,LazyEval,ValueResult,[[Match
    append(RestCode,[[assign,RetResult,RestResult]],R),
    append(MatchCode,[[prolog_if,[[prolog_match,ValueResult,MatchResult]],T,R]],Converted).
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
   Convert = ['case', Eval, CaseList],!,
   f2p(HeadIs, LazyVars, Var, x(doeval,eager), Eval, CodeCanFail),
   case_list_to_if_list(Var, CaseList, IfList, [empty], IfEvalFails),
@@ -1325,24 +1378,24 @@ case_list_to_if_list(Var, [[Pattern, Result] | Tail], Out, IfEvalFailed, EvalFai
 % !(compile-body! (function 1))
 % !(compile-body! (function (throw 1)))
 % !(compile-body! (superpose ((throw 1) (throw 2))))
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
   Convert = ['function', Body],!,
   f2p(HeadIs,LazyVars,RetResult,LazyEval,Body,BodyCode),
   Converted = [[prolog_catch,BodyCode,metta_return(FunctionResult),FunctionResult=RetResult]].
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
   Convert = ['return',Body],!,
   f2p(HeadIs,LazyVars,RetResult,LazyEval,Body,BodyCode),
   append(BodyCode,[[prolog_inline,throw(metta_return(RetResult))]],Converted).
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
   Convert = ['if',Cond,Then,Else],!,
   %Test = is_True(CondResult),
   f2p(HeadIs,LazyVars,CondResult,x(doeval,eager),Cond,CondCode),
   append(CondCode,[[native(is_True),CondResult]],If),
   compile_test_then_else(HeadIs,RetResult,LazyVars,LazyEval,If,Then,Else,Converted).
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
   Convert = ['if',Cond,Then],!,
   %Test = is_True(CondResult),
   f2p(HeadIs,LazyVars,CondResult,x(doeval,eager),Cond,CondCode),
@@ -1357,7 +1410,7 @@ compile_test_then_else(HeadIs,RetResult,LazyVars,LazyEval,If,Then,Else,Converted
   append(ElseCode,[[assign,RetResult,ElseResult]],E),
   Converted=[[prolog_if,If,T,E]].
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :- % dif_functors(HeadIs,Convert),
    Convert = ['let',Var,Value1,Body],!,
    %(fullvar(Value1) -> var_prop_lookup(Value1,LazyVars,x(E,_)) ; E=doeval),
    f2p(HeadIs,LazyVars,ResValue1,x(doeval,eager),Value1,CodeForValue1),
@@ -1365,7 +1418,7 @@ compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :- %
    f2p(HeadIs,LazyVars,RetResult,LazyEval,Body,BodyCode),
    append(CodeForValue2,BodyCode,Converted).
 
-compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :- %dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :- %dif_functors(HeadIs,Convert),
   Convert = ['let*',Bindings,Body],!,
   must_det_lls((
     maplist(compile_let_star(HeadIs,LazyVars),Bindings,CodeList),
@@ -1885,12 +1938,12 @@ code_callable(Term, CTerm):- current_predicate(_,Term),!,Term=CTerm.
 compile_flow_control(_HeadIs,_RetResult,Convert,_):- \+ compound(Convert),!,fail.
 compile_flow_control(_HeadIs,_RetResult,Convert,_):- compound_name_arity(Convert,_,0),!,fail.
 :- op(700,xfx, =~).
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (Code1,Eval1Result=Result,Converted)) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (Code1,Eval1Result=Result,Converted)) :- % dif_functors(HeadIs,Convert),
    Convert =~ chain(Eval1,Result,Eval2),!,
    f2p(HeadIs, LazyVars, Eval1Result, ResultLazy, Eval1,Code1),
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Eval2,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, ResValue2, ResultLazy, Convert, (CodeForValue1,Converted)) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, ResValue2, ResultLazy, Convert, (CodeForValue1,Converted)) :- % dif_functors(HeadIs,Convert),
    Convert =~ ['eval-in-space',Value1,Value2],
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     f2p(HeadIs, LazyVars, ResValue2, ResultLazy, Value2,CodeForValue2),
@@ -1937,7 +1990,7 @@ compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
     f2p(HeadIs, LazyVars, ResValue2, ResultLazy, Value2,CodeForValue2),
   compile_test_then_else(RetResult,LazyVars,ResultLazy,(CodeForValue1,CodeForValue2,Test),Then,Else,Converted).
 */
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['assertEqual',Value1,Value2],!,
     cname_var('Src_',Src),
     cname_var('FA_',ResValue1),
@@ -1954,7 +2007,7 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
                  equal_enough(L1,L2),RetResult)).
 
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['assertEqualToResult',Value1,Value2],!,
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     ast_to_prolog(HeadIs,CodeForValue1,Prolog),
@@ -1964,24 +2017,24 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
                  equal_enough(L1,Value2),RetResult).
 
 
-compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
      Convert =~ 'add-atom'(Where,What), !,
      =(What,WhatP),
      Converted = as_tf('add-atom'(Where,WhatP),RetResult).
 
-compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
      Convert =~ 'add-atom'(Where,What,RetResult), !,
      =(What,WhatP),
      Converted = as_tf('add-atom'(Where,WhatP),RetResult).
 
 
-compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
     Convert =~ ['superpose',ValueL],is_ftVar(ValueL),
     %maybe_unlistify(UValueL,ValueL,URetResult,RetResult),
     Converted = eval_args(['superpose',ValueL],RetResult),
     cname_var('MeTTa_SP_',ValueL).
 
-compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
     Convert =~ ['superpose',ValueL],is_list(ValueL),
     %maybe_unlistify(UValueL,ValueL,URetResult,RetResult),
     cname_var('SP_Ret',RetResult),
@@ -2007,25 +2060,25 @@ f2p_assign(HeadIs,ValueResult,Value,Converted):-
    ValueResultRValueResult = (ValueResultR=ValueResult),
    combine_code(CodeForValue,ValueResultRValueResult,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :-
   Convert =~ ['println!',Value],!,
   Converted = (ValueCode,eval_args(['println!',ValueResult], RetResult)),
   f2p(HeadIs, LazyVars, ValueResult, ResultLazy, Value,ValueCode).
 
 
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
   Convert =~ ['case',Value,PNil],[]==PNil,!,Converted = (ValueCode,RetResult=[]),
       f2p(HeadIs, LazyVars, _ValueResult, ResultLazy, Value,ValueCode).
 
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (ValueCode, Converted)) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (ValueCode, Converted)) :-
   Convert =~ ['case',Value|Options], \+ is_ftVar(Value),!,
   cname_var('CASE_EVAL_',ValueResult),
-  compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ['case',ValueResult|Options], Converted),
+  metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ['case',ValueResult|Options], Converted),
   f2p(HeadIs, LazyVars, ValueResult, ResultLazy, Value,ValueCode).
 
-compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
   Convert =~ ['case',Value,Options],!,
    must_det_lls((
     maplist(compile_case_bodies(HeadIs),Options,Cases),
@@ -2036,13 +2089,13 @@ compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Conver
            (BodyCode),
            BodyResult=RetResult)))).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
   Convert =~ ['case',Value,[Opt|Options]],nonvar(Opt),!,
    must_det_lls((
     compile_case_bodies(HeadIs,Opt,caseStruct(Value,If,RetResult,Then)),
     Converted = ( If -> Then ; Else ),
     ConvertCases =~ ['case',Value,Options],
-    compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ConvertCases,Else))).
+    metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ConvertCases,Else))).
 
 
 /*
@@ -2099,22 +2152,22 @@ compound_equals(COL1,COL2):- compound_equals1(COL1,COL2).
 compound_equals1(COL1,COL2):- is_ftVar(COL1),!,is_ftVar(COL2),ignore(COL1=COL2),!.
 compound_equals1(COL1,COL2):- compound(COL1),!,compound(COL2), COL1=COL2.
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['superpose',COL],compound_equals(COL,'collapse'(Value1)),
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     Converted = (findall(ResValue1,CodeForValue1,Gathered),member(RetResult,Gathered)).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['collapse',Value1],!,
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     Converted = (findall(ResValue1,CodeForValue1,RetResult)).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['compose',Value1],!,
     Convert2 =~ ['collapse',Value1],!,
-    compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert2, Converted).
+    metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert2, Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
   Convert =~ ['unify',Value1,Value2,Then,Else],!,Test = metta_unify(ResValue1,ResValue2),
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     f2p(HeadIs, LazyVars, ResValue2, ResultLazy, Value2,CodeForValue2),
@@ -2129,19 +2182,19 @@ compile_flow_control2(HeadIs, LazyVars, Y, ResultLazy, Convert,Converted) :- dif
     !, Y==YY,
     f2p(HeadIs, LazyVars, Y, ResultLazy, AsFunction,Converted),!.
 */
-compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, Convert,Converted) :-
    Convert=~ match(Space,Q,T),Q==T,Atom=Q,!,
-  compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, 'get-atoms'(Space),Converted).
+  metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, 'get-atoms'(Space),Converted).
 
-compile_flow_control2(_HeadIs, _LazyVars, Match, _ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, Match, _ResultLazy, Convert,Converted) :-
     Convert=~ 'get-atoms'(Space),
     Converted = metta_atom_iter(Space,Match).
 
-compile_flow_control2(HeadIs, _LazyVars, AtomsVar, _ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, AtomsVar, _ResultLazy, Convert,Converted) :-
     Convert=~ 'get-atoms'(Space), AtomsVar = Pattern,
     compile_pattern(HeadIs,Space,Pattern,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :- dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :- dif_functors(HeadIs,Convert),
   Convert =~ 'match'(Space,Pattern,Template),!,
     f2p(HeadIs, LazyVars, RetResult, ResultLazy, Template,TemplateCode),
     compile_pattern(HeadIs,Space,Pattern,SpacePatternCode),
@@ -2158,14 +2211,14 @@ metta_atom_iter(Space,Match):-
 make_with_space(Space,MatchCode,MatchCode):- Space=='&self',!.
 make_with_space(Space,MatchCode,with_space(Space,MatchCode)):- Space\=='&self'.
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
   Convert =~ 'match'(_Space,Match,Template),!,
    must_det_lls((
     f2p(HeadIs, LazyVars, _, ResultLazy, Match,MatchCode),
     into_equals(RetResult,Template,TemplateCode),
     combine_code(MatchCode,TemplateCode,Converted))).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
    Convert =~ ['if-decons',Atom,Head,Tail,Then,Else],!,Test = unify_cons(AtomResult,ResHead,ResTail),
     f2p(HeadIs, LazyVars, AtomResult, ResultLazy, Atom,AtomCode),
     f2p(HeadIs, LazyVars, ResHead, ResultLazy, Head,CodeForHead),
@@ -2174,15 +2227,15 @@ compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
 
 
 
-compile_flow_control1(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert,is_True(RetResult)) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert,is_True(RetResult)) :- is_compiled_and(AND),
    Convert =~ [AND],!.
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body],!,
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Body,BodyCode),
     compile_test_then_else(RetResult,LazyVars,ResultLazy,BodyCode,'True','False',Converted).
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body1,Body2],!,
    f2p(HeadIs, LazyVars, B1Res, ResultLazy, Body1,Body1Code),
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Body2,Body2Code),
@@ -2190,28 +2243,28 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
    Converted = (Body1Code,AE,Body2Code),!.
 
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body1,Body2],!,
    f2p(HeadIs, LazyVars, B1Res, ResultLazy, Body1,Body1Code),
    f2p(HeadIs, LazyVars, _, ResultLazy, Body2,Body2Code),
    into_equals(B1Res,'True',AE),
    compile_test_then_else(RetResult,LazyVars,ResultLazy,(Body1Code,AE,Body2Code),'True','False',Converted).
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body1,Body2|BodyMore],!,
    And2 =~ [AND,Body2|BodyMore],
    Next =~ [AND,Body1,And2],
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy,  Next, Converted).
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy,  Next, Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, sequential(Convert), Converted) :- !,
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, transpose(Convert), Converted).
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, sequential(Convert), Converted) :- !,
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, transpose(Convert), Converted).
 
-compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, transpose(Convert), Converted,Code) :- !,
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, transpose(Convert), Converted,Code) :- !,
    maplist(each_result(HeadIs,RetResult),Convert, Converted),
    list_to_disjuncts(Converted,Code).
 
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
    Convert =~ if(Cond,Then),!,
    f2p(HeadIs, LazyVars, CondResult, ResultLazy, Cond,CondCode),
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Then,ThenCode),
@@ -2222,17 +2275,17 @@ each_result(HeadIs,RetResult,Convert,Converted):-
    into_equals(OneResult,RetResult,Code2),
    combine_code(Code1,Code2,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Converter, Converted):- de_eval(Converter,Convert),!,
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted).
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Converter, Converted):- de_eval(Converter,Convert),!,
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted).
 
-compile_flow_control2(HeadIs, LazyVars, _Result, ResultLazy, Convert, Converted) :- fail,
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, _Result, ResultLazy, Convert, Converted) :- fail,
    functor(Convert,Func,PA),
    functional_predicate_arg(Func,PA,Nth),
    Convert =~ [Func|PredArgs],
    nth1(Nth,PredArgs,Result,FuncArgs),
    RetResult = Result,
    AsFunct =~ [Func|FuncArgs],
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, AsFunct, Converted).
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, AsFunct, Converted).
 
 dif_functors(HeadIs,_):- var(HeadIs),!,fail.
 dif_functors(HeadIs,_):- \+ compound(HeadIs),!.
@@ -2664,7 +2717,7 @@ compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (Code1,E
    f2p(HeadIs, LazyVars, Eval1Result, ResultLazy, Eval1,Code1),
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Eval2,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, ResValue2, ResultLazy, Convert, (CodeForValue1,Converted)) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, ResValue2, ResultLazy, Convert, (CodeForValue1,Converted)) :- % dif_functors(HeadIs,Convert),
    Convert =~ ['eval-in-space',Value1,Value2],
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     f2p(HeadIs, LazyVars, ResValue2, ResultLazy, Value2,CodeForValue2),
@@ -2711,7 +2764,7 @@ compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
     f2p(HeadIs, LazyVars, ResValue2, ResultLazy, Value2,CodeForValue2),
   compile_test_then_else(RetResult,LazyVars,ResultLazy,(CodeForValue1,CodeForValue2,Test),Then,Else,Converted).
 */
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['assertEqual',Value1,Value2],!,
     cname_var('Src_',Src),
     cname_var('FA_',ResValue1),
@@ -2728,7 +2781,7 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
                  equal_enough(L1,L2),RetResult)).
 
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['assertEqualToResult',Value1,Value2],!,
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     ast_to_prolog(HeadIs,CodeForValue1,Prolog),
@@ -2738,24 +2791,24 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
                  equal_enough(L1,Value2),RetResult).
 
 
-compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
      Convert =~ 'add-atom'(Where,What), !,
      =(What,WhatP),
      Converted = as_tf('add-atom'(Where,WhatP),RetResult).
 
-compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
      Convert =~ 'add-atom'(Where,What,RetResult), !,
      =(What,WhatP),
      Converted = as_tf('add-atom'(Where,WhatP),RetResult).
 
 
-compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
     Convert =~ ['superpose',ValueL],is_ftVar(ValueL),
     %maybe_unlistify(UValueL,ValueL,URetResult,RetResult),
     Converted = eval_args(['superpose',ValueL],RetResult),
     cname_var('MeTTa_SP_',ValueL).
 
-compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, (Converted)) :-
     Convert =~ ['superpose',ValueL],is_list(ValueL),
     %maybe_unlistify(UValueL,ValueL,URetResult,RetResult),
     cname_var('SP_Ret',RetResult),
@@ -2781,25 +2834,25 @@ f2p_assign(HeadIs,ValueResult,Value,Converted):-
    ValueResultRValueResult = (ValueResultR=ValueResult),
    combine_code(CodeForValue,ValueResultRValueResult,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :-
   Convert =~ ['println!',Value],!,
   Converted = (ValueCode,eval_args(['println!',ValueResult], RetResult)),
   f2p(HeadIs, LazyVars, ValueResult, ResultLazy, Value,ValueCode).
 
 
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
   Convert =~ ['case',Value,PNil],[]==PNil,!,Converted = (ValueCode,RetResult=[]),
       f2p(HeadIs, LazyVars, _ValueResult, ResultLazy, Value,ValueCode).
 
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (ValueCode, Converted)) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, (ValueCode, Converted)) :-
   Convert =~ ['case',Value|Options], \+ is_ftVar(Value),!,
   cname_var('CASE_EVAL_',ValueResult),
-  compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ['case',ValueResult|Options], Converted),
+  metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ['case',ValueResult|Options], Converted),
   f2p(HeadIs, LazyVars, ValueResult, ResultLazy, Value,ValueCode).
 
-compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
   Convert =~ ['case',Value,Options],!,
    must_det_lls((
     maplist(compile_case_bodies(HeadIs),Options,Cases),
@@ -2810,13 +2863,13 @@ compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Conver
            (BodyCode),
            BodyResult=RetResult)))).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
   Convert =~ ['case',Value,[Opt|Options]],nonvar(Opt),!,
    must_det_lls((
     compile_case_bodies(HeadIs,Opt,caseStruct(Value,If,RetResult,Then)),
     Converted = ( If -> Then ; Else ),
     ConvertCases =~ ['case',Value,Options],
-    compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ConvertCases,Else))).
+    metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, ConvertCases,Else))).
 
 
 /*
@@ -2873,22 +2926,22 @@ compound_equals(COL1,COL2):- compound_equals1(COL1,COL2).
 compound_equals1(COL1,COL2):- is_ftVar(COL1),!,is_ftVar(COL2),ignore(COL1=COL2),!.
 compound_equals1(COL1,COL2):- compound(COL1),!,compound(COL2), COL1=COL2.
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['superpose',COL],compound_equals(COL,'collapse'(Value1)),
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     Converted = (findall(ResValue1,CodeForValue1,Gathered),member(RetResult,Gathered)).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['collapse',Value1],!,
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     Converted = (findall(ResValue1,CodeForValue1,RetResult)).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['compose',Value1],!,
     Convert2 =~ ['collapse',Value1],!,
-    compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert2, Converted).
+    metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert2, Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
   Convert =~ ['unify',Value1,Value2,Then,Else],!,Test = metta_unify(ResValue1,ResValue2),
     f2p(HeadIs, LazyVars, ResValue1, ResultLazy, Value1,CodeForValue1),
     f2p(HeadIs, LazyVars, ResValue2, ResultLazy, Value2,CodeForValue2),
@@ -2903,19 +2956,19 @@ compile_flow_control2(HeadIs, LazyVars, Y, ResultLazy, Convert,Converted) :- dif
     !, Y==YY,
     f2p(HeadIs, LazyVars, Y, ResultLazy, AsFunction,Converted),!.
 */
-compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, Convert,Converted) :-
    Convert=~ match(Space,Q,T),Q==T,Atom=Q,!,
-  compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, 'get-atoms'(Space),Converted).
+  metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, Atom, ResultLazy, 'get-atoms'(Space),Converted).
 
-compile_flow_control2(_HeadIs, _LazyVars, Match, _ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(_HeadIs, _LazyVars, Match, _ResultLazy, Convert,Converted) :-
     Convert=~ 'get-atoms'(Space),
     Converted = metta_atom_iter(Space,Match).
 
-compile_flow_control2(HeadIs, _LazyVars, AtomsVar, _ResultLazy, Convert,Converted) :-
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, AtomsVar, _ResultLazy, Convert,Converted) :-
     Convert=~ 'get-atoms'(Space), AtomsVar = Pattern,
     compile_pattern(HeadIs,Space,Pattern,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :- dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert,Converted) :- dif_functors(HeadIs,Convert),
   Convert =~ 'match'(Space,Pattern,Template),!,
     f2p(HeadIs, LazyVars, RetResult, ResultLazy, Template,TemplateCode),
     compile_pattern(HeadIs,Space,Pattern,SpacePatternCode),
@@ -2932,14 +2985,14 @@ metta_atom_iter(Space,Match):-
 make_with_space(Space,MatchCode,MatchCode):- Space=='&self',!.
 make_with_space(Space,MatchCode,with_space(Space,MatchCode)):- Space\=='&self'.
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
   Convert =~ 'match'(_Space,Match,Template),!,
    must_det_lls((
     f2p(HeadIs, LazyVars, _, ResultLazy, Match,MatchCode),
     into_equals(RetResult,Template,TemplateCode),
     combine_code(MatchCode,TemplateCode,Converted))).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- dif_functors(HeadIs,Convert),
    Convert =~ ['if-decons',Atom,Head,Tail,Then,Else],!,Test = unify_cons(AtomResult,ResHead,ResTail),
     f2p(HeadIs, LazyVars, AtomResult, ResultLazy, Atom,AtomCode),
     f2p(HeadIs, LazyVars, ResHead, ResultLazy, Head,CodeForHead),
@@ -2948,15 +3001,15 @@ compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
 
 
 
-compile_flow_control1(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert,is_True(RetResult)) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert,is_True(RetResult)) :- is_compiled_and(AND),
    Convert =~ [AND],!.
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body],!,
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Body,BodyCode),
     compile_test_then_else(RetResult,LazyVars,ResultLazy,BodyCode,'True','False',Converted).
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body1,Body2],!,
    f2p(HeadIs, LazyVars, B1Res, ResultLazy, Body1,Body1Code),
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Body2,Body2Code),
@@ -2964,28 +3017,28 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
    Converted = (Body1Code,AE,Body2Code),!.
 
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body1,Body2],!,
    f2p(HeadIs, LazyVars, B1Res, ResultLazy, Body1,Body1Code),
    f2p(HeadIs, LazyVars, _, ResultLazy, Body2,Body2Code),
    into_equals(B1Res,'True',AE),
    compile_test_then_else(RetResult,LazyVars,ResultLazy,(Body1Code,AE,Body2Code),'True','False',Converted).
 
-compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
+metta_compiler_douglas:compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- is_compiled_and(AND),
    Convert =~ [AND,Body1,Body2|BodyMore],!,
    And2 =~ [AND,Body2|BodyMore],
    Next =~ [AND,Body1,And2],
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy,  Next, Converted).
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy,  Next, Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, sequential(Convert), Converted) :- !,
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, transpose(Convert), Converted).
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, sequential(Convert), Converted) :- !,
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, transpose(Convert), Converted).
 
-compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, transpose(Convert), Converted,Code) :- !,
+metta_compiler_douglas:compile_flow_control2(HeadIs, _LazyVars, RetResult, _ResultLazy, transpose(Convert), Converted,Code) :- !,
    maplist(each_result(HeadIs,RetResult),Convert, Converted),
    list_to_disjuncts(Converted,Code).
 
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :- % dif_functors(HeadIs,Convert),
    Convert =~ if(Cond,Then),!,
    f2p(HeadIs, LazyVars, CondResult, ResultLazy, Cond,CondCode),
    f2p(HeadIs, LazyVars, RetResult, ResultLazy, Then,ThenCode),
@@ -2996,17 +3049,17 @@ each_result(HeadIs,RetResult,Convert,Converted):-
    into_equals(OneResult,RetResult,Code2),
    combine_code(Code1,Code2,Converted).
 
-compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Converter, Converted):- de_eval(Converter,Convert),!,
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted).
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Converter, Converted):- de_eval(Converter,Convert),!,
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted).
 
-compile_flow_control2(HeadIs, LazyVars, _Result, ResultLazy, Convert, Converted) :- fail,
+metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, _Result, ResultLazy, Convert, Converted) :- fail,
    functor(Convert,Func,PA),
    functional_predicate_arg(Func,PA,Nth),
    Convert =~ [Func|PredArgs],
    nth1(Nth,PredArgs,Result,FuncArgs),
    RetResult = Result,
    AsFunct =~ [Func|FuncArgs],
-   compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, AsFunct, Converted).
+   metta_compiler_douglas:compile_flow_control2(HeadIs, LazyVars, RetResult, ResultLazy, AsFunct, Converted).
 
 dif_functors(HeadIs,_):- var(HeadIs),!,fail.
 dif_functors(HeadIs,_):- \+ compound(HeadIs),!.
@@ -3218,7 +3271,7 @@ f2p(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     rev_sub_sterm(AsFunction, Convert),  % Get the deepest sub-term AsFunction of Convert
   %  sub_term_safely(AsFunction, Convert), AsFunction\==Convert,
     callable(AsFunction),  % Check if AsFunction is callable
-    compile_flow_control(HeadIs, LazyVars, Result, ResultLazy, AsFunction, AsPred),
+    metta_compiler_douglas:compile_flow_control(HeadIs, LazyVars, Result, ResultLazy, AsFunction, AsPred),
     HeadIs\=@=AsFunction,!,
     subst(Convert, AsFunction, Result, Converting),  % Substitute AsFunction by Result in Convert
     f2p(HeadIs, LazyVars, RetResult, ResultLazy, (AsPred,Converting), Converted).  % Proceed with the conversion of the remaining terms

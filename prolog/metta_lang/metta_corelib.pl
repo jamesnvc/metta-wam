@@ -1,4 +1,9 @@
-:- module(metta_corelib, []).
+:- module(metta_corelib, [ lazy_load_python/0,
+                           metta_atom/2,
+                           nop/1,
+                           o_f_v/3,
+                           oo_new/3,
+                           oo_set_attibutes/3 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -62,7 +67,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Load Metta interpreter module.
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_interp, [ do_metta/5 ]).
+:- use_module(metta_python, [ py_exec/1 ]).
+:- use_module(metta_utils, [ catch_log/1 ]).
+:- use_module(swi_support, [ symbol/1 ]).
+
+
+
+
 
 % Disable singleton variable warnings.
 :- style_check(-singleton).

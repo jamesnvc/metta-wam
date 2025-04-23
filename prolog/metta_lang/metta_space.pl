@@ -1,4 +1,24 @@
-:- module(metta_space, []).
+:- module(metta_space, [ 'add-atom'/2,
+                         'add-atom'/3,
+                         'atom-count'/2,
+                         'clear-atoms'/1,
+                         ensure_space/2,
+                         fetch_or_create_space/1,
+                         fetch_or_create_space/2,
+                         'get-atoms'/2,
+                         has_type/2,
+                         init_space/1,
+                         is_an_arg_type/2,
+                         is_asserted_space/1,
+                         match/3,
+                         metta_final/0,
+                         py_named_space/1,
+                         'remove-atom'/2,
+                         'remove-atom'/3,
+                         'replace-atom'/3,
+                         'save-space!'/2,
+                         space_original_name/2,
+                         was_asserted_space/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -63,8 +83,8 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
-:- ensure_loaded(metta_compiler).
+
+
 
 :- discontiguous(user:metta_file_buffer/7).
 :-     multifile(user:metta_file_buffer/7).
@@ -335,6 +355,35 @@ decl_fb_pred(Fn, A) :-
 
 % Import necessary libraries
 :- use_module(library(readutil)).
+:- use_module(metta_compiler_roy, [ for_all/2 ]).
+:- use_module(metta_corelib, [ metta_atom/2,
+                               o_f_v/3 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_eval, [ eval_args/2 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              find_missing_cuts/0,
+                              into_top_self/2,
+                              nocut/0,
+                              once_writeq_nl/1,
+                              pfcAdd_Now/1 ]).
+:- use_module(metta_loader, [ mangle_iz/2 ]).
+:- use_module(metta_parser, [ subst_vars/2 ]).
+:- use_module(metta_printer, [ write_src/1,
+                               write_src_nl/1 ]).
+:- use_module(metta_python, [ ensure_space_py/2 ]).
+:- use_module(swi_support, [ if_t/2,
+                             must_det_ll/1 ]).
+
+
+
+
+
+
+
+
+
+
 
 %!  skip(+X) is det.
 %

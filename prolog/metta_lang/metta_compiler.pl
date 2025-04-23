@@ -1,4 +1,9 @@
-﻿:- module(metta_compiler, []).
+:- module(metta_compiler, [ assign_or_direct_var_only/4,
+                            f2p/8,
+                            f2p_do_group/6,
+                            lazy_impedance_match/8,
+                            non_arg_violation/3,
+                            transpiler_predicate_store/7 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -67,18 +72,18 @@
 % Setting the Rust backtrace to Full
 :- setenv('RUST_BACKTRACE',full).
 % Loading various library files
-:- ensure_loaded(swi_support).
-:- ensure_loaded(metta_testing).
-:- ensure_loaded(metta_utils).
+
+
+
 %:- ensure_loaded(metta_reader).
-:- ensure_loaded(metta_interp).
-:- ensure_loaded(metta_space).
-:- ensure_loaded(metta_compiler_print).
+
+
+
 :- dynamic(transpiler_clause_store/9).
 :- dynamic(transpiler_predicate_store/7).
 :- dynamic(transpiler_nary_predicate_store/5).
 :- discontiguous(compile_flow_control/8).
-:- ensure_loaded(metta_compiler_lib).
+
 
 non_arg_violation(_,_,_).
 
@@ -1564,7 +1569,46 @@ precompute_typeinfo(HResult,HeadIs,AsBodyFn,Ast,Result) :-
 
 :- use_module(library(gensym)).          % for gensym/2
 :- use_module(library(pairs)).           % for group_pair_by_key/2
-:- use_module(library(logicmoo_utils)).  % for print_tree_nl/1 (pretty-print)
+:- use_module(library(logicmoo_utils)).
+:- use_module(metta_compiler_douglas, [ compile_test_then_else/7,
+                                        f2p/6,
+                                        output_prolog/2,
+                                        subst_varnames/2 ]).
+:- use_module(metta_compiler_lib, [ transpiler_predicate_nary_store/9 ]).
+:- use_module(metta_convert, [ p2m/2,
+                               sexpr_s2p/2 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_eval, [ as_tf/2,
+                            eval_args/2,
+                            get_type/2,
+                            metta_atom_iter/5,
+                            nb_bound/2,
+                            self_eval/1 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              metta_type/3 ]).
+:- use_module(metta_mizer, [ ok_to_append/1,
+                             p2s/2 ]).
+:- use_module(metta_parser, [ subst_vars/2 ]).
+:- use_module(metta_testing, [ color_g_mesg/2 ]).
+:- use_module(metta_utils, [ map_fold1/5,
+                             maplist/7,
+                             maplist/8,
+                             maplist/9,
+                             subst001/4 ]).
+:- use_module(swi_support, [ if_t/2,
+                             option_value/2,
+                             symbol/1 ]).
+
+
+
+
+
+
+
+
+
+
+  % for print_tree_nl/1 (pretty-print)
 
 /** <module> combine_transform_and_collect_subterm
 

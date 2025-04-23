@@ -1,4 +1,23 @@
-:- module(metta_debug, [ sub_term_safely/2 ]).
+:- module(metta_debug, [ abolish_trace/0,
+                         check_trace/1,
+                         fast_option_value/2,
+                         if_trace/2,
+                         if_tracemsg/2,
+                         if_verbose/2,
+                         indentq_d/3,
+                         is_debugging/1,
+                         is_extreme_debug/1,
+                         maybe_trace/1,
+                         output_language/2,
+                         reset_eval_num/0,
+                         set_debug/2,
+                         show_failure_when/2,
+                         sub_var_safely/2,
+                         trace_eval/6,
+                         trace_if_debug/2,
+                         with_debug/2,
+                         woc/1,
+                         sub_term_safely/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -60,7 +79,21 @@
 
 % When the the `metta_interp` library is loaded, it makes sure the rest of the files are loaded in
 % the correct order independent of which file is loaded first and the needed predicates and ops are defined.
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_eval, [ call_ndet/2 ]).
+:- use_module(metta_interp, [ if_or_else/2,
+                              catch_err/3,
+                              real_notrace/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             must_det_ll/1,
+                             option_value/2,
+                             symbol_concat/3,
+                             with_option/3 ]).
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED
@@ -739,6 +772,7 @@ set_debug(Flag, false) :- !, nodebug(metta(Flag)),!. %, flag_to_var(Flag, Var), 
 set_debug(Flag, _) :- !, debug(metta(Flag)),!. %, flag_to_var(Flag, Var), set_fast_option_value(Var, true).
 
 
+:- meta_predicate if_trace(+, 0).
 %!  if_trace(+Flag, :Goal) is nondet.
 %
 %   Conditionally execute a goal if tracing is enabled for the given flag.

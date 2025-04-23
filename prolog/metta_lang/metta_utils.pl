@@ -1,4 +1,25 @@
-:- module(metta_utils, []).
+:- module(metta_utils, [ always_rethrow/1,
+                         catch_log/1,
+                         disable_arc_expansion/0,
+                         enable_arc_expansion/0,
+                         ibreak/0,
+                         intersection/5,
+                         map_fold1/5,
+                         maplist/6,
+                         maplist/7,
+                         maplist/8,
+                         maplist/9,
+                         max_min/4,
+                         my_maplist/2,
+                         my_maplist/3,
+                         pp/1,
+                         pp_m/1,
+                         pp_m/2,
+                         subst001/4,
+                         subst0011a/4,
+                         substM/4,
+                         super_safety_checks/1,
+                         write_src_uo/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -52,7 +73,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-:- use_module(metta_debug).
+:- use_module(metta_debug, [ sub_term_safely/2 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_interp, [ extreme_tracing/0,
+                              fbug/1,
+                              fbugio/1,
+                              ggtrace/1,
+                              is_testing/0 ]).
+:- use_module(metta_printer, [ write_src/1 ]).
+:- use_module(metta_testing, [ color_g_mesg/2 ]).
+:- use_module(swi_support, [ atom_contains/2,
+                             option_value/2 ]).
 
 %*********************************************************************************************
 % PROGRAM FUNCTION: Provides utility predicates and data structures for handling and displaying various
@@ -78,7 +109,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 
 % Prevent the dynamic predicate `user:'$exported_op'/3` from succeeding.

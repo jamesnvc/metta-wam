@@ -1,11 +1,27 @@
-:- module(metta_pfc_base, [ pfcDefault/2,
-                            op(500, fx, '~'),
-                            op(1050, xfx, ('==>')),
-                            op(1050, xfx, '<==>'),
-                            op(1050, xfx, ('<-')),
-                            op(1100, fx, ('==>')),
-                            op(1150, xfx, ('::::'))
-                          ]).
+:- module(metta_pfc_base, [ bagof_or_nil/3,
+                            call_u/1,
+                            is_file_ref/1,
+                            must_ex/1,
+                            pfcAdd/1,
+                            pfcAddType1/1,
+                            pfcCallSystem/1,
+                            pfcRetractOrQuietlyFail/1,
+                            pfcRetractOrWarn/1,
+                            pfcType/2,
+                            pfcUnion/3,
+                            pfc_call/1,
+                            pfc_term_expansion/2,
+                            pfc_unnegate/2,
+                            quietly_ex/1,
+                            setof_or_nil/3,
+                            supports/2,
+                            pfcDefault/2,
+                            op(500,fx,~),
+                            op(1050,xfx,==>),
+                            op(1050,xfx,<==>),
+                            op(1050,xfx,<-),
+                            op(1100,fx,==>),
+                            op(1150,xfx,::::) ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -65,6 +81,39 @@
 % Douglas Miles
 
 */
+
+:- use_module(metta_compiler_roy, [ iz_conz/1,
+                                    strip_m/2 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_interp, [ fbugio/1,
+                              once_writeq_nl/1,
+                              true_flag/0 ]).
+:- use_module(metta_pfc_debug, [ brake/1,
+                                 pfcError/2,
+                                 pfcFact/1,
+                                 pfcTF1/1,
+                                 pfcTraceMsg/1,
+                                 pfcTraceMsg/2,
+                                 pfcTraceRem/1,
+                                 pfcWarn/1,
+                                 pfcWarn/2,
+                                 pfcWhy/1,
+                                 printLine/0 ]).
+:- use_module(metta_pfc_support, [ assumption/1,
+                                   axiom/1,
+                                   current_why_U/1,
+                                   current_why_UU/1,
+                                   matches_why_UU/1,
+                                   matterialize_support_term/2,
+                                   pfcAddSupport/2,
+                                   pfcChildren/2,
+                                   pfcGetSupport/2,
+                                   pfcRemOneSupport/2,
+                                   pfcRemOneSupportOrQuietlyFail/2,
+                                   pfc_spft/3 ]).
+:- use_module(metta_utils, [ my_maplist/2,
+                             my_maplist/3 ]).
+
 
 %*********************************************************************************************
 % PROGRAM FUNCTION: provides forward chaining support for logical rules, triggers, and fact

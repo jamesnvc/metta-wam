@@ -1,4 +1,33 @@
-:- module(metta_types, []).
+:- module(metta_types, [ adjust_args_9/9,
+                         can_assign/2,
+                         dont_put_attr/3,
+                         get_operator_typedef/4,
+                         get_operator_typedef/5,
+                         get_operator_typedef_R/5,
+                         get_type/4,
+                         get_type_each/4,
+                         get_types/4,
+                         get_value_type/4,
+                         into_typed_arg/5,
+                         is_decl_mtype/2,
+                         is_decl_type/1,
+                         is_decl_utype/2,
+                         is_metta_data_functor/2,
+                         is_pro_eval_kind/1,
+                         is_space_type/2,
+                         is_special_op/1,
+                         is_syspred/3,
+                         is_type/1,
+                         is_user_defined_head/2,
+                         is_user_defined_head/3,
+                         is_user_defined_head_f/2,
+                         mnotrace/1,
+                         narrow_types/3,
+                         throw_metta_return/1,
+                         thrown_metta_return/1,
+                         try_adjust_arg_types/7,
+                         type_conform/2,
+                         type_violation/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter/Runtime
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -59,7 +88,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED
@@ -2360,7 +2389,53 @@ is_math_op('zerop', 1, exists).     % Test for Zero
 
 % :- load_pfc_file('metta_ontology.pl.pfc').
 
-:- ensure_loaded(metta_typed_functions).
+
+:- use_module(metta_compiler, [ non_arg_violation/3 ]).
+:- use_module(metta_compiler_roy, [ iz_conz/1,
+                                    must_det_lls/1 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ if_trace/2,
+                             show_failure_when/2,
+                             sub_term_safely/2,
+                             sub_var_safely/2,
+                             trace_if_debug/2 ]).
+:- use_module(metta_eval, [ eval_args/4,
+                            'get-metatype'/2,
+                            'get-state'/2,
+                            is_valid_nb_state/1,
+                            len_or_unbound/2 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              default_depth/1,
+                              false_flag/0,
+                              find_missing_cuts/0,
+                              if_or_else/2,
+                              if_or_else/3,
+                              into_underscores/2,
+                              metta_eq_def/4,
+                              metta_type/3,
+                              true_flag/0 ]).
+:- use_module(metta_mizer, [ numeric/1 ]).
+:- use_module(metta_printer, [ with_indents/2 ]).
+:- use_module(metta_python, [ py_is_py/1 ]).
+:- use_module(metta_space, [ py_named_space/1,
+                             was_asserted_space/1 ]).
+:- use_module(metta_typed_functions, [ arrow_type/3 ]).
+:- use_module(swi_support, [ if_t/2,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbolic_list_concat/3 ]).
+
+
+
+
+
+
+
+
+
+
+
+
 
 :- find_missing_cuts.
 

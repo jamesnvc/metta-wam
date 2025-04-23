@@ -1,4 +1,15 @@
-:- module(metta_parser, [ process_expressions/3,
+:- module(metta_parser, [ maybe_name_vars/1,
+                          memorize_varnames/1,
+                          metta_file_comment/5,
+                          parse_sexpr/2,
+                          parse_sexpr_untyped/2,
+                          read_metta/2,
+                          subst_vars/2,
+                          subst_vars/3,
+                          subst_vars/4,
+                          svar/2,
+                          svar_fixvarname/2,
+                          process_expressions/3,
                           make_DL/4 ]).
 /* <not-a-module> Metta File Processor
 
@@ -34,7 +45,7 @@ handling of lists and individual items.s * *
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 %!  read_metta(+In, -Expr) is det.
 %
@@ -730,6 +741,37 @@ needs_regeneration(InputFile, _OutputFile) :-
 
 :- use_module(library(process)).
 :- use_module(library(time)).
+:- use_module(metta_compiler_roy, [ must_det_lls/1 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_interp, [ is_win64/0 ]).
+:- use_module(metta_loader, [ cache_file/2,
+                              dvar_name/2,
+                              svar_fixvarname_dont_capitalize/2,
+                              untyped_to_metta/2,
+                              use_cache_file/2 ]).
+:- use_module(metta_printer, [ paren_pair_functor/3,
+                               prolog_term_start/1 ]).
+:- use_module(metta_repl, [ maybe_set_var_names/1,
+                            repl_read/1 ]).
+:- use_module(metta_utils, [ write_src_uo/1 ]).
+:- use_module(swi_support, [ atom_contains/2,
+                             if_t/2,
+                             must_det_ll/1,
+                             non_empty_atom/1,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbolic/1 ]).
+
+
+
+
+
+
+
+
+
 :- dynamic ok_to_stop/1.
 
 %! count_lines_in_file(+FileName:atom, -LineCount:int) is det.

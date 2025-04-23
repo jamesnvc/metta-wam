@@ -1,4 +1,8 @@
 :- module(metta_proof, []).
+:- use_module(metta_repl, [ cls/0 ]).
+:- use_module(swi_support, [ if_t/2 ]).
+
+
 
 interpC(Goal):-
   interpC(Goal, Proof),

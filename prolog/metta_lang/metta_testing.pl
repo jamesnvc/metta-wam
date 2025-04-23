@@ -1,4 +1,15 @@
-:- module(metta_testing, []).
+:- module(metta_testing, [ color_g_mesg/2,
+                           color_g_mesg_ok/2,
+                           file_answers/3,
+                           has_loonit_results/0,
+                           load_answer_file/1,
+                           loonit_asserts/3,
+                           loonit_report/0,
+                           loonit_reset/0,
+                           set_exec_num/2,
+                           string_replace/4,
+                           test_alarm/0,
+                           tst_call_limited/1 ]).
 /*
   this is part of (H)MUARC  https://logicmoo.org/xwiki/bin/view/Main/ARC/
 
@@ -20,8 +31,55 @@
 
 % Ensure that the `metta_interp` library is loaded.
 % This loads all the predicates called from this file.
-:- ensure_loaded(metta_interp).
-:- ensure_loaded(metta_utils).
+
+
+:- use_module(metta_compiler_roy, [ must_det_lls/1 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ if_trace/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_interp, [ always_exec/1,
+                              fbug/1,
+                              is_compatio/0,
+                              metta_root_dir/1,
+                              pfcAdd_Now/1 ]).
+:- use_module(metta_loader, [ load_metta/1 ]).
+:- use_module(metta_parser, [ parse_sexpr_untyped/2 ]).
+:- use_module(metta_printer, [ write_src/1 ]).
+:- use_module(metta_repl, [ inside_assert/2 ]).
+:- use_module(metta_space, [ 'add-atom'/2,
+                             'add-atom'/3,
+                             'atom-count'/2,
+                             'clear-atoms'/1,
+                             fetch_or_create_space/1,
+                             fetch_or_create_space/2,
+                             'get-atoms'/2,
+                             init_space/1,
+                             match/3,
+                             'remove-atom'/2,
+                             'remove-atom'/3,
+                             'replace-atom'/3,
+                             space_original_name/2 ]).
+:- use_module(metta_utils, [ disable_arc_expansion/0,
+                             enable_arc_expansion/0,
+                             max_min/4,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             must_det_ll/1,
+                             option_else/3,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbolic_list_concat/3 ]).
+
+
+
+
+
+
+
+
+
+
+
 
 % Reset loonit counters
 
@@ -182,6 +240,8 @@ make_test_name(FilePath0, Number, TestName) :-
     wots(NS, format('~`0t~d~2|', [Number])),
     % Combines parent directory, file base, and test number to form the test name.
     format(string(TestName), "~w.~w.~w", [NoUnderscoreParent, NoUnderscore, NS]).
+
+:- meta_predicate color_g_msg(+, 0).
 
 %!  color_g_mesg(+Color, :Goal) is det.
 %

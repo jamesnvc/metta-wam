@@ -1,4 +1,12 @@
 :- module(metta_compiler_print, []).
+:- use_module(metta_compiler_roy, [ transpiler_depends_on/4 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_interp, [ current_self/1 ]).
+:- use_module(metta_printer, [ print_pl_source/1 ]).
+
+
+
+
 
 /* ----------------------------------------------------------------------
    "Tree-style" dependency printing

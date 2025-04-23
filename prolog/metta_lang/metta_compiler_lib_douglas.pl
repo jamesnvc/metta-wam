@@ -1,4 +1,26 @@
 :- module(metta_compiler_lib_douglas, []).
+:- use_module(metta_compiler_douglas, [ transpile_impl_prefix/3 ]).
+:- use_module(metta_compiler_roy, [ fullvar/1,
+                                    get_operator_typedef_props/5,
+                                    transpile_eval/2,
+                                    u_assign/2 ]).
+:- use_module(metta_corelib, [ metta_atom/2 ]).
+:- use_module(metta_eval, [ 'get-metatype'/2,
+                            println_impl/1 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              is_metta_space/1,
+                              wtime_eval/1 ]).
+:- use_module(metta_space, [ 'add-atom'/2,
+                             'remove-atom'/2 ]).
+:- use_module(metta_types, [ get_type/4,
+                             into_typed_arg/5 ]).
+
+
+
+
+
+
+
 
 :- dynamic(transpiler_clause_store/9).
 :- discontiguous transpiler_clause_store/9.

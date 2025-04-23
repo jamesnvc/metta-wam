@@ -1,4 +1,38 @@
-:- module(metta_typed_functions, []).
+:- module(metta_typed_functions, [ arrow_type/3,
+                                   assignable_to/2,
+                                   freeist/3,
+                                   function_declaration/9,
+                                   get_ftype/6 ]).
+:- use_module(metta_compiler_roy, [ must_det_lls/1 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ if_trace/2 ]).
+:- use_module(metta_eval, [ coerce/3,
+                            eval_args/2,
+                            get_type/2,
+                            len_or_unbound/2,
+                            same_len_copy/2 ]).
+:- use_module(metta_interp, [ if_or_else/2,
+                              if_or_else/3,
+                              metta_defn/3,
+                              metta_type/3 ]).
+:- use_module(metta_printer, [ w_color/2,
+                               write_src_nl/1 ]).
+:- use_module(metta_types, [ can_assign/2,
+                             get_operator_typedef/5,
+                             get_type/4,
+                             is_decl_mtype/2,
+                             is_decl_utype/2 ]).
+:- use_module(metta_utils, [ maplist/7 ]).
+:- use_module(swi_support, [ if_t/2 ]).
+
+
+
+
+
+
+
+
+
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter/Runtime
  * Description: This file is part of the source code for a transpiler designed to convert

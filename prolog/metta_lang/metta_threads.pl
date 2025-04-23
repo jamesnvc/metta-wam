@@ -66,7 +66,7 @@
 :- use_module(library(record)).
 % Ensure that the `metta_interp` library is loaded.
 % This loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 % Define options for async/3 with a default policy.
 % The `opts` record includes a `policy` field, which can be `ephemeral`

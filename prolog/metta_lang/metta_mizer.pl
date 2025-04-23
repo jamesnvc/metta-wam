@@ -1,4 +1,22 @@
-:- module(metta_mizer, []).
+:- module(metta_mizer, [ numeric/1,
+                         ok_to_append/1,
+                         p2s/2 ]).
+:- use_module(metta_compiler_roy, [ =~ / 2,
+                                    as_functor_args/3,
+                                    as_functor_args/4,
+                                    compound_non_cons/1,
+                                    into_list_args/2,
+                                    iz_conz/1 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_testing, [ color_g_mesg/2 ]).
+:- use_module(swi_support, [ symbol/1 ]).
+
+
+
+
+
 
 % Disables the optimizer. This predicate always fails, effectively serving as a no-op.
 % disable_optimizer :- false.

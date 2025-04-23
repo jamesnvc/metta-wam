@@ -1,4 +1,14 @@
-﻿:- module(metta_compiler_douglas, []).
+:- module(metta_compiler_douglas, [ compile_flow_control1/6,
+                                    compile_flow_control2/6,
+                                    compile_test_then_else/7,
+                                    f2p/6,
+                                    is_compiled_and/1,
+                                    output_prolog/2,
+                                    subst_varnames/2,
+                                    transpile_call_prefix/1,
+                                    transpile_impl_prefix/1,
+                                    transpile_impl_prefix/3,
+                                    transpiler_stub_created/3 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -67,14 +77,14 @@
 % Setting the Rust backtrace to Full
 :- setenv('RUST_BACKTRACE',full).
 % Loading various library files
-:- ensure_loaded(swi_support).
-:- ensure_loaded(metta_testing).
-:- ensure_loaded(metta_utils).
+
+
+
 %:- ensure_loaded(metta_reader).
-:- ensure_loaded(metta_interp).
-:- ensure_loaded(metta_space).
+
+
 :- dynamic(transpiler_clause_store/9).
-:- ensure_loaded(metta_compiler_lib).
+
 
 % ==============================
 % MeTTa to Prolog transpilation (which uses the Host SWI-Prolog compiler)
@@ -506,7 +516,42 @@ precompute_typeinfo(HResult,HeadIs,AsBodyFn,Ast,Result) :-
 
 :- use_module(library(gensym)).          % for gensym/2
 :- use_module(library(pairs)).           % for group_pair_by_key/2
-:- use_module(library(logicmoo_utils)).  % for print_tree_nl/1 (pretty-print)
+:- use_module(library(logicmoo_utils)).
+:- use_module(metta_convert, [ p2m/2,
+                               sexpr_s2p/2 ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_eval, [ as_tf/2,
+                            eval_args/2,
+                            get_type/2,
+                            is_host_function/3,
+                            is_host_predicate/3,
+                            metta_atom_iter/5,
+                            self_eval/1 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              user_io/1 ]).
+:- use_module(metta_mizer, [ ok_to_append/1,
+                             p2s/2 ]).
+:- use_module(metta_parser, [ memorize_varnames/1,
+                              subst_vars/2,
+                              subst_vars/4 ]).
+:- use_module(metta_printer, [ print_pl_source/1 ]).
+:- use_module(metta_testing, [ color_g_mesg/2 ]).
+:- use_module(metta_types, [ get_operator_typedef/5 ]).
+:- use_module(swi_support, [ symbol/1,
+                             symbol_concat/3 ]).
+
+
+
+
+
+
+
+
+
+
+  % for print_tree_nl/1 (pretty-print)
 
 /** <module> combine_transform_and_collect_subterm
 
@@ -1831,6 +1876,9 @@ add_assignment(A,B,CodeOld,CodeNew) :-
       A=B,CodeNew=CodeOld
    ;  append(CodeOld,[[assign,A,B]],CodeNew)).
 
+
+:- multifile compile_flow_control/6.
+
 compile_flow_control(HeadIs,LazyVars,RetResult,LazyEval,Convert, Converted) :-
    Convert=['case',Value,Cases],!,
    f2p(HeadIs,LazyVars,ValueResult,eager,Value,ValueCode),
@@ -1995,6 +2043,7 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
                  findall(ResValue2,CodeForValue2,L2)),
                  equal_enough(L1,L2),RetResult)).
 
+:- multifile(compile_flow_control1/6).
 
 compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converted) :-
     Convert =~ ['assertEqualToResult',Value1,Value2],!,
@@ -2005,6 +2054,8 @@ compile_flow_control1(HeadIs, LazyVars, RetResult, ResultLazy, Convert, Converte
                 findall(ResValue1,Prolog,L1),
                  equal_enough(L1,Value2),RetResult).
 
+
+:- multifile compile_flow_control2/6.
 
 compile_flow_control2(_HeadIs, _LazyVars, RetResult, _ResultLazy, Convert, Converted) :-
      Convert =~ 'add-atom'(Where,What), !,

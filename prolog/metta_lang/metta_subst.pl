@@ -1,4 +1,4 @@
-:- module(metta_subst, []).
+:- module(metta_subst, [ is_space_op/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -52,7 +52,59 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-:- use_module(metta_interp).
+:- use_module(metta_interp, [ catch_err/3,
+                              find_missing_cuts/0,
+                              if_or_else/2,
+                              into_name/3,
+                              into_space/3,
+                              is_function/1,
+                              make_nop/1,
+                              make_nop/2,
+                              metta_eq_def/4,
+                              metta_type/3 ]).
+:- use_module(metta_debug, [ if_trace/2,
+                             is_debugging/1,
+                             trace_eval/6,
+                             with_debug/2 ]).
+:- use_module(metta_eval, [ as_tf/2,
+                            catch_warn/1,
+                            'change-state!'/5,
+                            do_expander/4,
+                            eval_10/6,
+                            eval_21/6,
+                            eval_call/2,
+                            eval_selfless/6,
+                            'get-state'/2,
+                            is_True/1,
+                            is_and/1,
+                            is_system_pred/1,
+                            is_valid_nb_state/1,
+                            last_element/2,
+                            nb_bound/2,
+                            'new-state'/4,
+                            self_eval/1,
+                            unify_enough/2 ]).
+:- use_module(metta_loader, [ include_metta/2,
+                              no_cons_reduce/0 ]).
+:- use_module(metta_parser, [ subst_vars/2 ]).
+:- use_module(metta_repl, [ repl/0 ]).
+:- use_module(metta_testing, [ loonit_asserts/3 ]).
+:- use_module(metta_types, [ is_decl_type/1,
+                             is_metta_data_functor/2,
+                             is_special_op/1,
+                             is_syspred/3,
+                             is_type/1,
+                             mnotrace/1 ]).
+:- use_module(swi_support, [ set_option_value/2,
+                             symbol/1 ]).
+
+
+
+
+
+
+
+
 
 %self_subst(X):- var(X),!.
 %self_subst(X):- string(X),!.

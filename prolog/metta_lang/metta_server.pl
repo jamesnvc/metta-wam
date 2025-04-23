@@ -1,4 +1,8 @@
-:- module(metta_server, []).
+:- module(metta_server, [ metta_concurrent_maplist/3,
+                          metta_concurrent_maplist/5,
+                          metta_concurrent_maplist/6,
+                          metta_concurrent_maplist/7,
+                          metta_hyperpose/6 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -57,7 +61,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 %!  call_wdet(+Goal, -WasDet) is nondet.
 %
@@ -1076,6 +1080,22 @@ cleanup_results(Tag) :-
 
 :- use_module(library(socket)).
 :- use_module(library(thread)).
+:- use_module(metta_debug, [ if_trace/2 ]).
+:- use_module(metta_eval, [ eval_20/6 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              is_compiling/0 ]).
+:- use_module(metta_repl, [ repl/0 ]).
+:- use_module(metta_utils, [ maplist/6,
+                             maplist/7,
+                             maplist/8,
+                             max_min/4 ]).
+:- use_module(swi_support, [ symbolic_list_concat/3 ]).
+
+
+
+
+
+
 
 % Start the Telnet server in a background thread on the given Port
 start_dbg_telnet(Port) :-
