@@ -202,22 +202,22 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
                        Term = (:- module(_, _)) ;
                            Term = end_of_file )),
     ( Term = end_of_file
-      *-> !
-      ; ( Term = (:- module(_, _))
-          *-> arg(2, SubTermPos, ModuleEndAt0),
-              succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
-              nb_setarg(1, LastModuleAt, ModuleEndAt),
-              fail
-          ; (  nonvar(ImpModule), ImpModule = Module
-               *-> debug(loading_message, "Already imported", []),
-                   arg(1, SubTermPos, ImportStart),
-                   arg(2, SubTermPos, ImportEnd0), ImportEnd is ImportEnd0 + 1, % to get the full-stop
-                   update_existing_use_module_if_needed(Term, t(ImportStart, ImportEnd), Path, Module, Predicates),
-                   nb_setarg(1, AlreadyImported, true), !
-               ;  arg(2, SubTermPos, ModuleEndAt0),
-                  succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
-                  nb_setarg(1, LastModuleAt, ModuleEndAt),
-                  fail  ) ) ).
+    -> !
+    ; ( Term = (:- module(_, _))
+      -> arg(2, SubTermPos, ModuleEndAt0),
+         succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+         nb_setarg(1, LastModuleAt, ModuleEndAt),
+         fail
+      ; (  nonvar(ImpModule), ImpModule = Module
+        -> debug(loading_message, "Already imported", []),
+           arg(1, SubTermPos, ImportStart),
+           arg(2, SubTermPos, ImportEnd0), ImportEnd is ImportEnd0 + 1, % to get the full-stop
+           update_existing_use_module_if_needed(Term, t(ImportStart, ImportEnd), Path, Module, Predicates),
+           nb_setarg(1, AlreadyImported, true), !
+        ;  arg(2, SubTermPos, ModuleEndAt0),
+           succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+           nb_setarg(1, LastModuleAt, ModuleEndAt),
+           fail  ) ) ).
 
 % remove ensure_loaded/1
 
