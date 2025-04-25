@@ -170,10 +170,8 @@ file_module(Path, Module) :-
     file_name_extension(Module, '.pl', BaseName).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Adding imports & exports
+% Adding imports
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%imports
 
 add_use_if_needed(Path, Module, Predicates) :-
     LastModuleAt = acc(0),
@@ -186,11 +184,6 @@ add_use_if_needed(Path, Module, Predicates) :-
     arg(1, LastModuleAt, UseModuleEnd),
     insert_use_module(Path, Module, Predicates, UseModuleEnd).
 add_use_if_needed(_, _, _).
-
-% remove ensure_loaded/1 if use_module/1,2-ing
-
-% use use_module/2 instead of use_module/1 since we know exactly
-% what's being used
 
 add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predicates) :-
     repeat,
@@ -281,7 +274,9 @@ update_existing_use_module_if_needed(_, _, _, _, _).
 insert_use_module(Path, ModuleName, Predicates, UseEnd) :-
     update_existing_use_module_if_needed((:- use_module(ModuleName)), t(UseEnd, UseEnd), Path, ModuleName, Predicates).
 
-% exports
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Adding exports
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 add_to_export(Path, PredIndicators) :-
     debug(loading_message, "ADDING ~q TO ~q", [PredIndicators, Path]),
@@ -330,6 +325,57 @@ add_indent_to_rest_(Indent, [L|Rest], [L1|OutRest]) :-
     maplist(=(0' ), IndentCodes),
     format(string(L1), "~s~s", [IndentCodes, L]),
     add_indent_to_rest_(Indent, Rest, OutRest).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Guessing missing meta_predicate/1
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+file_missing_meta_predicates(Path, Missing) :-
+    setup_call_cleanup(
+        prolog_open_source(Path, Stream),
+        ( repeat,
+          prolog_read_source_term(Stream, Term, _Ex, []),
+          % do we want to use the expanded form to check?
+          ( compound(Term), Term = ':-'(Head, _Body), check_needs_meta_predicate(Path, Term, MaybeMeta)
+          -> debug(xxx, "~q meta ~q", [Head, MaybeMeta])
+          ; true ),
+          Term = end_of_file, !
+        ),
+        prolog_close_source(Stream)),
+    Missing = [].
+
+check_needs_meta_predicate(Path, ':-'(Head, Body), MetaPred) :-
+    \+ xref_meta(Path, Head, _),
+    compound_name_arguments(Head, HeadName, Args),
+    check_vars_meta_use(Path, Args, Body, ArgMetas),
+    member(N, ArgMetas), integer(N),
+    compound_name_arguments(MetaPred, HeadName, ArgMetas).
+
+check_vars_meta_use(_, [], _, []).
+check_vars_meta_use(Path, [V|Vs], Body, [Meta|MetaRest]) :-
+    var(V),
+    var_meta_use(Path, V, Body, Meta), !,
+    check_vars_meta_use(Path, Vs, Body, MetaRest).
+check_vars_meta_use(Path, [_|Vs], Body, ['?'|MetaRest]) :-
+    check_vars_meta_use(Path, Vs, Body, MetaRest).
+
+var_meta_use(Path, V, (G, Gs), Meta) =>
+    ( var_meta_use(Path, V, G, Meta)
+    -> true
+    ;  var_meta_use(Path, V, Gs, Meta) ).
+var_meta_use(_, V, G, Meta), var(G), V == G =>
+    % top-level use
+    Meta = 0.
+var_meta_use(Path, V, G, Meta) =>
+    xref_meta(Path, G, GoalMeta),
+    ( member(X, GoalMeta), X == V
+    -> Meta = 0
+    ; member(X+N, GoalMeta), X == V,
+      Meta = N ).
+var_meta_use(_, _, _, _) => fail.
+
+thingy(A, B) :-
+    call(A, 1, B).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % red-black tree helper
