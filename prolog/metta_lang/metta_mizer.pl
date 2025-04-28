@@ -288,6 +288,8 @@ optimize_conj(HB, BT,B1,B1):- assumed_true(HB,BT),!.
 %     optimize_conj(Head, u_assign(Term, C), is_True(CC), CTerm).
 %optimize_conj(Head,B1,BT,BN1):- assumed_true(HB,BT),!, optimize_body(Head,B1,BN1).
 %optimize_conj(Head,BT,B1,BN1):- assumed_true(HB,BT),!, optimize_body(Head,B1,BN1).
+
+:- meta_predicate optimize_conj(?,0,0,?).
 optimize_conj(Head,B1,B2,(BN1,BN2)):-
     % Recursively optimize both parts of the body.
    optimize_body(Head,B1,BN1), optimize_body(Head,B2,BN2).

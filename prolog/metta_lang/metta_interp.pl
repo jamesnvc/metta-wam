@@ -6251,6 +6251,8 @@ not_in_eq(List, Element) :-
 %     % Measure the time for a goal with a delay:
 %     ?- time_eval(sleep(0.95)).
 %
+
+:- meta_predicate time_eval(0).
 time_eval(Goal) :-
     time_eval('Evaluation', Goal).
 
@@ -6262,6 +6264,8 @@ time_eval(Goal) :-
 %   @arg What A description of the evaluated task.
 %   @arg Goal The Prolog goal to be executed and timed.
 %
+
+:- meta_predicate time_eval(?,0).
 time_eval(What, Goal) :-
     timed_call(Goal, Seconds),
     give_time(What, Seconds).
@@ -6271,6 +6275,8 @@ time_eval(What, Goal) :-
 %   Similar to `time_eval/1`, but explicitly uses CPU time for measuring the
 %   execution time of the goal (`Goal`).
 %
+
+:- meta_predicate ctime_eval(0).
 ctime_eval(Goal) :-
     ctime_eval('Evaluation', Goal).
 
@@ -6289,6 +6295,8 @@ ctime_eval(What, Goal) :-
 %   Measures the wall-clock (real) time for the execution of a goal (`Goal`).
 %   Suitable for tasks involving delays or external interactions.
 %
+
+:- meta_predicate wtime_eval(0).
 wtime_eval(Goal) :-
     wtime_eval('Evaluation', Goal).
 

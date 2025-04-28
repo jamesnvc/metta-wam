@@ -1065,6 +1065,8 @@ write_readably(_, _).
 % @arg EndChar that denotes the end of a symbol.
 % @arg Stream Stream from which to read.
 % @arg Item The item read from the stream.
+
+:- meta_predicate cont_sexpr(1,?,?).
 cont_sexpr(EndChar,  Stream, Item):-
    skip_spaces(Stream),  % Ignore whitespace before reading the expression.
    read_line_char(Stream, StartRange),
@@ -1074,6 +1076,8 @@ cont_sexpr(EndChar,  Stream, Item):-
    push_item_range(Item, Range).
 
 
+
+:- meta_predicate cont_sexpr_once(1,?,?).
 cont_sexpr_once(EndChar, Stream, Item) :-
     skip_spaces(Stream),
     get_char(Stream, Char),
@@ -1156,6 +1160,8 @@ cont_sexpr_from_char(_EndChar, Stream, '`', Item) :-
     read_quoted_symbol(Stream, '`', Item).
 
 % Otherwise, read a symbolic expression.
+
+:- meta_predicate cont_sexpr_from_char(1,?,?,?).
 cont_sexpr_from_char(EndChar, Stream, Char, Item) :-
     read_symbolic(EndChar, Stream, Char, Item).
 

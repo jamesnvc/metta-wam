@@ -1954,6 +1954,8 @@ pp_db_facts(MM) :- ignore(pp_db_facts(MM, _, true)).
 %   @arg Module The module context.
 %   @arg Pattern The pattern to match facts against.
 %
+
+:- meta_predicate pp_db_facts(0,?).
 pp_db_facts(MM, Pattern) :- pp_db_facts(MM, Pattern, true).
 
 %!  pp_db_facts(+Module, +Pattern, +Condition) is nondet.

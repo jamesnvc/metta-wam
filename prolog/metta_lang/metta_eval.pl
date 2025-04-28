@@ -465,6 +465,8 @@ is_mettalog_tracing(H,Type):- woc(metta_atom(_,[mettalog_trace,HH,Type])), \+ \+
 
 eval_08(Eq,RetType,Depth,Self,X,Y):- is_mettalog_tracing(X,Type),!,
    with_debug(Type,eval_09(Eq,RetType,Depth,Self,X,Y)).
+
+:- meta_predicate eval_08(6,?,?,?,?,?).
 eval_08(Eq,RetType,Depth,Self,X,Y):- eval_09(Eq,RetType,Depth,Self,X,Y).
 
 %eval_09(_Eq,_RetType, Depth,_Slf,X,Y):- Depth< 0, !, X=Y, fail.
@@ -1024,6 +1026,8 @@ eval_complete_change(Eq,XType,YType,Depth,Self,EX,EXX):- eval_args(Eq,XType,YTyp
 
 eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,EX,Y):- \+ is_list(EX),!,Y=EX.
 %eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,EX,_):- \+ is_list(EX),!,fail.
+
+:- meta_predicate eval_in_steps_some_change(6,?,?,?,?,?).
 eval_in_steps_some_change(Eq,XType,Depth,Self,EX,EXXO):-
    eval_1change(Eq,XType,Depth,Self,EX,EXX),!,
    (eval_in_steps_some_change(Eq,XType,Depth,Self,EXX,EXXO);EXXO=EXX).
@@ -1033,6 +1037,8 @@ eval_in_steps_some_change(Eq,XType,Depth,Self,X,Y):-
   append(L,[EXX|R],XX),
   eval_in_steps_or_same(Eq,XType,Depth,Self,XX,Y).
 
+
+:- meta_predicate eval_in_steps_or_same(6,?,?,?,?,?).
 eval_in_steps_or_same(Eq,XType,Depth,Self,X,Y):-eval_in_steps_some_change(Eq,XType,Depth,Self,X,Y).
 eval_in_steps_or_same(Eq,XType,_Dpth,_Slf,X,Y):- X=Y,check_returnval(Eq,XType,Y).
 
@@ -1316,6 +1322,8 @@ equal_enough_for_test_renumbered_l(P2,X0,Y0):- maplist(equal_enough_for_test_ren
 equal_enough_for_test_l(P2,X,Y):-            must_be(proper_list,X), must_be(proper_list,Y), sort(X,X0),sort(Y,Y0),
     maplist(equal_enough_for_test(P2),X0,Y0).
 
+
+:- meta_predicate equal_enough_for_test_renumbered(2,?,?).
 equal_enough_for_test_renumbered(P2,X0,Y0):- equal_renumbered(X0,Y0,XX,YY), equal_enough_for_test(P2, XX,YY).
 
 

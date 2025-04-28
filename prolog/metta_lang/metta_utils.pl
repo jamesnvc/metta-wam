@@ -3266,6 +3266,8 @@ map_pred(NoCycles, Pred, P, X) :- p2_call(Pred, P, X) *-> true ; map_pred0(NoCyc
 %   @arg P    The input term.
 %   @arg P1   The transformed term.
 %
+
+:- meta_predicate map_pred1(2,?,?).
 map_pred1(Pred, P, P1) :- map_pred1(P, Pred, P, P1).
 
 %!  map_pred0(+NoCycles, :Pred, +Args, -ArgSO) is det.
@@ -3367,6 +3369,8 @@ into_grid_or_var(O, G) :- cast_to_grid(O, G, _Uncast), !.
 %     O = [[Result1, Result2], [Result3, Result4]].
 %
 % If I is a grid, apply the predicate using mapgrid/3.
+
+:- meta_predicate maybe_mapgrid(2,?,?).
 maybe_mapgrid(P2, I, O) :- is_grid(I), !, mapgrid(P2, I, O).
 
 %!  maybe_mapgrid(+P, +I, -O, +M) is det.
@@ -3939,6 +3943,8 @@ subst_2LC(F, R, I, O) :- subst_2L_p2(same_term, F, R, I, O).
 subst_2L_p2(_P2, [], _, I, I) :- !.
 subst_2L_p2(_P2, _, [], I, I) :- !.
 % Apply the predicate-based substitution and continue.
+
+:- meta_predicate subst_2L_p2(2,?,?,?,?).
 subst_2L_p2(P2, [F | FF], [R | RR], I, O) :-
     subst0011_p2(P2, F, R, I, M),
     subst_2L_p2(P2, FF, RR, M, O).
@@ -3953,6 +3959,8 @@ subst_2L_p2(P2, [F | FF], [R | RR], I, O) :-
 %   @arg R The replacement term.
 %   @arg O The output term after substitution.
 % Call the substitution logic with the comparison predicate.
+
+:- meta_predicate subst001_p2(2,?,?,?,?).
 subst001_p2(P2, I, F, R, O) :- subst0011_p2(P2, F, R, I, O), !.
 
 %!  subst_1L_p2(:P2, +List, +Term, -NewTerm) is det.
@@ -3966,6 +3974,8 @@ subst001_p2(P2, I, F, R, O) :- subst0011_p2(P2, F, R, I, O), !.
 % Base case: If the list is empty, return the original term.
 subst_1L_p2(_, [], Term, Term) :- !.
 % Apply predicate-based substitution for the head pair and continue.
+
+:- meta_predicate subst_1L_p2(2,?,?,?).
 subst_1L_p2(P2, [X-Y | List], Term, NewTerm) :-
     subst0011_p2(P2, X, Y, Term, MTerm),
     subst_1L_p2(P2, List, MTerm, NewTerm).

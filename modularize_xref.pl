@@ -39,12 +39,23 @@ main([DirPath]) :-
     forall(member(File, AllFiles),
            forall(member(Module, AllModules),
                   remove_ensure_loaded(File, Module))),
-    % add missing meta_predicate/1 decls
+    add_all_missing_meta_preds(AllFiles).
+
+add_all_missing_meta_preds(AllFiles) :-
+    debug(modularize_xref, "Searching for missing meta_predicate_decls...", []),
+    X = a(false),
     forall(member(File, AllFiles),
-           ( file_missing_meta_predicates(File, Missing),
+           ( xref_source(File),
+             file_missing_meta_predicates(File, Missing),
              ( Missing = []
              -> true
-             ;  insert_meta_predicates(File, Missing) ) )).
+             ;  nb_setarg(1, X, true),
+                insert_meta_predicates(File, Missing),
+                xref_source(File) ) )),
+    arg(1, X, FoundSome),
+    ( FoundSome = true
+    -> add_all_missing_meta_preds(AllFiles)
+    ;  true ).
 
 % also convert top-level declaration calling of goals into initialization/2
 
