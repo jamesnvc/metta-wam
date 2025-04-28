@@ -330,6 +330,17 @@ add_indent_to_rest_(Indent, [L|Rest], [L1|OutRest]) :-
 % Guessing missing meta_predicate/1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+insert_meta_predicates(Path, Position, Preds) :-
+    maplist([Pred, S]>>format(string(S), ":- meta_predicate(~w).~n", [Pred]),
+           Preds, MetaPreds),
+    read_file_to_string(Path, FileContent, []),
+    sub_string(FileContent, 0, Position, AfterPos, Before),
+    sub_string(FileContent, Position, AfterPos, _, After),
+    atomics_to_string(MetaPreds, "\n", MetaPredString),
+    atomics_to_string([Before, "\n", MetaPredString, "\n", After], NewContent),
+    setup_call_cleanup(open(Path, write, S), write(S, NewContent), close(S)).
+
+
 file_missing_meta_predicates(Path, Missing) :-
     Acc = a([]),
     setup_call_cleanup(
