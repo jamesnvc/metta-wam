@@ -34,13 +34,19 @@ main([DirPath]) :-
     findall(File,
             member(file_def_call_ex(File, _, _, _), FileDefs),
             AllFiles),
+    % Remove ensure_loaded/1 decls for things that are now use_module/1'd
     maplist(file_module, AllFiles, AllModules),
     forall(member(File, AllFiles),
-          forall(member(Module, AllModules),
-                remove_ensure_loaded(File, Module))).
+           forall(member(Module, AllModules),
+                  remove_ensure_loaded(File, Module))),
+    % add missing meta_predicate/1 decls
+    forall(member(File, AllFiles),
+           ( file_missing_meta_predicates(File, Missing),
+             ( Missing = []
+             -> true
+             ;  insert_meta_predicates(File, Missing) ))).
 
 % also convert top-level declaration calling of goals into initialization/2
-% can we automatically deduce missing meta_predicates calls?
 
 files_imported_exported(FileDefs, FileImports, FileExports) :-
     definition_file_mapping(FileDefs, PredToDefFile),
@@ -330,27 +336,32 @@ add_indent_to_rest_(Indent, [L|Rest], [L1|OutRest]) :-
 % Guessing missing meta_predicate/1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-insert_meta_predicates(Path, Position, Preds) :-
-    maplist([Pred, S]>>format(string(S), ":- meta_predicate(~w).~n", [Pred]),
-           Preds, MetaPreds),
+insert_meta_predicates(Path, PredPositions0) :-
     read_file_to_string(Path, FileContent, []),
-    sub_string(FileContent, 0, Position, AfterPos, Before),
-    sub_string(FileContent, Position, AfterPos, _, After),
-    atomics_to_string(MetaPreds, "\n", MetaPredString),
-    atomics_to_string([Before, "\n", MetaPredString, "\n", After], NewContent),
+    sort(2, @=<, PredPositions0, PredPositions),
+    insert_meta_predicate(PredPositions, 0, FileContent, NewContents),
+    atomics_to_string(NewContents, "", NewContent),
     setup_call_cleanup(open(Path, write, S), write(S, NewContent), close(S)).
 
+insert_meta_predicate([meta_at(Pred, At)|MetaRest], Offset, ContentStr, NewContent) :-
+    ReadLen is At - Offset,
+    sub_string(ContentStr, 0, ReadLen, After, BeforeS),
+    format(string(MetaDecl), "~n:- meta_predicate ~w.~n", [Pred]),
+    NewContent = [BeforeS, MetaDecl|NewContentRest],
+    sub_string(ContentStr, ReadLen, After, _, AfterS),
+    insert_meta_predicate(MetaRest, At, AfterS, NewContentRest).
+insert_meta_predicate([], _, Remainder, [Remainder]).
 
 file_missing_meta_predicates(Path, Missing) :-
     Acc = a([]),
     setup_call_cleanup(
         prolog_open_source(Path, Stream),
         ( repeat,
-          prolog_read_source_term(Stream, _T, Term, []),
-          % do we want to use the expanded form to check?
+          prolog_read_source_term(Stream, _T, Term, [ term_position(TermPos) ]),
           ( compound(Term), Term = ':-'(_Head, _Body), check_needs_meta_predicate(Path, Term, MaybeMeta)
           -> arg(1, Acc, L),
-             nb_setarg(1, Acc, [MaybeMeta|L])
+             stream_position_data(char_count, TermPos, InsertAt),
+             nb_setarg(1, Acc, [meta_at(MaybeMeta, InsertAt)|L])
           ; true ),
           Term = end_of_file, !
         ),
