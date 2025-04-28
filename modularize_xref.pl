@@ -331,21 +331,24 @@ add_indent_to_rest_(Indent, [L|Rest], [L1|OutRest]) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 file_missing_meta_predicates(Path, Missing) :-
+    Acc = a([]),
     setup_call_cleanup(
         prolog_open_source(Path, Stream),
         ( repeat,
-          prolog_read_source_term(Stream, Term, _Ex, []),
+          prolog_read_source_term(Stream, _T, Term, []),
           % do we want to use the expanded form to check?
-          ( compound(Term), Term = ':-'(Head, _Body), check_needs_meta_predicate(Path, Term, MaybeMeta)
-          -> debug(xxx, "~q meta ~q", [Head, MaybeMeta])
+          ( compound(Term), Term = ':-'(_Head, _Body), check_needs_meta_predicate(Path, Term, MaybeMeta)
+          -> arg(1, Acc, L),
+             nb_setarg(1, Acc, [MaybeMeta|L])
           ; true ),
           Term = end_of_file, !
         ),
         prolog_close_source(Stream)),
-    Missing = [].
+    arg(1, Acc, Missing).
 
 check_needs_meta_predicate(Path, ':-'(Head, Body), MetaPred) :-
     \+ xref_meta(Path, Head, _),
+    compound(Head),
     compound_name_arguments(Head, HeadName, Args),
     check_vars_meta_use(Path, Args, Body, ArgMetas),
     member(N, ArgMetas), integer(N),
@@ -366,6 +369,10 @@ var_meta_use(Path, V, (G, Gs), Meta) =>
 var_meta_use(_, V, G, Meta), var(G), V == G =>
     % top-level use
     Meta = 0.
+var_meta_use(Path, V, (I -> T ; E), Meta) =>
+    once(var_meta_use(Path, V, I, Meta) ;
+         var_meta_use(Path, V, T, Meta) ;
+         var_meta_use(Path, V, E, Meta)).
 var_meta_use(Path, V, G, Meta) =>
     xref_meta(Path, G, GoalMeta),
     ( member(X, GoalMeta), X == V
@@ -374,8 +381,13 @@ var_meta_use(Path, V, G, Meta) =>
       Meta = N ).
 var_meta_use(_, _, _, _) => fail.
 
+% TODO: move these to tests
+
 thingy(A, B) :-
     call(A, 1, B).
+
+thingy2(A, B) :-
+    ( B = 1 -> call(A, 1, B) ; writeln(B)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % red-black tree helper
