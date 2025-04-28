@@ -561,6 +561,8 @@ setof_or_nil(T, G, L) :-
 %     ?- call_u(member(x, [a, b, c])).
 %     false.
 %
+
+:- meta_predicate call_u(0).
 call_u(G) :- pfcCallSystem(G).
 
 %!  clause_u(+Head, -Body) is nondet.
@@ -958,6 +960,8 @@ rem(X) :-
 %     ?- rem2(secondary_remove_example).
 %     true.
 %
+
+:- meta_predicate rem2(0).
 rem2(X) :-
     pfcRemove(X).
 
@@ -3502,6 +3506,8 @@ pfc_eval_rhs1(Assertion, Support) :-
 %     % Evaluate an action with support tracking.
 %     ?- fcEvalAction(my_action, support_context).
 %
+
+:- meta_predicate fcEvalAction(0,?).
 fcEvalAction(Action, Support) :-
    % Execute the action using the system's call mechanism.
    pfcCallSystem(Action),
@@ -3524,6 +3530,8 @@ fcEvalAction(Action, Support) :-
 %     % Evaluate a trigger and its body.
 %     ?- trigger_trigger(my_trigger, my_body, support_reason).
 %
+
+:- meta_predicate trigger_trigger(0,?,?).
 trigger_trigger(Trigger, Body, _Support) :-
    % Process the trigger if the condition holds.
    trigger_trigger1(Trigger, Body).

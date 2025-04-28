@@ -6278,6 +6278,8 @@ ctime_eval(Goal) :-
 %
 %   Allows a custom description (`What`) for CPU time-based evaluation.
 %
+
+:- meta_predicate ctime_eval(?,0).
 ctime_eval(What, Goal) :-
     ctimed_call(Goal, Seconds),
     give_time(What, Seconds).
@@ -6294,6 +6296,8 @@ wtime_eval(Goal) :-
 %
 %   Allows a custom description (`What`) for wall-clock time-based evaluation.
 %
+
+:- meta_predicate wtime_eval(?,0).
 wtime_eval(What, Goal) :-
     wtimed_call(Goal, Seconds),
     give_time(What, Seconds).
@@ -6331,6 +6335,8 @@ give_time(What, Seconds) :-
 %   @arg Goal    The goal to be executed and timed.
 %   @arg Seconds The elapsed time in seconds.
 %
+
+:- meta_predicate timed_call(0,?).
 timed_call(Goal, Seconds) :-
     ctimed_call(Goal, Seconds).
 

@@ -40,6 +40,8 @@ everything_is_good(Goal) :- callable(Goal).
 % Usage:
 %   interpB(P1, Test, Visited, Caller, Callee, _OldDetInfo, Proof).
 %
+
+:- meta_predicate interpB(1,?,?,?,?,?,?).
 interpB(P1, Test, Visited, Caller, Callee, _OldDetInfo, Proof) :-
     interpD(P1, Test, Visited, Caller, Callee, DetInfo, Proof),
     % DetInfo is expected to be of the form detinfo(Cutted, Failed)
@@ -297,6 +299,8 @@ meta_spec_matches(Fun, Arity, Spec, MetaPositions) :-
 % For each position in MetaPositions, extract the corresponding argument from Goal and
 % recursively call interpD/7 to obtain its proof.
 meta_args(_P1, _Goal, [], _Visited, _Caller, _Callee, _DetInfo, []).
+
+:- meta_predicate meta_args(1,?,?,?,?,?,?,?).
 meta_args(P1, Goal, [Pos|Rest], Visited, Caller, Callee, DetInfo, [Proof|Proofs]) :-
     arg(Pos, Goal, Arg),
     interpD(P1, Arg, Visited, Caller, Callee, DetInfo, Proof),

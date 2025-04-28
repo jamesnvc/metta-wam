@@ -1532,6 +1532,8 @@ read_list_cont(EndChar,  Stream, List) :-
 % @arg Stream Stream from which to read.
 % @arg EndChar that denotes the end of the quoted string.
 % @arg String The string read from the stream.
+
+:- meta_predicate read_quoted_string(?,1,?).
 read_quoted_string(Stream, EndChar,  String) :-
     read_until_char(Stream, EndChar,  Chars),  % Read characters until the ending quote.
     string_chars(String, Chars).  % Convert the list of characters to a string.
@@ -1590,6 +1592,8 @@ maybe_escape(_Char, NextChar, NextChar).
 % @arg Stream Stream from which to read.
 % @arg FirstChar The first character of the symbolic expression.
 % @arg Symbolic The complete symbolic expression read.
+
+:- meta_predicate read_symbolic(1,?,?,?).
 read_symbolic(EndChar,  Stream, FirstChar, Symbolic) :-
     read_symbolic_cont(EndChar,  Stream, RestChars),
     classify_and_convert_charseq([FirstChar| RestChars], Symbolic), !.

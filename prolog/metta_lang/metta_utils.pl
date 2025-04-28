@@ -3300,6 +3300,8 @@ map_pred0(NoCycles, Pred, P, X) :- map_pred1(NoCycles, Pred, P, X).
 %
 map_pred1(_NoCycles, _Pred, P, P1) :- (\+ compound(P) ; is_ftVar(P)), !, must_det_ll(P1 = P), !.
 map_pred1(NoCycles, Pred, IO, OO) :- is_list(IO),!,maplist(map_pred(NoCycles, Pred), IO, OO).
+
+:- meta_predicate map_pred1(?,2,?,?).
 map_pred1(NoCycles, Pred, IO, [O | ArgS]) :- IO = [I | Args],!,
     map_pred([IO, ArgS | NoCycles], Pred, I, O),map_pred0([IO, I | NoCycles], Pred, Args, ArgS).
 map_pred1(NoCycles, Pred, P, P1) :- compound_name_arguments(P, F, Args),
@@ -3382,6 +3384,8 @@ maybe_mapgrid(P2, I, O) :- is_grid(I), !, mapgrid(P2, I, O).
 %     O = [[Result1, Result2], [Result3, Result4]].
 %
 % If I is a grid, apply the predicate using mapgrid/4.
+
+:- meta_predicate maybe_mapgrid(3,?,?,?).
 maybe_mapgrid(P3, I, O, M) :- is_grid(I), !, mapgrid(P3, I, O, M).
 
 %!  maybe_mapgrid(+P, +I, -O, +M, +N) is det.
@@ -3399,6 +3403,8 @@ maybe_mapgrid(P3, I, O, M) :- is_grid(I), !, mapgrid(P3, I, O, M).
 %     O = [[Result1, Result2], [Result3, Result4]].
 %
 % If I is a grid, apply the predicate using mapgrid/5.
+
+:- meta_predicate maybe_mapgrid(4,?,?,?,?).
 maybe_mapgrid(P4, I, O, M, N) :- is_grid(I), !, mapgrid(P4, I, O, M, N).
 
 %!  mapgrid(+P4, +Grid, +GridM, +GridN, +GridO) is det.
@@ -3451,6 +3457,8 @@ mapg_list(P3, Grid, GridN, GridO) :- call(P3, Grid, GridN, GridO), !.
 %   @arg Grid, GridN The input and output grids.
 %
 % Normalize inputs to grids and call `mapg_list/3`.
+
+:- meta_predicate mapgrid(2,?,?).
 mapgrid(P2, Grid, GridN) :- into_grid_or_var(Grid, G1),into_grid_or_var(GridN, G2),!,mapg_list(P2, G1, G2).
 % Apply P2 recursively if the input is a list of grids.
 mapg_list(P2, Grid, GridN) :- is_list(Grid),!,maplist(mapg_list(P2), Grid, GridN).
@@ -3467,6 +3475,8 @@ mapg_list(P2, Grid, GridN) :- p2_call(P2, Grid, GridN), !.
 %   @arg Grid The input grid.
 %
 % Normalize the grid and call `mapg_list/2`.
+
+:- meta_predicate mapgrid(1,?).
 mapgrid(P1, Grid) :- into_grid_or_var(Grid, G1),mapg_list(P1, G1).
 % Apply P1 recursively if the input is a list of grids.
 mapg_list(P1, Grid) :- is_list(Grid),!,maplist(mapg_list(P1), Grid).
@@ -3970,6 +3980,8 @@ subst_1L_p2(P2, [X-Y | List], Term, NewTerm) :-
 %   @arg Term The original term.
 %   @arg NewTerm The resulting term after substitution.
 % Copy and prepare terms for predicate-based substitution.
+
+:- meta_predicate subst0011_p2(2,?,?,?,?).
 subst0011_p2(P2, X, Y, Term, NewTerm) :-
     copy_term((X, Y, Term), (CX, CY, Copy), Goals),
     (Goals == [] ->

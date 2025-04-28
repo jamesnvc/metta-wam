@@ -405,6 +405,8 @@ optimize_body( HB,(B1,B2),(BN1)):- optimize_conjuncts(HB,(B1,B2),BN1).
 optimize_body( HB,u_assign(A,B),R):- optimize_u_assign_1(HB,A,B,R),!.
 optimize_body( HB,eval(A,B),R):- optimize_u_assign_1(HB,A,B,R),!.
 %optimize_body(_HB,u_assign(A,B),u_assign(AA,B)):- p2s(A,AA),!.
+
+:- meta_predicate optimize_body(?,0,?).
 optimize_body(_HB,Body,BodyNew):- optimize_body_unit(Body,BodyNew).
 
 %!  optimize_body_unit(+Input, -Output) is det.

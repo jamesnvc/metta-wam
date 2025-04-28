@@ -267,6 +267,8 @@ eval_args(Depth,Self,X,Y):- eval_args('=',_RetType,Depth,Self,X,Y).
 %! eval_to(+X,+Y) is semidet.
 % checks if X evals to Y
 evals_to(XX,Y):- Y=@=XX,!.
+
+:- meta_predicate evals_to(0,?).
 evals_to(XX,Y):- Y=='True',!, is_True(XX),!.
 
 eval_args(_Eq,_RetType,_Dpth,_Slf,X,Y):- var(X),nonvar(Y),!,X=Y.
@@ -473,6 +475,8 @@ eval_08(Eq,RetType,Depth,Self,X,Y):- eval_09(Eq,RetType,Depth,Self,X,Y).
 
 
 %eval_09(Eq,RetType,Depth,Self,X,Y):- !, no_repeats(X+Y,eval_10(Eq,RetType,Depth,Self,X,Y)).
+
+:- meta_predicate eval_09(6,?,?,?,?,?).
 eval_09(Eq,RetType,Depth,Self,X,Y):- !,
      no_repeats_var(YY),
      eval_to_name(X,XX),!,
@@ -1013,6 +1017,8 @@ eval_until_eq_soon(_Flags,Eq,XType,YType,Depth,Self,EX,EY):-
    NewX=NewY.
 */
 
+
+:- meta_predicate eval_1change(6,?,?,?,?,?).
 eval_1change(Eq,XType,Depth,Self,EX,EXX):- eval_10(Eq,XType,Depth,Self,EX,EXX),  EX \=@= EXX.
 eval_complete_change(Eq,XType,YType,Depth,Self,EX,EXX):- eval_args(Eq,XType,YType,Depth,Self,EX,EXX),  EX \=@= EXX.
 
@@ -1312,6 +1318,8 @@ equal_enough_for_test_l(P2,X,Y):-            must_be(proper_list,X), must_be(pro
 
 equal_enough_for_test_renumbered(P2,X0,Y0):- equal_renumbered(X0,Y0,XX,YY), equal_enough_for_test(P2, XX,YY).
 
+
+:- meta_predicate equal_enough_for_test(2,?,?).
 equal_enough_for_test(P2,X,Y):- equal_enough(P2,X,Y),!.
 
 /*
@@ -2078,6 +2086,8 @@ eval_10_disabled(Eq,RetType,Depth,Self,['if',Cond,Then],Res):- !, %var(Cond),  !
 %eval_10(Eq,RetType,Depth,Self,['If',Cond,Then|Else],Res):- !,
 %   eval_10(Eq,RetType,Depth,Self,['if',Cond,Then|Else],Res).
 
+
+:- meta_predicate eval_20_failed(6,?,?,?,?,?).
 eval_20_failed(Eq,RetType,Depth,Self,[X|Args],Res):-
   quietly((findall(metta_defn(Self,[Y|Args],Body),(metta_defn(Self,[Y|Args],Body),X==Y),L))),
   L = [metta_defn(Self,[Y|Args],Body)], X==Y, !,

@@ -3217,7 +3217,7 @@ really_use_corelib_file(Dir, File) :-
      locally(nb_setval(may_use_fast_buffer, t),
              locally(nb_setval(suspend_answers, true),
             without_output(include_metta_directory_file('&corelib', Dir, Filename)))),
-     asserta(really_using_corelib_file).
+     asserta(really_using_corelib_file))).
 
 :- meta_predicate without_output(0).
 

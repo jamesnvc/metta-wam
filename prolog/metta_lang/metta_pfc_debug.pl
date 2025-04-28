@@ -1964,6 +1964,8 @@ pp_db_facts(MM, Pattern) :- pp_db_facts(MM, Pattern, true).
 %   @arg Pattern The pattern to match facts against.
 %   @arg Condition The condition to filter facts.
 %
+
+:- meta_predicate pp_db_facts(0,?,?).
 pp_db_facts(MM, P, C) :-
   pfc_facts_in_kb(MM, P, C, L),
   pfc_classifyFacts(L, User, Pfc, _ZRule),
