@@ -44,7 +44,7 @@ main([DirPath]) :-
            ( file_missing_meta_predicates(File, Missing),
              ( Missing = []
              -> true
-             ;  insert_meta_predicates(File, Missing) ))).
+             ;  insert_meta_predicates(File, Missing) ) )).
 
 % also convert top-level declaration calling of goals into initialization/2
 
@@ -72,7 +72,7 @@ files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileIm
 :- dynamic definers_choice/2.
 
 check_definitions(Mapping0, Mapping1) :-
-    rb_map_kv(Mapping0,find_source_for, Mapping1).
+    rb_map_kv(Mapping0, find_source_for, Mapping1).
 
 find_source_for(_, [File], File) :- !.
 find_source_for(_, File, File) :- atom(File), !.
@@ -88,7 +88,7 @@ find_source_for(Defn, Files, Choice) :-
     atomics_to_string(ChoicesStrings, "\n", ChoicesStr),
     repeat,
     format(user_output, "Predicate ~w is defined in~n~s~nWhich should export it: [1-~w]",
-          [Defn, ChoicesStr, NChoices]),
+           [Defn, ChoicesStr, NChoices]),
     read_line_to_string(user_input, InputString),
     number_string(Number, InputString),
     integer(Number),
@@ -232,10 +232,10 @@ find_ensure_loaded(Stream, Module, TermPos) :-
     prolog_read_source_term(Stream, Term, _, [ subterm_positions(TermPos),
                                                syntax_errors(dec10) ]),
     ( Term = end_of_file *-> !, fail
-    ; Term = (:- ensure_loaded(Module)), !,
-      arg(2, TermPos, End0),
-      End is End0 + 1, % include full stop
-      setarg(2, TermPos, End) ).
+      ; Term = (:- ensure_loaded(Module)), !,
+        arg(2, TermPos, End0),
+        End is End0 + 1, % include full stop
+        setarg(2, TermPos, End) ).
 
 splice_out_term_in_file(Path, TermPos) :-
     arg(1, TermPos, Start),
@@ -393,8 +393,8 @@ var_meta_use(_, V, G, Meta), var(G), V == G =>
     Meta = 0.
 var_meta_use(Path, V, (I -> T ; E), Meta) =>
     once(var_meta_use(Path, V, I, Meta) ;
-         var_meta_use(Path, V, T, Meta) ;
-         var_meta_use(Path, V, E, Meta)).
+             var_meta_use(Path, V, T, Meta) ;
+                 var_meta_use(Path, V, E, Meta)).
 var_meta_use(Path, V, G, Meta) =>
     xref_meta(Path, G, GoalMeta),
     ( member(X, GoalMeta), X == V
@@ -409,7 +409,7 @@ thingy(A, B) :-
     call(A, 1, B).
 
 thingy2(A, B) :-
-    ( B = 1 -> call(A, 1, B) ; writeln(B)).
+    ( B = 1 -> call(A, 1, B) ; writeln(B) ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % red-black tree helper
@@ -419,20 +419,20 @@ thingy2(A, B) :-
 
 :- meta_predicate rb_map_kv(+, 3, -).
 
-rb_map_kv(t(Nil,Tree),Goal,NewTree2) =>
-    NewTree2 = t(Nil,NewTree),
-    map_kv(Tree,Goal,NewTree,Nil).
+rb_map_kv(t(Nil, Tree), Goal, NewTree2) =>
+    NewTree2 = t(Nil, NewTree),
+    map_kv(Tree, Goal, NewTree, Nil).
 
-map_kv(black('',_,_,''),_,Nil0,Nil) => Nil0 = Nil.
-map_kv(red(L,K,V,R),Goal,NewTree,Nil) =>
-    NewTree = red(NL,K,NV,NR),
-    call(Goal,K,V,NV),
-    map_kv(L,Goal,NL,Nil),
-    map_kv(R,Goal,NR,Nil).
-map_kv(black(L,K,V,R),Goal,NewTree,Nil) =>
-    NewTree = black(NL,K,NV,NR),
-    call(Goal,K,V,NV),
-    map_kv(L,Goal,NL,Nil),
-    map_kv(R,Goal,NR,Nil).
+map_kv(black('', _, _, ''), _, Nil0, Nil) => Nil0 = Nil.
+map_kv(red(L, K, V, R), Goal, NewTree, Nil) =>
+    NewTree = red(NL, K, NV, NR),
+    call(Goal, K, V, NV),
+    map_kv(L, Goal, NL, Nil),
+    map_kv(R, Goal, NR, Nil).
+map_kv(black(L, K, V, R), Goal, NewTree, Nil) =>
+    NewTree = black(NL, K, NV, NR),
+    call(Goal, K, V, NV),
+    map_kv(L, Goal, NL, Nil),
+    map_kv(R, Goal, NR, Nil).
 
 :- meta_predicate map_kv(?, 3, ?, ?).
