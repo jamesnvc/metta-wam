@@ -1,89 +1,3 @@
-:- module(metta_interp, [ always_exec/1,
-                          catch_err/3,
-                          ctime_eval/2,
-                          current_self/1,
-                          dcall0000000000/1,
-                          default_depth/1,
-                          descend_and_transform/3,
-                          do_metta/5,
-                          do_show_options_values/0,
-                          eval_H/2,
-                          eval_H/4,
-                          extreme_tracing/0,
-                          fake_notrace/1,
-                          false_flag/0,
-                          fbug/1,
-                          fbugio/1,
-                          file_hides_results/1,
-                          function_arity/3,
-                          gen_interp_stubs/3,
-                          get_metta_atom_from/2,
-                          ggtrace/1,
-                          if_or_else/2,
-                          if_or_else/3,
-                          in_answer_io/1,
-                          into_name/3,
-                          into_space/3,
-                          into_space/4,
-                          into_top_self/2,
-                          into_underscores/2,
-                          is_False/1,
-                          is_compatio/0,
-                          is_compiling/0,
-                          is_converting/0,
-                          is_conz/1,
-                          is_devel/0,
-                          is_flag/1,
-                          is_function/1,
-                          is_metta_data_functor/1,
-                          is_metta_space/1,
-                          is_nb_space/1,
-                          is_testing/0,
-                          is_transpiling/0,
-                          load_ontology/0,
-                          make_empty/2,
-                          make_empty/3,
-                          make_nop/1,
-                          make_nop/2,
-                          make_nop/3,
-                          maybe_into_top_self/2,
-                          metta_atom_asserted/2,
-                          metta_atom_fast/2,
-                          metta_compiled_predicate/3,
-                          metta_defn/3,
-                          metta_dir/1,
-                          metta_eq_def/4,
-                          metta_interp_mode/2,
-                          metta_root_dir/1,
-                          metta_type/3,
-                          nocut/0,
-                          not_compat_io/1,
-                          not_compatio/1,
-                          not_in_eq/2,
-                          once_writeq_nl/1,
-                          pfcAdd_Now/1,
-                          real_notrace/1,
-                          rtrace_on_error/1,
-                          rtrace_on_failure/1,
-                          s2p/2,
-                          switch_to_mettalog/0,
-                          switch_to_mettarust/0,
-                          time_eval/2,
-                          top_self/1,
-                          trace_on_fail/0,
-                          trace_on_pass/0,
-                          true_flag/0,
-                          use_metta_compiler/0,
-                          user_io/1,
-                          write_answer_output/0,
-                          writeqln/1,
-                          wtime_eval/1,
-                          wtime_eval/2,
-                          wtimed_call/2,
-                          find_missing_cuts/0,
-                          find_missing_cuts/1,
-                          on_metta_setup/1,
-                          is_win64/0 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -151,18 +65,13 @@
 % UTF-8 is more universal and can handle a wider range of characters.
 :- encoding(utf8).
 
-
-:- meta_predicate o_quietly(0).
 o_quietly(G):- call(G).
 % o_quietly(G):- quietly(G).
 
-
-:- meta_predicate o_woc(0).
 o_woc(G):- call(G).
 % o_woc(G):- woc(G).
 
 :- dynamic('$metta_setup':on_init_metta/1).
-:- meta_predicate on_metta_setup(0).
 on_metta_setup(Goal):-
    assertz('$metta_setup':on_init_metta(Goal)).
 do_metta_setup:- forall('$metta_setup':on_init_metta(Goal),
@@ -212,7 +121,7 @@ do_metta_setup:- forall('$metta_setup':on_init_metta(Goal),
 
 % Load additional Prolog support functions from the 'swi_support' file.
 % This could include helper predicates or extensions for SWI-Prolog.
-
+:- ensure_loaded(swi_support).
 
 % Load the Prolog documentation library (pldoc).
 % This library provides tools for generating and interacting with Prolog documentation.
@@ -364,7 +273,7 @@ metta_root_dir(Dir) :-
     getenv('METTALOG_DIR', Dir), !.
 metta_root_dir(Dir) :-
     % Attempt to resolve the root directory relative to the source directory.
-    user:is_metta_src_dir(Value),
+    is_metta_src_dir(Value),
     absolute_file_name('../../', Dir, [relative_to(Value)]).
 metta_root_dir(Dir) :-
     % Fallback to using the METTA_DIR environment variable.
@@ -420,7 +329,7 @@ metta_dir(Dir) :-
     absolute_file_name('./loaders/genome/', Dir, [relative_to(Value)]).
     % Fallback to the source directory if the above resolution fails.
 metta_dir(Dir) :-
-    user:is_metta_src_dir(Dir).
+    is_metta_src_dir(Dir).
     % Fallback to the Mettalog library directory if previous attempts fail.
 metta_dir(Dir) :-
     metta_library_dir(Dir).
@@ -590,7 +499,7 @@ system:copy_term_g(I, O) :-
     % Otherwise, use `copy_term/2`.
     copy_term(I, O).
 
-
+:- ensure_loaded(metta_debug).
 
 %!  is_metta_flag(+What) is nondet.
 %
@@ -811,8 +720,8 @@ is_html :- is_metta_flag('html').
 % If the file is not already loaded, this is equivalent to consult/1. Otherwise, if the file defines a module,
 % import all public predicates. Finally, if the file is already loaded, is not a module file, and the context
 % module is not the global user module, ensure_loaded/1 will call consult/1.
-
-
+:- ensure_loaded(metta_printer).
+:- ensure_loaded(metta_loader).
 
 %   This directive ensures that debugging messages or tracing for
 %   `'trace-on-eval'` are suppressed, reducing console output during evaluation.
@@ -1881,8 +1790,6 @@ with_answer_output(Goal, S) :-
 %
 %   @arg Goal The Prolog goal to execute with output suppressed.
 %
-
-:- meta_predicate null_io(0).
 null_io(G) :-
     % Redirect output to a null stream and execute the Goal.
     null_user_output(Out), !,
@@ -1907,13 +1814,9 @@ user_io(G) :-
 %
 %   @arg Goal The Prolog goal to execute with appropriate output redirection.
 %
-
-:- meta_predicate user_io_0(0).
 user_io_0(G) :-
     nb_current('$dont_redirect_output', true), !,
     call(G).
-
-:- meta_predicate user_io_0(0).
 user_io_0(G) :-
     % If in MettaLog runtime mode, output to the error stream.
     current_prolog_flag(mettalog_rt, true), !,
@@ -1922,8 +1825,6 @@ user_io_0(G) :-
     with_output_to(Out, G),
     flush_output(Out),
     ttyflush.
-
-:- meta_predicate user_io_0(0).
 user_io_0(G) :-
     % Otherwise, output to the original user output stream.
     original_user_output(Out),
@@ -1938,8 +1839,6 @@ user_io_0(G) :-
 %
 %   @arg Goal The Prolog goal to execute with error-directed output.
 %
-
-:- meta_predicate user_err(0).
 user_err(G) :-
     % Redirect output to the original error stream and execute the Goal.
     original_user_error(Out), !,
@@ -1964,7 +1863,6 @@ with_output_to_s(Out, G) :-
         set_prolog_IO(user_input, COut, user_error)
     ).
 
-:- meta_predicate not_compatio(0).
 %!  not_compatio(:Goal) is det.
 %
 %   Executes the specified Goal only if the current context is not in compatibility mode.
@@ -2005,8 +1903,6 @@ extra_answer_padding(_).
 %   @arg G The goal to be executed.
 in_answer_io(G):- notrace((in_answer_io_0(G))).
 in_answer_io_0(_):- nb_current(suspend_answers,true),!.
-
-:- meta_predicate in_answer_io_0(0).
 in_answer_io_0(G) :-
     % Get the answer_output stream
     answer_output(AnswerOut),
@@ -2193,8 +2089,6 @@ transcode_content(Content, FromEncoding, ToEncoding, TranscodedContent) :-
 %     % Example usage to check for non-compatibility mode and run a task:
 %     ?- not_compat_io(writeln('Non-compatible environment active.')).
 %
-
-:- meta_predicate not_compat_io(0).
 not_compat_io(G) :- not_compatio(G).
 
 %!  non_compat_io(Goal) is nondet.
@@ -2209,8 +2103,6 @@ not_compat_io(G) :- not_compatio(G).
 %     % Example usage to run a goal in non-compatible mode:
 %     ?- non_compat_io(writeln('Non-compatible I/O behavior enabled.')).
 %
-
-:- meta_predicate non_compat_io(0).
 non_compat_io(G) :- not_compatio(G).
 
 %!  trace_on_pass is det.
@@ -2287,8 +2179,6 @@ doing_repl :- option_value('doing_repl', true).
 %     ?- if_repl(writeln('This is REPL mode.')).
 %     This is REPL mode.
 %
-
-:- meta_predicate if_repl(0).
 if_repl(Goal) :- doing_repl -> call(Goal) ; true.
 
 %!  any_floats(+List) is nondet.
@@ -2402,17 +2292,17 @@ nocut.
 % If the file is not already loaded, ensure_loaded is equivalent to consult/1. Otherwise, if the file defines a module,
 % import all public predicates. Finally, if the file is already loaded, is not a module file,
 % and the context module is not the global user module, ensure_loaded/1 will call consult/1.
-
-
+:- ensure_loaded(metta_utils).
+:- ensure_loaded(metta_proof).
 %:- ensure_loaded(mettalog('metta_ontology.pfc.pl')).
-
-
-
-
-
-
-
-
+:- ensure_loaded(metta_pfc_debug).
+:- ensure_loaded(metta_pfc_base).
+:- ensure_loaded(metta_pfc_support).
+:- ensure_loaded(metta_compiler).
+:- ensure_loaded(metta_convert).
+:- ensure_loaded(metta_types).
+:- ensure_loaded(metta_space).
+:- ensure_loaded(metta_eval).
 :- nb_setval(self_space, '&top').
 
 :- initialization(nb_setval(self_space, '&top')).
@@ -3069,8 +2959,6 @@ load_metta_file(_Slf, Filemask) :-
 %     ?- catch_abort(my_source, abort).
 %     % Logs: aborted(my_source, abort)
 %
-
-:- meta_predicate catch_abort(?,0).
 catch_abort(From, Goal) :-
     % Redirect to the three-argument version of `catch_abort`.
     catch_abort(From, Goal, Goal).
@@ -3089,8 +2977,6 @@ catch_abort(From, Goal) :-
 %     ?- catch_abort(my_source, some_context, abort).
 %     % Logs: aborted(my_source, some_context)
 %
-
-:- meta_predicate catch_abort(?,?,0).
 catch_abort(From, TermV, Goal) :-
     % Use `catch/3` to handle exceptions raised by the Goal.
     catch(
@@ -3289,8 +3175,6 @@ cmdline_load_file(Self, Filemask) :-
 %     ?- if_phase(execute, execute, writeln('Executing...')).
 %     Executing...
 %
-
-:- meta_predicate if_phase(?,?,0).
 if_phase(Current, Phase, Goal) :-
     sub_var_safely(Current, Phase) -> call(Goal) ; true.
 
@@ -3513,8 +3397,6 @@ clear_space(S) :-
 %     ?- dcall(writeln('Hello, World!')).
 %     Hello, World!
 %
-
-:- meta_predicate dcall(0).
 dcall(G) :- call(G).
 
 %!  lsm is det.
@@ -3724,8 +3606,6 @@ into_underscores(D, U) :-
 %     % Transform components of a compound term:
 %     ?- descend_and_transform(into_underscores, foo('some-symbol', bar-baz), Result).
 %     Result = foo('some_symbol', bar_baz).
-
-:- meta_predicate descend_and_transform(2,?,?).
 descend_and_transform(P2, Input, Transformed) :-
     (   var(Input)
     ->  Transformed = Input  % Keep variables as they are
@@ -3989,12 +3869,8 @@ load_hook(Load,Hooked):-
 %     % Execute a goal and trace errors:
 %     ?- rtrace_on_error(writeln('Hello, World!')).
 %
-
-:- meta_predicate rtrace_on_error(0).
 rtrace_on_error(G):- !, call(G).
 %rtrace_on_error(G):- catch(G,_,fail).
-
-:- meta_predicate rtrace_on_error(0).
 rtrace_on_error(G):-
   catch_err(G,E,
    (%notrace,
@@ -4015,8 +3891,6 @@ rtrace_on_error(G):-
 %     % Execute a goal and trace failures:
 %     ?- rtrace_on_failure(writeln('This will not fail.')).
 %
-
-:- meta_predicate rtrace_on_failure(0).
 rtrace_on_failure(G):- tracing,!,call(G).
 rtrace_on_failure(G):-
   catch_err((G*->true;(write_src_uo(rtrace_on_failure(G)),
@@ -4041,8 +3915,6 @@ rtrace_on_failure(G):-
 %     % Execute a goal and trace failures, breaking on failure:
 %     ?- rtrace_on_failure_and_break(writeln('This may fail.')).
 %
-
-:- meta_predicate rtrace_on_failure_and_break(0).
 rtrace_on_failure_and_break(G):-
     % If tracing is already active, execute the Goal directly.
     tracing, !, call(G).
@@ -6152,13 +6024,10 @@ call_max_time(Goal, _MaxTime, Else) :-
 call_max_time(Goal, _MaxTime, Else) :-
     % Fallback to executing the goal directly if no time limit is set.
     !, if_or_else(Goal, Else).
-
-:- meta_predicate call_max_time(?,?,0).
 call_max_time(Goal, MaxTime, Else) :-
     % Use `call_with_time_limit/2` to enforce the time limit, handling exceptions for timeouts.
     catch(if_or_else(call_with_time_limit(MaxTime, Goal), Else), time_limit_exceeded, Else).
 
-:- meta_predicate catch_err(0, ?, 0).
 %!  catch_err(+Goal, +Exception, +Handler) is det.
 %
 %   Executes a goal (`Goal`) and handles exceptions using a handler (`Handler`).
@@ -6178,8 +6047,6 @@ catch_err(G, E, C) :-
 %
 %   @arg Goal The goal to execute.
 %
-
-:- meta_predicate dont_give_up(0).
 dont_give_up(G) :-
     catch(G, give_up(E), write_src_uo(dont_give_up(E))).
 
@@ -6200,7 +6067,7 @@ not_in_eq(List, Element) :-
     % Iterate over the list and check for equality using `==`.
     member(V, List), V == Element.
 
-
+:- ensure_loaded(metta_repl).
 
 % Each of these `nodebug/1` directives suppresses debugging output for the corresponding category.
 :- nodebug(metta(eval)).
@@ -6251,8 +6118,6 @@ not_in_eq(List, Element) :-
 %     % Measure the time for a goal with a delay:
 %     ?- time_eval(sleep(0.95)).
 %
-
-:- meta_predicate time_eval(0).
 time_eval(Goal) :-
     time_eval('Evaluation', Goal).
 
@@ -6264,8 +6129,6 @@ time_eval(Goal) :-
 %   @arg What A description of the evaluated task.
 %   @arg Goal The Prolog goal to be executed and timed.
 %
-
-:- meta_predicate time_eval(?,0).
 time_eval(What, Goal) :-
     timed_call(Goal, Seconds),
     give_time(What, Seconds).
@@ -6275,8 +6138,6 @@ time_eval(What, Goal) :-
 %   Similar to `time_eval/1`, but explicitly uses CPU time for measuring the
 %   execution time of the goal (`Goal`).
 %
-
-:- meta_predicate ctime_eval(0).
 ctime_eval(Goal) :-
     ctime_eval('Evaluation', Goal).
 
@@ -6284,8 +6145,6 @@ ctime_eval(Goal) :-
 %
 %   Allows a custom description (`What`) for CPU time-based evaluation.
 %
-
-:- meta_predicate ctime_eval(?,0).
 ctime_eval(What, Goal) :-
     ctimed_call(Goal, Seconds),
     give_time(What, Seconds).
@@ -6295,8 +6154,6 @@ ctime_eval(What, Goal) :-
 %   Measures the wall-clock (real) time for the execution of a goal (`Goal`).
 %   Suitable for tasks involving delays or external interactions.
 %
-
-:- meta_predicate wtime_eval(0).
 wtime_eval(Goal) :-
     wtime_eval('Evaluation', Goal).
 
@@ -6304,8 +6161,6 @@ wtime_eval(Goal) :-
 %
 %   Allows a custom description (`What`) for wall-clock time-based evaluation.
 %
-
-:- meta_predicate wtime_eval(?,0).
 wtime_eval(What, Goal) :-
     wtimed_call(Goal, Seconds),
     give_time(What, Seconds).
@@ -6343,8 +6198,6 @@ give_time(What, Seconds) :-
 %   @arg Goal    The goal to be executed and timed.
 %   @arg Seconds The elapsed time in seconds.
 %
-
-:- meta_predicate timed_call(0,?).
 timed_call(Goal, Seconds) :-
     ctimed_call(Goal, Seconds).
 
@@ -6356,8 +6209,6 @@ timed_call(Goal, Seconds) :-
 %   @arg Goal    The goal to be executed and timed.
 %   @arg Seconds The elapsed CPU time in seconds.
 %
-
-:- meta_predicate ctimed_call(0,?).
 ctimed_call(Goal, Seconds) :-
     statistics(cputime, Start),
     % Use `rtrace` for debugging if applicable.
@@ -6373,8 +6224,6 @@ ctimed_call(Goal, Seconds) :-
 %   @arg Goal    The goal to be executed and timed.
 %   @arg Seconds The elapsed wall-clock time in seconds.
 %
-
-:- meta_predicate wtimed_call(0,?).
 wtimed_call(Goal, Seconds) :-
     statistics(walltime, [Start, _]),
     % Use `rtrace` for debugging if applicable.
@@ -6491,8 +6340,6 @@ example3(_) :- fail.
 %
 %   @arg Goal The goal to execute.
 %
-
-:- meta_predicate chkdet_call(0).
 chkdet_call(XX) :- !, call(XX).
 
 %!  chkdet_call0(+Goal) is det.
@@ -6501,8 +6348,6 @@ chkdet_call(XX) :- !, call(XX).
 %
 %   @arg Goal The goal to execute.
 %
-
-:- meta_predicate chkdet_call0(0).
 chkdet_call0(XX) :- !, call(XX).
 
 %!  dcall0000000000(+Goal) is nondet.
@@ -6566,8 +6411,6 @@ call_nth(USol, XX, Nth, Det, Prev) :-
 %
 %   @arg Term The term to be executed.
 %
-
-:- meta_predicate catch_red(0).
 catch_red(Term) :-
     catch_err(Term, E, pp_m_m_red(red, in(Term, E))).
 
@@ -6709,8 +6552,6 @@ extreme_tracing :-
 ggtrace(G) :-
     % If extreme tracing is enabled, use `rtrace/1` for the goal.
     extreme_tracing, !, rtrace(G).
-
-:- meta_predicate ggtrace(0).
 ggtrace(G) :-
     % If extreme tracing is disabled, fail silently.
     !, fail, call(G).
@@ -6729,8 +6570,6 @@ ggtrace(G) :-
 %     % Execute a goal with enhanced tracing:
 %     ?- ggtrace0(my_goal(X)).
 %
-
-:- meta_predicate ggtrace0(0).
 ggtrace0(G) :-
     % Enable general tracing using `ggtrace/1`.
     ggtrace,
@@ -7173,7 +7012,7 @@ qsave_program(Name) :-
     if_verbose(main,write_src_nl(done(qsave_program(Name)))).
 
 :- ensure_loaded(library(flybase_main)).
-
+:- ensure_loaded(metta_server).
 
 
 :- initialization(update_changed_files).
@@ -7328,8 +7167,8 @@ fix_message_hook :-
 
 %:- ensure_loaded('../../library/genome/flybase_loader').
 
-
-
+:- ensure_loaded(metta_python).
+:- ensure_loaded(metta_corelib).
 %:- ensure_loaded(metta_help).
 
 %:- initialization( enter_comment).
@@ -7639,8 +7478,6 @@ findall_or_skip(Var, Call, []) :-
     % If the `exec` option is set to `skip`, log the skipped execution and return an empty list.
     fast_option_value(exec, skip), !,
     once_writeq_nl_now(red, (skipping :- time(findall(Var, Call, _List)))).
-
-:- meta_predicate findall_or_skip(?,0,?).
 findall_or_skip(Var, Call, List) :-
     % Execute the query using `findall/3` to collect results into `List`.
     findall(Var, Call, List).
@@ -7650,89 +7487,7 @@ findall_or_skip(Var, Call, List) :-
 %:- initialization(set_prolog_flag(gc,false).
 
 %:- initialization(trace, now).
-:- use_module(library(clpr)).
-:- use_module(metta_compiler_roy, [ compile_for_exec/3,
-                                    functs_to_preds/2,
-                                    list_to_conjunction/2,
-                                    must_det_lls/1 ]).
-:- use_module(metta_convert, [ sexpr_s2p/2 ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_debug, [ abolish_trace/0,
-                             fast_option_value/2,
-                             if_trace/2,
-                             if_verbose/2,
-                             is_debugging/1,
-                             is_extreme_debug/1,
-                             output_language/2,
-                             set_debug/2,
-                             sub_term_safely/2,
-                             sub_var_safely/2 ]).
-:- use_module(metta_eval, [ catch_metta_return/2,
-                            catch_warn/1,
-                            len_or_unbound/2,
-                            typed_list/3,
-                            using_all_spaces/0 ]).
-:- use_module(metta_loader, [ check_silent_loading/0,
-                              connl/0,
-                              load_metta/2,
-                              silent_loading/0,
-                              use_corelib_file/0 ]).
-:- use_module(metta_parser, [ read_metta/2,
-                              subst_vars/2,
-                              subst_vars/3 ]).
-:- use_module(metta_pfc_debug, [ pfcTraceExecution/0 ]).
-:- use_module(metta_printer, [ once_writeq_nl_now/2,
-                               with_concepts/2,
-                               write_src/1,
-                               write_src_nl/1,
-                               write_src_woi/1 ]).
-:- use_module(metta_python, [ ensure_mettalog_py/0 ]).
-:- use_module(metta_repl, [ inside_assert/2,
-                            into_named_vars/2,
-                            repl/0,
-                            term_dont_cares/2 ]).
-:- use_module(metta_space, [ 'add-atom'/2,
-                             metta_final/0,
-                             'remove-atom'/2 ]).
-:- use_module(metta_testing, [ color_g_mesg/2,
-                               color_g_mesg_ok/2,
-                               file_answers/3,
-                               has_loonit_results/0,
-                               loonit_report/0,
-                               loonit_reset/0 ]).
-:- use_module(metta_types, [ is_space_type/2 ]).
-:- use_module(metta_utils, [ always_rethrow/1,
-                             pp_m/2,
-                             substM/4,
-                             write_src_uo/1 ]).
-:- use_module(swi_support, [ atom_contains/2,
-                             catch_ignore/1,
-                             if_t/2,
-                             must_det_ll/1,
-                             option_else/3,
-                             option_value/2,
-                             set_option_value/2,
-                             symbol/1,
-                             symbol_concat/3,
-                             symbolic/1,
-                             symbolic_list_concat/2,
-                             symbolic_list_concat/3 ]).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- % Import the CLP(R) library
+:- use_module(library(clpr)). % Import the CLP(R) library
 %:- initialization(loon_main, main).
 :- initialization(loon(main), main).
 

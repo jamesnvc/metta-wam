@@ -1,21 +1,3 @@
-:- module(metta_pfc_support, [ assumption/1,
-                               axiom/1,
-                               clear_proofs/0,
-                               current_why_U/1,
-                               current_why_UU/1,
-                               find_mfl/2,
-                               justifications/2,
-                               matches_why_UU/1,
-                               matterialize_support_term/2,
-                               nb_hasval/2,
-                               nb_pushval/2,
-                               pfcAddSupport/2,
-                               pfcChildren/2,
-                               pfcGetSupport/2,
-                               pfcRemOneSupport/2,
-                               pfcRemOneSupportOrQuietlyFail/2,
-                               pfc_spft/3,
-                               reset_shown_justs/0 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -75,21 +57,6 @@
 % Douglas Miles
 
 */
-
-:- use_module(metta_pfc_base, [ bagof_or_nil/3,
-                                call_u/1,
-                                must_ex/1,
-                                pfcAddType1/1,
-                                pfcCallSystem/1,
-                                pfcRetractOrQuietlyFail/1,
-                                pfcRetractOrWarn/1,
-                                pfcType/2,
-                                pfcUnion/3,
-                                pfc_term_expansion/2,
-                                pfc_unnegate/2,
-                                supports/2,
-                                op(_, _, _)
-                              ]).
 
 %*********************************************************************************************
 % PROGRAM FUNCTION:  Implements forward chaining, tracks changes, and provides proofs of safety.
@@ -1052,14 +1019,6 @@ which_missing_argnum(Q, _F, A, N) :-
     is_ftNonvar(Was).
 
 :-use_module(library(lists)).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_interp, [ fbugio/1 ]).
-:- use_module(metta_pfc_debug, [ get_why_uu/1,
-                                 lookup_spft/3,
-                                 unwrap_litr0/2 ]).
-
-
-
 
 %!  justification(+F, -J) is semidet.
 %

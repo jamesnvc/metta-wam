@@ -1,27 +1,3 @@
-:- module(metta_pfc_base, [ bagof_or_nil/3,
-                            call_u/1,
-                            is_file_ref/1,
-                            must_ex/1,
-                            pfcAdd/1,
-                            pfcAddType1/1,
-                            pfcCallSystem/1,
-                            pfcRetractOrQuietlyFail/1,
-                            pfcRetractOrWarn/1,
-                            pfcType/2,
-                            pfcUnion/3,
-                            pfc_call/1,
-                            pfc_term_expansion/2,
-                            pfc_unnegate/2,
-                            quietly_ex/1,
-                            setof_or_nil/3,
-                            supports/2,
-                            pfcDefault/2,
-                            op(500,fx,~),
-                            op(1050,xfx,==>),
-                            op(1050,xfx,<==>),
-                            op(1050,xfx,<-),
-                            op(1100,fx,==>),
-                            op(1150,xfx,::::) ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -82,40 +58,6 @@
 
 */
 
-:- use_module(metta_compiler_roy, [ iz_conz/1,
-                                    strip_m/2 ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_interp, [ fbugio/1,
-                              once_writeq_nl/1,
-                              true_flag/0 ]).
-:- use_module(metta_pfc_debug, [ brake/1,
-                                 pfcError/2,
-                                 pfcFact/1,
-                                 pfcTF1/1,
-                                 pfcTraceAdd/2,
-                                 pfcTraceMsg/1,
-                                 pfcTraceMsg/2,
-                                 pfcTraceRem/1,
-                                 pfcWarn/1,
-                                 pfcWarn/2,
-                                 pfcWhy/1,
-                                 printLine/0 ]).
-:- use_module(metta_pfc_support, [ assumption/1,
-                                   axiom/1,
-                                   current_why_U/1,
-                                   current_why_UU/1,
-                                   matches_why_UU/1,
-                                   matterialize_support_term/2,
-                                   pfcAddSupport/2,
-                                   pfcChildren/2,
-                                   pfcGetSupport/2,
-                                   pfcRemOneSupport/2,
-                                   pfcRemOneSupportOrQuietlyFail/2,
-                                   pfc_spft/3 ]).
-:- use_module(metta_utils, [ my_maplist/2,
-                             my_maplist/3 ]).
-
-
 %*********************************************************************************************
 % PROGRAM FUNCTION: provides forward chaining support for logical rules, triggers, and fact
 % management with features like dependency tracking and truth maintenance.
@@ -172,8 +114,6 @@ must_ex(X) :-
 %     X = 2 ;
 %     X = 3.
 %
-
-:- meta_predicate quietly_ex(0).
 quietly_ex(X) :-
     % Simply call the Goal without any logging or tracing.
     call(X).
@@ -561,8 +501,6 @@ setof_or_nil(T, G, L) :-
 %     ?- call_u(member(x, [a, b, c])).
 %     false.
 %
-
-:- meta_predicate call_u(0).
 call_u(G) :- pfcCallSystem(G).
 
 %!  clause_u(+Head, -Body) is nondet.
@@ -588,8 +526,6 @@ call_u(G) :- pfcCallSystem(G).
 %     ?- clause_u(foo(X), Body).
 %     Body = bar(X).
 %
-
-:- meta_predicate clause_u(0,?).
 clause_u(H, B) :- clause(H, B).
 
 %!  mpred_ain(+Predicate) is det.
@@ -606,8 +542,6 @@ clause_u(H, B) :- clause(H, B).
 %     % Assert a rule into the PFC system.
 %     ?- mpred_ain((foo(X) :- bar(X))).
 %
-
-:- meta_predicate mpred_ain(0).
 mpred_ain(P) :- arc_assert(P).
 
 %!  arc_assert(+Clause) is det.
@@ -635,8 +569,6 @@ mpred_ain(P) :- arc_assert(P).
 arc_assert(P :- True) :-
     % If the body is `true`, only the head is asserted.
     True == true, !, arc_assert(P).
-
-:- meta_predicate arc_assert(0).
 arc_assert(P) :-
     % Ensure that `current_why_UU/1` provides a reason for the assertion.
     must_ex(current_why_UU(UU)),
@@ -960,8 +892,6 @@ rem(X) :-
 %     ?- rem2(secondary_remove_example).
 %     true.
 %
-
-:- meta_predicate rem2(0).
 rem2(X) :-
     pfcRemove(X).
 
@@ -1208,6 +1138,12 @@ pfcLoad.
 %   Author : Tim Finin, finin@prc.unisys.com
 %   Purpose: syntactic sugar for Pfc - operator definitions and term expansions.
 
+:- op(500, fx, '~').           % Declares '~' as a prefix operator with precedence 500.
+:- op(1050, xfx, ('==>')).       % Declares '==>' as an infix operator with precedence 1050.
+:- op(1050, xfx, '<==>').      % Declares '<==>' as an infix operator with precedence 1050.
+:- op(1050, xfx, ('<-')).        % Declares '<-' as an infix operator with precedence 1050.
+:- op(1100, fx, ('==>')).        % Declares '==>' as a prefix operator with precedence 1100.
+:- op(1150, xfx, ('::::')).      % Declares '::::' as an infix operator with precedence 1150.
 
 % declare that pfctmp:knows_will_table_as/2 can be modified at runtime.
 :- dynamic(pfctmp:knows_will_table_as/2).
@@ -1541,8 +1477,6 @@ pfcSetVal(Stuff) :-
 %     ?- pfcDefault(pfcSearch(_), pfcSearch(direct)).
 %
 % Check if the general term exists; if so, do nothing.
-
-:- meta_predicate pfcDefault(0,?).
 pfcDefault(GeneralTerm, Default) :-
    clause(GeneralTerm, true) -> true
    % Otherwise, assert the default term.
@@ -2345,8 +2279,6 @@ pfcGetTriggerQuick(Trigger) :-
 %     % Call a trigger in the system.
 %     ?- pfcCallSystem(my_trigger).
 %
-
-:- meta_predicate pfcCallSystem(0).
 pfcCallSystem(Trigger) :-
    % Execute the trigger with `pfc_call/1`.
    pfc_call(Trigger).
@@ -2709,8 +2641,6 @@ pfcRemove(Fact) :-
    control_arg_types(Fact, Fixed),
    !,
    pfcRemove(Fixed).
-
-:- meta_predicate pfcRemove(0).
 pfcRemove(P) :-
    % Withdraw all support for the entity.
    pfcRetractAll(P),pfc_call(P) -> pfcBlast(P) ; true.
@@ -3506,8 +3436,6 @@ pfc_eval_rhs1(Assertion, Support) :-
 %     % Evaluate an action with support tracking.
 %     ?- fcEvalAction(my_action, support_context).
 %
-
-:- meta_predicate fcEvalAction(0,?).
 fcEvalAction(Action, Support) :-
    % Execute the action using the system's call mechanism.
    pfcCallSystem(Action),
@@ -3530,8 +3458,6 @@ fcEvalAction(Action, Support) :-
 %     % Evaluate a trigger and its body.
 %     ?- trigger_trigger(my_trigger, my_body, support_reason).
 %
-
-:- meta_predicate trigger_trigger(0,?,?).
 trigger_trigger(Trigger, Body, _Support) :-
    % Process the trigger if the condition holds.
    trigger_trigger1(Trigger, Body).
@@ -3558,8 +3484,6 @@ trigger_trigger(_, _, _).
 %     % Evaluate a trigger condition and its body.
 %     ?- trigger_trigger1(my_trigger, my_body).
 %
-
-:- meta_predicate trigger_trigger1(0,?).
 trigger_trigger1(Trigger, Body) :-
    % Make a copy of the trigger for safe evaluation.
    copy_term(Trigger, TriggerCopy),
@@ -3637,23 +3561,15 @@ pfc_call(P) :-
    fcEvalLHS(Trigger, S),
    fail.
 % Handle system predicates.
-
-:- meta_predicate pfc_call(0).
 pfc_call(P) :-
    predicate_property(P, imported_from(system)), !, call(P).
 % Handle built-in predicates.
-
-:- meta_predicate pfc_call(0).
 pfc_call(P) :-
    predicate_property(P, built_in), !, call(P).
 % Handle dynamic predicates.
-
-:- meta_predicate pfc_call(0).
 pfc_call(P) :-
    \+ predicate_property(P, _), functor(P, F, A), dynamic(F / A), !, call(P).
 % Handle predicates with no clauses.
-
-:- meta_predicate pfc_call(0).
 pfc_call(P) :-
    \+ predicate_property(P, number_of_clauses(_)), !, call(P).
 % Handle general cases with backtracking and choice points.
@@ -4496,8 +4412,6 @@ pfc_clause(Head) :-
 %     2
 %     3
 %
-
-:- meta_predicate pfcForEach(0,?).
 pfcForEach(Binder, Body) :-
     % Execute the body for each solution of the binder.
     Binder,
@@ -4516,8 +4430,6 @@ pfcForEach(_, _).
 %     Hello, World!
 %     true.
 %
-
-:- meta_predicate pfcdo(0).
 pfcdo(X) :-
     % Execute the goal. If it succeeds, cut to avoid backtracking.
     X, !.

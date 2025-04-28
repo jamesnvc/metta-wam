@@ -1,24 +1,3 @@
-:- module(metta_debug, [ efbug/2,
-                         abolish_trace/0,
-                         check_trace/1,
-                         fast_option_value/2,
-                         if_trace/2,
-                         if_tracemsg/2,
-                         if_verbose/2,
-                         indentq_d/3,
-                         is_debugging/1,
-                         is_extreme_debug/1,
-                         maybe_trace/1,
-                         output_language/2,
-                         reset_eval_num/0,
-                         set_debug/2,
-                         show_failure_when/2,
-                         sub_var_safely/2,
-                         trace_eval/6,
-                         trace_if_debug/2,
-                         with_debug/2,
-                         woc/1,
-                         sub_term_safely/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -80,21 +59,7 @@
 
 % When the the `metta_interp` library is loaded, it makes sure the rest of the files are loaded in
 % the correct order independent of which file is loaded first and the needed predicates and ops are defined.
-
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_eval, [ call_ndet/2 ]).
-:- use_module(metta_interp, [ if_or_else/2,
-                              catch_err/3,
-                              real_notrace/1 ]).
-:- use_module(swi_support, [ if_t/2,
-                             must_det_ll/1,
-                             option_value/2,
-                             symbol_concat/3,
-                             with_option/3 ]).
-
-
-
-
+:- ensure_loaded(metta_interp).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED
@@ -529,8 +494,6 @@ as_trace(Goal) :- ignore_trace_once(\+ with_no_screen_wrap(color_g_mesg('#2f2f2f
 %   % Execute a goal without screen wrapping:
 %   ?- with_no_screen_wrap(my_goal).
 %
-
-:- meta_predicate with_no_screen_wrap(0).
 with_no_screen_wrap(Goal) :- !, call(Goal).
 with_no_screen_wrap(Goal) :- with_no_wrap(6000, Goal).
 
@@ -549,8 +512,6 @@ with_no_screen_wrap(Goal) :- with_no_wrap(6000, Goal).
 %   % Execute a goal with 80 columns and no line wrapping:
 %   ?- with_no_wrap(80, my_goal).
 %
-
-:- meta_predicate with_no_wrap(?,0).
 with_no_wrap(Cols, Goal) :-
     % Setup: Save current terminal settings and disable line wrapping
     setup_call_cleanup(
@@ -661,8 +622,6 @@ set_terminal_size(Cols, Rows) :-
 %   % Execute a goal with debugging enabled for 'eval':
 %   ?- with_debug(eval, my_goal).
 %
-
-:- meta_predicate with_debug(?,0).
 with_debug(Flag, Goal) :-
     is_debugging(Flag),
     !,
@@ -714,8 +673,6 @@ is_nodebug :-
 %     X = 2 ;
 %     X = 3.
 %
-
-:- meta_predicate with_no_debug(0).
 with_no_debug(Goal) :-  is_nodebug, !, % If 'nodebug' is true, call the goal without any further option adjustments.
     call(Goal).
 with_no_debug(Goal) :-
@@ -781,7 +738,6 @@ set_debug(Flag, false) :- !, nodebug(metta(Flag)),!. %, flag_to_var(Flag, Var), 
 set_debug(Flag, _) :- !, debug(metta(Flag)),!. %, flag_to_var(Flag, Var), set_fast_option_value(Var, true).
 
 
-:- meta_predicate if_trace(+, 0).
 %!  if_trace(+Flag, :Goal) is nondet.
 %
 %   Conditionally execute a goal if tracing is enabled for the given flag.
@@ -801,11 +757,7 @@ if_trace(Flag, Goal) :- notrace(real_notrace((catch_err(ignore((is_debugging(Fla
 
 if_tracemsg(Flag, Message):- if_trace(Flag, wdmsg(Message)).
 
-
-:- meta_predicate rtrace_when(?,0).
 rtrace_when(Why,Goal):- is_debugging(Why)->rtrace(Goal);call(Goal).
-
-:- meta_predicate show_failure_when(?,0).
 show_failure_when(Why,Goal):- \+ is_debugging(Why), !, call(Goal).
 show_failure_when(Why, Goal):- if_or_else(Goal, (once(show_failing(Why,Goal)),fail)).
 show_failing(Why,Goal):- notrace, ignore(nortrace),
@@ -833,8 +785,6 @@ abolish_trace:-
   abolish(system:trace/0),
   assert(( (system:trace) :- (format(user_error,'~nTRACE_CALLED~n',[]), break, bt))).
 
-
-:- meta_predicate woc(0).
 woc(Goal):- current_prolog_flag(occurs_check,true),!,call(Goal).
 woc(Goal):- redo_call_cleanup(set_prolog_flag(occurs_check,true),Goal,set_prolog_flag(occurs_check,false)).
 % woc(Goal):- locally(set_prolog_flag(occurs_check,true),Goal).
@@ -957,8 +907,6 @@ if_verbose(Flag, Goal) :-
 %   @arg G  The goal to execute.
 %
 %maybe_efbug(SS,G):- efbug(SS,G)*-> if_trace(eval,fbug(SS=G)) ; fail.
-
-:- meta_predicate maybe_efbug(?,0).
 maybe_efbug(_, G) :- call(G).
 
 %!  efbug(+_, :G) is nondet.
@@ -979,8 +927,6 @@ maybe_efbug(_, G) :- call(G).
 %   Executing safely
 %
 %efbug(P1,G):- call(P1,G).
-
-:- meta_predicate efbug(?,0).
 efbug(_, G) :- call(G).
 
 %!  is_debugging_always(+_Flag) is nondet.
@@ -1063,8 +1009,6 @@ is_debugging(Flag) :- debugging(Flag, TF), !, TF == true.
 %   ?- trace_eval(my_predicate, trace_type, 1, self, input, output).
 %
 
-
-:- meta_predicate trace_eval(4,?,?,?,?,?).
 trace_eval(P4, _, D1, Self, X, Y) :- is_nodebug, !, call(P4, D1, Self, X, Y).
 
 
@@ -1234,8 +1178,6 @@ enabled_use_comments :- enabled_use_markdown.
 %   this body in case there is some other sort of redirrection we work arround
 %    in most cases this should turn off ansi color printing
 %     EXCEPT when we test log output (because we use ansi2html on _that_ output)
-
-:- meta_predicate in_file_output(0).
 in_file_output(Goal) :-
   format('~N'),call(Goal),format('~N').
 
@@ -1249,8 +1191,6 @@ in_file_output(Goal) :-
 %          Goal,
 %          format('~N```~n', [])
 %      ).
-
-:- meta_predicate into_blocktype(?,0).
 into_blocktype(InfoType, Goal) :- enter_markdown(InfoType), !, call(Goal).
 
 %! output_language(+InfoType, :Goal) is det.

@@ -1,23 +1,3 @@
-:- module(metta_mizer, [ numeric/1,
-                         ok_to_append/1,
-                         p2s/2 ]).
-:- use_module(metta_compiler_roy, [ =~ / 2,
-                                    as_functor_args/3,
-                                    as_functor_args/4,
-                                    compound_non_cons/1,
-                                    into_list_args/2,
-                                    iz_conz/1 ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_debug, [ sub_term_safely/2,
-                             sub_var_safely/2 ]).
-:- use_module(metta_testing, [ color_g_mesg/2 ]).
-:- use_module(swi_support, [ symbol/1 ]).
-
-
-
-
-
-
 % Disables the optimizer. This predicate always fails, effectively serving as a no-op.
 % disable_optimizer :- false.
 disable_optimizer.
@@ -165,8 +145,6 @@ optimize_unit11(I,true):- I=eval_for(_,'%Undefined%', A, C), \+ iz_conz(A),\+ iz
 optimize_unit1(_,_):- disable_optimizer, !, fail.
 optimize_unit1(Var,_):- var(Var),!,fail.
 optimize_unit1(true,true):-!.
-
-:- meta_predicate optimize_unit1(0,?).
 optimize_unit1(I,O):- fail, \+ is_list(I), I\=(_,_), compound(I),
   predicate_property(I,number_of_rule(1)),predicate_property(I,number_of_causes(1)),
   clause(I,O), O\==true, O\=(_,_).
@@ -288,8 +266,6 @@ optimize_conj(HB, BT,B1,B1):- assumed_true(HB,BT),!.
 %     optimize_conj(Head, u_assign(Term, C), is_True(CC), CTerm).
 %optimize_conj(Head,B1,BT,BN1):- assumed_true(HB,BT),!, optimize_body(Head,B1,BN1).
 %optimize_conj(Head,BT,B1,BN1):- assumed_true(HB,BT),!, optimize_body(Head,B1,BN1).
-
-:- meta_predicate optimize_conj(?,0,0,?).
 optimize_conj(Head,B1,B2,(BN1,BN2)):-
     % Recursively optimize both parts of the body.
    optimize_body(Head,B1,BN1), optimize_body(Head,B2,BN2).
@@ -407,8 +383,6 @@ optimize_body( HB,(B1,B2),(BN1)):- optimize_conjuncts(HB,(B1,B2),BN1).
 optimize_body( HB,u_assign(A,B),R):- optimize_u_assign_1(HB,A,B,R),!.
 optimize_body( HB,eval(A,B),R):- optimize_u_assign_1(HB,A,B,R),!.
 %optimize_body(_HB,u_assign(A,B),u_assign(AA,B)):- p2s(A,AA),!.
-
-:- meta_predicate optimize_body(?,0,?).
 optimize_body(_HB,Body,BodyNew):- optimize_body_unit(Body,BodyNew).
 
 %!  optimize_body_unit(+Input, -Output) is det.
@@ -417,8 +391,6 @@ optimize_body(_HB,Body,BodyNew):- optimize_body_unit(Body,BodyNew).
 %
 optimize_body_unit(I,O):- I==true,!,I=O.
 optimize_body_unit(I,O):- I==('True'='True'),!,O=true.
-
-:- meta_predicate optimize_body_unit(0,?).
 optimize_body_unit(I,O):- fail,
    copy_term(I,II),
    optimize_unit1(I,Opt),I=@=II,!,

@@ -1,11 +1,4 @@
-:- module(metta_compiler, [ assign_or_direct_var_only/4,
-                            must_det_lls/1,
-                            f2p/8,
-                            f2p_do_group/6,
-                            lazy_impedance_match/8,
-                            non_arg_violation/3,
-                            transpiler_predicate_store/7 ]).
-/*
+﻿/*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
  *              MeTTa language programs into Prolog, utilizing the SWI-Prolog compiler for
@@ -73,18 +66,18 @@
 % Setting the Rust backtrace to Full
 :- setenv('RUST_BACKTRACE',full).
 % Loading various library files
-
-
-
+:- ensure_loaded(swi_support).
+:- ensure_loaded(metta_testing).
+:- ensure_loaded(metta_utils).
 %:- ensure_loaded(metta_reader).
-
-
-
+:- ensure_loaded(metta_interp).
+:- ensure_loaded(metta_space).
+:- ensure_loaded(metta_compiler_print).
 :- dynamic(transpiler_clause_store/9).
 :- dynamic(transpiler_predicate_store/7).
 :- dynamic(transpiler_nary_predicate_store/5).
 :- discontiguous(compile_flow_control/8).
-
+:- ensure_loaded(metta_compiler_lib).
 
 non_arg_violation(_,_,_).
 
@@ -115,8 +108,6 @@ non_arg_violation(_,_,_).
 %transpiler_enable_interpreter_calls.
 transpiler_enable_interpreter_calls :- fail.
 
-
-:- meta_predicate transpiler_debug(?,0).
 transpiler_debug(Level,Code) :- (option_value('debug-level',DLevel),DLevel>=Level -> call(Code) ; true).
 %transpiler_debug(_Level,Code) :- call(Code).
 
@@ -604,8 +595,6 @@ determine_eager_vars(_,eager,_,[]).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile_maplist_p2(_,[],[],[]).
-
-:- meta_predicate compile_maplist_p2(2,?,?,?).
 compile_maplist_p2(P2,[Var|Args],[Res|NewArgs],PreCode):- \+ fullvar(Var), call(P2,Var,Res), !,
   compile_maplist_p2(P2,Args,NewArgs,PreCode).
 compile_maplist_p2(P2,[Var|Args],[Res|NewArgs],TheCode):-
@@ -1004,22 +993,14 @@ transpiler_apply(Prefix,Fn,RetResults,RetResult,RetResultsParts, RetResultsParts
 % eager -> eager, lazy -> lazy
 runtime_lazy_impedance_match(x(_,X,_),x(doeval,X,_),ValE,[],_ValN,_CodeN,ValE) :- !.
 runtime_lazy_impedance_match(x(_,X,_),x(noeval,X,_),_ValE,_CodeE,ValN,[],ValN) :- !.
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,0,?,?,?).
 runtime_lazy_impedance_match(x(_,eager,_),x(doeval,eager,_),ValE,CodeE,_ValN,_CodeN,ValE) :- call(CodeE).
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,?,?,0,?).
 runtime_lazy_impedance_match(x(_,eager,_),x(noeval,eager,_),_ValE,_CodeE,ValN,CodeN,ValN) :- call(CodeN).
 runtime_lazy_impedance_match(x(_,lazy,_),x(_,lazy,_),ValE,CodeE,ValN,CodeN,Code) :- !, Code=ispeEnN(ValE,CodeE,ValN,CodeN).
 %lazy_impedance_match(x(_,lazy,_),x(_,lazy,_),ValE,CodeE,ValN,CodeN,Val,Code) :- !,
 %   append(CodeE,[[native(as_p1_exec),ValE,RetResultE]],CodeAE),
 %   append(CodeN,[[native(as_p1_expr),ValN,RetResultN]],CodeAN),
 % lazy -> eager
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,0,?,?,?).
 runtime_lazy_impedance_match(x(_,lazy,_),x(doeval,eager,_),ValE,CodeE,_ValN,_CodeN,RetResult) :- !,call(CodeE),as_p1_exec(ValE,RetResult).
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,?,?,0,?).
 runtime_lazy_impedance_match(x(_,lazy,_),x(noeval,eager,_),_ValE,_CodeE,ValN,CodeN,RetResult) :- !,call(CodeN),as_p1_expr(ValN,RetResult).
 % eager -> lazy
 runtime_lazy_impedance_match(x(_,eager,_),x(doeval,lazy,_),ValE,CodeE,ValN,CodeN,Code) :- Code=ispeEnN(ValE,CodeE,ValN,CodeN).
@@ -1485,7 +1466,6 @@ cname_var(Sym,Expr):-  gensym(Sym,ExprV),
 
 %must_det_lls(G):- catch(G,E,(wdmsg(E),fail)),!.
 %must_det_lls(G):- rtrace(G),!.
-:- meta_predicate must_det_lls(:).
 must_det_lls((A,B)):- !, must_det_lls(A),must_det_lls(B).
 must_det_lls(G):- catch(G,E,(wdmsg(E),fail)),!.
 %must_det_lls(G):- must_det_ll(G).
@@ -1583,50 +1563,7 @@ precompute_typeinfo(HResult,HeadIs,AsBodyFn,Ast,Result) :-
 
 :- use_module(library(gensym)).          % for gensym/2
 :- use_module(library(pairs)).           % for group_pair_by_key/2
-:- use_module(library(logicmoo_utils)).
-:- use_module(metta_compiler_douglas, [ compile_test_then_else/7,
-                                        f2p/6,
-                                        output_prolog/1,
-                                        output_prolog/2,
-                                        print_ast/2,
-                                        show_recompile/3,
-                                        subst_varnames/2,
-                                        tree_deps/3 ]).
-:- use_module(metta_compiler_lib, [ transpiler_predicate_nary_store/9 ]).
-:- use_module(metta_convert, [ p2m/2,
-                               sexpr_s2p/2 ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_eval, [ as_tf/2,
-                            eval_args/2,
-                            get_type/2,
-                            metta_atom_iter/5,
-                            nb_bound/2,
-                            self_eval/1 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              metta_type/3 ]).
-:- use_module(metta_mizer, [ ok_to_append/1,
-                             p2s/2 ]).
-:- use_module(metta_parser, [ subst_vars/2 ]).
-:- use_module(metta_testing, [ color_g_mesg/2 ]).
-:- use_module(metta_utils, [ map_fold1/5,
-                             maplist/7,
-                             maplist/8,
-                             maplist/9,
-                             subst001/4 ]).
-:- use_module(swi_support, [ if_t/2,
-                             option_value/2,
-                             symbol/1 ]).
-
-
-
-
-
-
-
-
-
-
-  % for print_tree_nl/1 (pretty-print)
+:- use_module(library(logicmoo_utils)).  % for print_tree_nl/1 (pretty-print)
 
 /** <module> combine_transform_and_collect_subterm
 
@@ -1949,11 +1886,7 @@ prefix_impl_preds_pp(Prefix,F,A):- predicate_property('mc_2__:'(_,_,_),file(File
 maplist_and_conj(_,A,B):- fullvar(A),!,B=A.
 maplist_and_conj(_,A,B):- \+ compound(A),!,B=A.
 maplist_and_conj(P2,(A,AA),[B|BB]):- !, maplist_and_conj(P2,A,B), maplist_and_conj(P2,AA,BB).
-
-:- meta_predicate maplist_and_conj(2,?,?).
 maplist_and_conj(P2,[A|AA],[B|BB]):- !, call(P2,A,B), maplist_and_conj(P2,AA,BB).
-
-:- meta_predicate maplist_and_conj(2,?,?).
 maplist_and_conj(P2,A,B):- call(P2,A,B), !.
 
 notice_callee(Caller,Callee):-
@@ -2010,20 +1943,10 @@ optimize_prolog(_,Prolog,Prolog).
 
 de_eval(eval(X),X):- compound(X),!.
 
-
-:- meta_predicate call1(0).
 call1(G):- call(G).
-
-:- meta_predicate call2(0).
 call2(G):- call(G).
-
-:- meta_predicate call3(0).
 call3(G):- call(G).
-
-:- meta_predicate call4(0).
 call4(G):- call(G).
-
-:- meta_predicate call5(0).
 call5(G):- call(G).
 
 trace_break:- trace,break.
@@ -2032,8 +1955,6 @@ trace_break:- trace,break.
 :- set_prolog_flag(gc,false).
 :- endif.
 
-
-:- meta_predicate call_fr(1,?,?).
 call_fr(G,Result,FA):- current_predicate(FA),!,call(G,Result).
 call_fr(G,Result,_):- Result=G.
 
@@ -2365,8 +2286,6 @@ u_assign_c(FList,RR):-
 u_assign_c(FList,RR):- as_tf(FList,RR),!.
 u_assign_c(FList,R):- compound(FList), !, FList=~R.
 
-
-:- meta_predicate quietlY(0).
 quietlY(G):- call(G).
 
 

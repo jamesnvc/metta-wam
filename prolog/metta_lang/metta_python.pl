@@ -1,16 +1,3 @@
-:- module(metta_python, [ ensure_mettalog_py/0,
-                          ensure_space_py/2,
-                          'extend-py!'/2,
-                          is_rust_operation/1,
-                          make_py_dot/3,
-                          py_call_method_and_args/3,
-                          py_exec/1,
-                          py_is_function/1,
-                          py_is_module/1,
-                          py_is_py/1,
-                          py_pp_str/2,
-                          py_ppp/1,
-                          rust_metta_run/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -105,32 +92,7 @@ Prolog Extensions with Python:
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
- 
-:- use_module(metta_compiler_roy, [ must_det_lls/1 ]).
-:- use_module(metta_corelib, [ lazy_load_python/0 ]).
-:- use_module(metta_debug, [ if_trace/2 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              not_compatio/1,
-                              fbug/1,
-                              is_nb_space/1,
-                              metta_root_dir/1 ]).
-:- use_module(metta_printer, [ py_is_enabled/0,
-                               write_src/1,
-                               write_src_nl/1 ]).
-:- use_module(metta_space, [ ensure_space/2,
-                             is_asserted_space/1 ]).
-:- use_module(swi_support, [ must_det_ll/1,
-                             symbol/1,
-                             symbol_concat/3,
-                             symbol_contains/2,
-                             symbolic/1,
-                             symbolic_list_concat/3 ]).
-
-
-
-
-
-
+ :- ensure_loaded(metta_interp).
 
 %!  janus_initialization is det.
 %
@@ -148,9 +110,7 @@ Prolog Extensions with Python:
 %     ?- janus_initialization.
 %     false.
 %
-%:- module_property(janus,file(_)) -> true; janus:ensure_loaded(library(janus)).
-
-:- use_module(library(janus)).
+ :- module_property(janus,file(_)) -> true; janus:ensure_loaded(library(janus)).
 
 
 py_call_warg(G):- py_c_c(G,GG), py_call(GG).
@@ -246,13 +206,10 @@ py_catch((G1, G2)):-
     % Handle exceptions for two goals executed sequentially.
     !,py_catch(G1),py_catch(G2).
 
-
-:- meta_predicate py_catch(0).
 py_catch(Goal):-
     % Catch any exceptions during goal execution.
     catch(Goal, E,
         (   pybug(E = py_catch(Goal)),  % Log the exception and goal that caused it.
-            print_message(error, E),
             py_dump,                    % Print the Python traceback.
             trace,                      % Enable Prolog tracing for debugging.
             Goal)).                     % Retry the goal with tracing enabled.
@@ -687,8 +644,8 @@ ensure_py_loaded_early_maybe(_Module) :-
 ensure_py_loaded_early_maybe(Module) :-
     ensure_py_loaded(Module).
 
-%:- initialization(ensure_py_loaded_early_maybe(metta_python_proxy)).
-%:- initialization(ensure_py_loaded_early_maybe(metta_python_hyperon)).
+:- initialization(ensure_py_loaded_early_maybe(metta_python_proxy)).
+:- initialization(ensure_py_loaded_early_maybe(metta_python_hyperon)).
 
 
 %!  py_mcall(+I, -O) is semidet.

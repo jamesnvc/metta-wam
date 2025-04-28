@@ -1,42 +1,3 @@
-:- module(metta_compiler_lib, [ transpiler_predicate_nary_store/9 ]).
-
-:- use_module(metta_interp, [ current_self/1,
-                              is_metta_space/1,
-                              metta_atom_asserted/2,
-                              metta_atom_fast/2,
-                              on_metta_setup/1,
-                              wtime_eval/1 ]).
-:- use_module(metta_compiler, [ assign_or_direct_var_only/4,
-                                f2p/8,
-                                f2p_do_group/6,
-                                lazy_impedance_match/8 ]).
-:- use_module(metta_compiler_douglas, [ transpile_impl_prefix/3 ]).
-:- use_module(metta_compiler_roy, [ arg_properties_widen/3,
-                                    as_p1_exec/2,
-                                    fullvar/1,
-                                    get_operator_typedef_props/5,
-                                    transpile_eval/2 ]).
-:- use_module(metta_corelib, [ metta_atom/2 ]).
-:- use_module(metta_eval, [ 'get-metatype'/2,
-                            is_make_new_kb/3,
-                            loonit_assert_source_tf_empty/6,
-                            nb_bind/2,
-                            nb_bound/2,
-                            println_impl/1,
-                            with_output_to_str/2 ]).
-:- use_module(metta_types, [ get_type/4,
-                             into_typed_arg/5 ]).
-:- use_module(metta_utils, [ maplist/7 ]).
-:- use_module(swi_support, [ if_t/2 ]).
-
-
-
-
-
-
-
-
-
 :- dynamic(transpiler_predicate_store/7).
 :- discontiguous transpiler_predicate_store/7.
 
@@ -508,11 +469,7 @@ random_float_between(Min, Max, R_):-
 %
 %     keep RNGId changes local to the term being passed about.
 %
-
-:- meta_predicate with_random_generator(?,0).
 with_random_generator('&rng', Call):- !, call(Call).
-
-:- meta_predicate with_random_generator(?,0).
 with_random_generator(RNGId, Call):-
     Setup = (getrand(OLD),
              into_rng(RNGId, Current),

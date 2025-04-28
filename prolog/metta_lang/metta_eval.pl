@@ -1,42 +1,3 @@
-:- module(metta_eval, [ as_tf/2,
-                        call_ndet/2,
-                        catch_metta_return/2,
-                        catch_warn/1,
-                        'change-state!'/5,
-                        coerce/3,
-                        do_expander/4,
-                        eval_10/6,
-                        eval_20/6,
-                        eval_21/6,
-                        eval_args/2,
-                        eval_args/4,
-                        eval_call/2,
-                        eval_selfless/6,
-                        'get-metatype'/2,
-                        'get-state'/2,
-                        get_type/2,
-                        is_True/1,
-                        is_and/1,
-                        is_host_function/3,
-                        is_host_predicate/3,
-                        is_make_new_kb/3,
-                        is_returned/1,
-                        is_system_pred/1,
-                        is_valid_nb_state/1,
-                        last_element/2,
-                        len_or_unbound/2,
-                        loonit_assert_source_tf_empty/6,
-                        metta_atom_iter/5,
-                        nb_bind/2,
-                        nb_bound/2,
-                        'new-state'/4,
-                        println_impl/1,
-                        same_len_copy/2,
-                        self_eval/1,
-                        typed_list/3,
-                        unify_enough/2,
-                        using_all_spaces/0,
-                        with_output_to_str/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -92,14 +53,14 @@
 
 % When the the `metta_interp` library is loaded, it makes sure the rest of the files are intially loaded in
 % the correct order independent of which file is loaded first the needed predicates and ops are defined.
-
+:- ensure_loaded(metta_interp).
 
 % post match modew
 %:- style_check(-singleton).
-%:- multifile(fake_notrace/1).
-%:- meta_predicate(fake_notrace(0)).
-%:- meta_predicate(color_g_mesg(+,0)).
-%:- multifile(color_g_mesg/2).
+:- multifile(fake_notrace/1).
+:- meta_predicate(fake_notrace(0)).
+:- meta_predicate(color_g_mesg(+,0)).
+:- multifile(color_g_mesg/2).
 
 %self_eval0(X):- var(X),!,fail.
 self_eval0(X):- \+ callable(X),!.
@@ -131,14 +92,8 @@ nb_bound(Name,X):- atom(Name), % atom_concat('&', _, Name),
 nb_bound(Name,X):- atom(Name), % atom_concat('&', _, Name),
   call_in_shared_space(nb_current(Name, X)),!.  % spaces and states are stored as compounds
 
-
-:- meta_predicate call_in_shared_space(0).
 call_in_shared_space(G):- call_in_shared_thread(main,G).
-
-:- meta_predicate call_in_shared_thread(?,0).
 call_in_shared_thread(Thread,Goal):- thread_self(Self),Thread==Self,!,call(Goal).
-
-:- meta_predicate call_in_shared_thread(?,0).
 call_in_shared_thread(_Thread,Goal):- call(Goal). % should use call_in_thread/2 (but it blocks lazy calls)
 
 nb_bind(Name,Value):- nb_current(Name,Was),same_term(Value,Was),!.
@@ -239,8 +194,6 @@ get_type(Arg,Type):- eval_H(['get-type',Arg],Type).
 % Evaluates the given term X and succeeds if X is not a constraint (i.e. \+ iz_conz(X)) and is callable, and calling X succeeds.
 %
 % If X is not callable, this predicate will attempt to evaluate the arguments of X (using eval_args/2) and succeed if the result is not False.
-
-:- meta_predicate eval_true(0).
 eval_true(X):- \+ iz_conz(X), callable(X),!, call(X).
 eval_true(X):- eval_args(X,Y), is_True(Y) , !.
 
@@ -267,8 +220,6 @@ eval_args(Depth,Self,X,Y):- eval_args('=',_RetType,Depth,Self,X,Y).
 %! eval_to(+X,+Y) is semidet.
 % checks if X evals to Y
 evals_to(XX,Y):- Y=@=XX,!.
-
-:- meta_predicate evals_to(0,?).
 evals_to(XX,Y):- Y=='True',!, is_True(XX),!.
 
 eval_args(_Eq,_RetType,_Dpth,_Slf,X,Y):- var(X),nonvar(Y),!,X=Y.
@@ -307,8 +258,6 @@ eval_args(Eq,RetType,Depth,Self,X,Y):-
 eval_ret(Eq,RetType,Depth,Self,X,Y):-
     eval_00(Eq,RetType,Depth,Self,X,Y), is_returned(Y).
 
-
-:- meta_predicate catch_metta_return(0,?).
 catch_metta_return(G,Y):-
  catch(G,metta_return(Y),ignore(retract(thrown_metta_return(Y)))).
 
@@ -354,8 +303,6 @@ eval_02(Eq,RetType,Depth2,Self,Y,YO):-  %Y\==[empty], % speed up n-queens x60  b
 % TODO constrain Y
 var_pass(_Eq,_RetType,_Depth,_Self,_Y):-!.
 
-
-:- meta_predicate subst_once(0).
 subst_once(G):- call(G).
 
 % subst_args_here(Eq,RetType,Depth2,Self,Y,YO):-
@@ -425,8 +372,6 @@ need_subst_f('*'). need_subst_f('+').
 need_subst_f('-'). need_subst_f('/').
 need_subst_f('<'). need_subst_f('=<').
 
-
-:- meta_predicate if_t_else(0,0,0).
 if_t_else(If,Then,Else):- If -> Then ; Else.
 
 finish_eval_here(Eq,RetType,Depth2,Self,Y,YO):-
@@ -465,8 +410,6 @@ is_mettalog_tracing(H,Type):- woc(metta_atom(_,[mettalog_trace,HH,Type])), \+ \+
 
 eval_08(Eq,RetType,Depth,Self,X,Y):- is_mettalog_tracing(X,Type),!,
    with_debug(Type,eval_09(Eq,RetType,Depth,Self,X,Y)).
-
-:- meta_predicate eval_08(6,?,?,?,?,?).
 eval_08(Eq,RetType,Depth,Self,X,Y):- eval_09(Eq,RetType,Depth,Self,X,Y).
 
 %eval_09(_Eq,_RetType, Depth,_Slf,X,Y):- Depth< 0, !, X=Y, fail.
@@ -477,8 +420,6 @@ eval_08(Eq,RetType,Depth,Self,X,Y):- eval_09(Eq,RetType,Depth,Self,X,Y).
 
 
 %eval_09(Eq,RetType,Depth,Self,X,Y):- !, no_repeats(X+Y,eval_10(Eq,RetType,Depth,Self,X,Y)).
-
-:- meta_predicate eval_09(6,?,?,?,?,?).
 eval_09(Eq,RetType,Depth,Self,X,Y):- !,
      no_repeats_var(YY),
      eval_to_name(X,XX),!,
@@ -519,8 +460,6 @@ eval_10(_Eq,_RetType,_Dpth,_Self,X,YO):- self_eval(X),!,YO=X.
 eval_10(_Eq,_RetType,_Dpth,_Self,X,_YO):- X==[empty],!,fail.
 eval_10(_Eq,_RetType,_Dpth,_Self,X,_YO):- X==['Empty'],!,fail.
 eval_10(_Eq,_RetType,Depth,_Self,X,YO):- Depth<0,bt,trace,!,X=YO.
-
-:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):- var(X), !, % sanity_check_eval(eval_10_var,X),
   eval_20(Eq,RetType,Depth,Self,X,Y).
 
@@ -540,20 +479,14 @@ eval_20(Eq,RetType,Depth,Self,X,Y):- var(X), !, % sanity_check_eval(eval_20_var,
 
 %eval_20(Eq,RetType,Depth,Self,X,Y):- \+ sanity_check_eval(eval_20_in,X),X=Y,!,var_pass(Eq,RetType,Depth,Self,Y).
 
-
-:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):-  \+ compound(X), !,
     as_prolog_x(Depth,Self,X,XX),
     eval_20(Eq,RetType,Depth,Self,XX,Y),sanity_check_eval(eval_20_not_compound,Y).
 
-
-:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):-  \+ is_list(X), !,
   as_prolog_x(Depth,Self,X,XX),
   eval_20(Eq,RetType,Depth,Self,XX,Y),sanity_check_eval(eval_20_not_list,Y).
 
-
-:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,[Sym|Args],Y):- \+ atom(Sym), !,
   maplist(as_prolog_x(Depth,Self), [Sym|Args] , [ASym|Adjusted]),
   eval_20(Eq,RetType,Depth,Self, [ASym|Adjusted], Y),sanity_check_eval(eval_20_not_atom,Y).
@@ -700,8 +633,6 @@ eval_20(Eq,RetType,_Dpth,_Slf,[X|T],Y):- T==[], \+ callable(X),!, do_expander(Eq
 %   \+ is_user_defined_head_f(Self,X),
 %   do_expander(Eq,RetType,X,YY),!,Y=[YY].
 
-
-:- meta_predicate eval_20(6,?,?,?,?,?).
 eval_20(Eq,RetType,Depth,Self,X,Y):- atom(Eq),  ( Eq \== ('=')) ,!,
    call(Eq,'=',RetType,Depth,Self,X,Y).
 
@@ -1019,15 +950,11 @@ eval_until_eq_soon(_Flags,Eq,XType,YType,Depth,Self,EX,EY):-
    NewX=NewY.
 */
 
-
-:- meta_predicate eval_1change(6,?,?,?,?,?).
 eval_1change(Eq,XType,Depth,Self,EX,EXX):- eval_10(Eq,XType,Depth,Self,EX,EXX),  EX \=@= EXX.
 eval_complete_change(Eq,XType,YType,Depth,Self,EX,EXX):- eval_args(Eq,XType,YType,Depth,Self,EX,EXX),  EX \=@= EXX.
 
 eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,EX,Y):- \+ is_list(EX),!,Y=EX.
 %eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,EX,_):- \+ is_list(EX),!,fail.
-
-:- meta_predicate eval_in_steps_some_change(6,?,?,?,?,?).
 eval_in_steps_some_change(Eq,XType,Depth,Self,EX,EXXO):-
    eval_1change(Eq,XType,Depth,Self,EX,EXX),!,
    (eval_in_steps_some_change(Eq,XType,Depth,Self,EXX,EXXO);EXXO=EXX).
@@ -1037,8 +964,6 @@ eval_in_steps_some_change(Eq,XType,Depth,Self,X,Y):-
   append(L,[EXX|R],XX),
   eval_in_steps_or_same(Eq,XType,Depth,Self,XX,Y).
 
-
-:- meta_predicate eval_in_steps_or_same(6,?,?,?,?,?).
 eval_in_steps_or_same(Eq,XType,Depth,Self,X,Y):-eval_in_steps_some_change(Eq,XType,Depth,Self,X,Y).
 eval_in_steps_or_same(Eq,XType,_Dpth,_Slf,X,Y):- X=Y,check_returnval(Eq,XType,Y).
 
@@ -1322,12 +1247,8 @@ equal_enough_for_test_renumbered_l(P2,X0,Y0):- maplist(equal_enough_for_test_ren
 equal_enough_for_test_l(P2,X,Y):-            must_be(proper_list,X), must_be(proper_list,Y), sort(X,X0),sort(Y,Y0),
     maplist(equal_enough_for_test(P2),X0,Y0).
 
-
-:- meta_predicate equal_enough_for_test_renumbered(2,?,?).
 equal_enough_for_test_renumbered(P2,X0,Y0):- equal_renumbered(X0,Y0,XX,YY), equal_enough_for_test(P2, XX,YY).
 
-
-:- meta_predicate equal_enough_for_test(2,?,?).
 equal_enough_for_test(P2,X,Y):- equal_enough(P2,X,Y),!.
 
 /*
@@ -1350,45 +1271,27 @@ equal_enough(P2,R,V):- is_list(R),is_list(V),sort_univ(R,RR),sort_univ(V,VV),!,e
 */
 
 
-
-:- meta_predicate equal_enough(2,?,?).
 equal_enough(P2,R,V):- copy_term(R+V,RR+VV),equal_enouf(P2,R,V),!,ignore(R=@=RR),ignore(V=@=VV). % has not altered the returned term
 
 
 equal_enouf(_,_,V):- V=='...',!.
-
-:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,R,V):- call(P2,R,V), !.
 equal_enouf(_2,R,V):- (var(R);var(V)),!,fail.
-
-:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,R,V):- is_ftVar(R), is_ftVar(V), call(P2,R,V), !.
 equal_enouf(_,X,Y):- is_blank(X),!,is_blank(Y).
 equal_enouf(_TODO,R,V):- py_is_py(R),py_is_py(V),py_pp_str(R,RR),py_pp_str(V,VV),!,RR=VV.
 equal_enouf(_,X,Y):- symbol(X),symbol(Y),atom_concat('space_',_,X),atom_concat('Grounding',_,Y),!.
 equal_enouf(_,X,Y):- symbol(X),symbol(Y),atom_concat('&',_,X),atom_concat('Grounding',_,Y).
 equal_enouf(_2,R,V):- number(R),number(V),!, RV is abs(R-V), RV < 0.03 .
-
-:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,C,L):- \+ compound(C),!,call(P2,L,C).
-
-:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,L,C):- \+ compound(C),!,call(P2,L,C).
 equal_enouf(P2,L,C):- into_list_args(L,LL),into_list_args(C,CC),!,equal_enouf_la(P2,LL,CC).
 
-
-:- meta_predicate equal_enouf_la(2,?,?).
 equal_enouf_la(P2,[S1,V1|_],[S2,V2|_]):- S1 == 'State', !, S2 == 'State',!, equal_enouf(P2,V1,V2).
 equal_enouf_la(_2,[ErrorX|_],[ErrorY|_]):- ErrorX=='Error', !, ErrorY == ErrorX,!.
-
-:- meta_predicate equal_enouf_la(2,?,?).
 equal_enouf_la(P2,C,L):- equal_enouf_l(P2,C,L).
 
-
-:- meta_predicate equal_enouf_l(2,?,?).
 equal_enouf_l(P2,C,L):- \+ compound(C),!,call(P2,L,C).
-
-:- meta_predicate equal_enouf_l(2,?,?).
 equal_enouf_l(P2,L,C):- \+ compound(C),!,call(P2,L,C).
 equal_enouf_l(P2,[C|CC],[L|LL]):- !, equal_enouf(P2,L,C),!,equal_enouf_l(P2,CC,LL).
 
@@ -1764,8 +1667,6 @@ eval_10(Eq,RetType,Depth,Self,['with-debug',E,X],Y):- !,
 eval_10(Eq,RetType,Depth,Self,['switch',A,CL|T],Res):- !,
   eval_10(Eq,RetType,Depth,Self,['case',A,CL|T],Res).
 
-
-:- meta_predicate eval_10_disabled(6,?,?,?,?,?).
 eval_10_disabled(Eq,RetType,Depth,Self,[P,X|More],YY):- fail, is_list(X),X=[_,_,_],simple_math(X),
    eval_selfless_2(X,XX),X\=@=XX,!, eval_20(Eq,RetType,Depth,Self,[P,XX|More],YY).
 % if there is only a void then always return nothing for each Case
@@ -1848,8 +1749,6 @@ eval_case(Eq,CaseRetType,Depth,Self,A,KVs,Res):-
 eval_10(Eq,RetType,Depth,Self,['collapse-bind',List],Res):-!,
  maplist_ok_fails(eval_ne(Eq,RetType,Depth,Self),List,Res).
 
-
-:- meta_predicate maplist_ok_fails(2,?,?).
 maplist_ok_fails(Pred2,[A|AA],BBB):- !,
  (call(Pred2,A,B) -> (BBB=[B|BB], maplist_ok_fails(Pred2,AA,BB))
    ; maplist_ok_fails(Pred2,AA,BBB)).
@@ -2094,8 +1993,6 @@ eval_10_disabled(Eq,RetType,Depth,Self,['if',Cond,Then],Res):- !, %var(Cond),  !
 %eval_10(Eq,RetType,Depth,Self,['If',Cond,Then|Else],Res):- !,
 %   eval_10(Eq,RetType,Depth,Self,['if',Cond,Then|Else],Res).
 
-
-:- meta_predicate eval_20_failed(6,?,?,?,?,?).
 eval_20_failed(Eq,RetType,Depth,Self,[X|Args],Res):-
   quietly((findall(metta_defn(Self,[Y|Args],Body),(metta_defn(Self,[Y|Args],Body),X==Y),L))),
   L = [metta_defn(Self,[Y|Args],Body)], X==Y, !,
@@ -2521,8 +2418,6 @@ eval_10(Eq,RetType,Depth,Self,['bind!',Other,Expression],RetVal):- !,
     check_returnval(Eq,RetType,RetVal).
 
 
-
-:- meta_predicate with_scope(?,?,?,?,0).
 with_scope(Eq,RetType,Depth,Self,Goal):-
    %grab_scope([eq=WEq,retType=WRetType,depth=WDepth,self=WSelf]),
    setup_call_cleanup(push_scope([eq=Eq,retType=RetType,depth=Depth,self=Self]),
@@ -2590,8 +2485,6 @@ nd_ignore(Goal):- call(Goal)*->true;true.
 
 is_True(T):- atomic(T),!,(T=='True';T==1),!.
 is_True(T):- var(T),!,fbug(is_True(T)),!,fail.
-
-:- meta_predicate is_True(0).
 is_True(T):- debug(metta(todo),'TODO: CALLING(~q)',[is_True(T)]),eval_true(T).
 
 is_and(S):- \+ atom(S),!,fail.
@@ -2702,8 +2595,6 @@ eval_20(Eq,RetType,Depth,Self,[Excl|Rest],Res):-
 
 
 %sig_atomic_no_cut(Goal):- sig_atomic(Goal).
-
-:- meta_predicate sig_atomic_no_cut(0).
 sig_atomic_no_cut(Goal):- call(Goal).
 
 % =================================================================
@@ -2969,8 +2860,6 @@ eval_20_disabled(Eq,_ListOfRetType,Depth,Self,['TupleConcat',A,B],OO):- fail, !,
     append(AA,BB,OO).
 
 % Temporarily in this file
-
-:- meta_predicate eval_20_disabled(6,?,?,?,?,?).
 eval_20_disabled(Eq,OuterRetType,Depth,Self,['range',A,B],OO):- fail, (is_list(A);is_list(B)),
   ((eval_args(Eq,RetType,Depth,Self,A,AA),
     eval_args(Eq,RetType,Depth,Self,B,BB))),
@@ -3085,8 +2974,6 @@ eval_20(Eq,RetType,Depth,Self,['intersection-by',P2,Eval1,Eval2],RetVal):- !,
 %  - E1^Call1: The first goal (Call1) generating elements (E1).
 %  - E2^Call2: The second goal (Call2) generating elements (E2).
 %  - E: The resulting element after subtracting elements of the second set from the first set.
-
-:- meta_predicate lazy_intersection(2,?,?,?).
 lazy_intersection(P2, E1^Call1, E2^Call2, E1) :-
     % Step 1: Evaluate Call1 to generate E1
     call(Call1),
@@ -3298,13 +3185,9 @@ eval_40(Eq,RetType,Depth,Self,[Sym|Args],Res):- symbol(Sym), is_list(Args),
 
 
 with_metta_ctx(_Eq,_RetType,_Depth,_Self,_MeTTaSrc,apply(Fn,PArgs)):- !, apply(Fn,PArgs).
-
-:- meta_predicate with_metta_ctx(?,?,?,?,?,0).
 with_metta_ctx(_Eq,_RetType,_Depth,_Self,_MeTTaSrc,Goal):-  Goal.
 
 :- dynamic memoized_result/3.
-
-:- meta_predicate memoize_tf(0).
 memoize_tf(Goal) :-
     term_variables(Goal, Vars),
     copy_term(Goal, CopyGoal),numbervars(CopyGoal,0,_,[attvar(bind)]),
@@ -3479,8 +3362,6 @@ eval_40(Eq,RetType,Depth,Self,[AE|More],TF):- allow_host_functions,
   with_metta_ctx(Eq,RetType,Depth,Self,[AE|More],catch_warn(efbug(show_call,eval_call(apply(Pred,Adjusted),TF)))),
   check_returnval(Eq,RetType,TF).
 
-
-:- meta_predicate show_ndet(0).
 show_ndet(G):- call(G).
 %show_ndet(G):- call_ndet(G,DET),(DET==true -> ! ; fbug(show_ndet(G))).
 
@@ -3579,8 +3460,6 @@ last_element(T,E):- compound_name_arguments(T,_,List),last_element(List,E),!.
 
 %catch_err(G,E,C):- catch(G,E,(always_rethrow(E)->(throw(E));C)).
 catch_warn(G):- (catch_err(G,E,(fbug(catch_warn(G)-->E),fail))).
-
-:- meta_predicate catch_nowarn(0).
 catch_nowarn(G):- catch(G,E,(always_rethrow(E)->(throw(E)),fail)).
 
 
@@ -3678,8 +3557,6 @@ get_attrlib(XX,clpr):- sub_var_safely(clpr,XX),!.
 % =================================================================
 % =================================================================
 
-
-:- meta_predicate call_ndet(0,?).
 call_ndet(Goal,DET):- call(Goal),deterministic(DET),(DET==true->!;true).
 
 
@@ -3778,8 +3655,6 @@ eval_defn_bodies_guarded(Eq,RetType,Depth,Self,X,Y,XXB0L):-
 
 
 
-
-:- meta_predicate true_or_log_fail(?,0,?).
 true_or_log_fail(Depth,Goal,LogFail):- (call(Goal)
           -> true ; ((if_trace(e,color_g_mesg('#713700',indentq2(Depth,failure(LogFail)))),!),!,fail)).
 
@@ -3863,8 +3738,6 @@ eval_defn_failure(_Eq,_RetType,Depth,_Self,X,Res):- % trace,
   !, \+ fail_missed_defn, X=Res.
 
 
-
-:- meta_predicate pl_clause_num(0,?,?,?).
 pl_clause_num(Head,Body,Ref,Index):-
     clause(Head,Body,Ref),
     nth_clause(Head,Index,Ref).
@@ -3953,14 +3826,10 @@ cwtl(Time, Goal) :-
                        cwtl_goal(Id, Goal),
                        time:remove_alarm_notrace(Id)).
 
-
-:- meta_predicate cwtl_goal(?,0).
 cwtl_goal(AlarmID, Goal) :-
     install_alarm(AlarmID),
     call(Goal).
 
-
-:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):-
     as_prolog_x(Depth,Self,X,XX),
     eval_20(Eq,RetType,Depth,Self,XX,Y),
@@ -4033,162 +3902,7 @@ is_empty(E):- E=='Empty'.
 %is_empty(E):- notrace(( nonvar(E), sub_var_safely('Empty',E))),!.
 
 
-
-:- use_module(metta_compiler, [ non_arg_violation/3,
-                                transpiler_predicate_store/7 ]).
-:- use_module(metta_compiler_roy, [ cl_list_to_set/2,
-                                    compile_for_assert/3,
-                                    into_list_args/2,
-                                    iz_conz/1,
-                                    must_det_lls/1 ]).
-:- use_module(metta_corelib, [ metta_atom/2,
-                               nop/1,
-                               oo_new/3,
-                               oo_set_attibutes/3 ]).
-:- use_module(metta_debug, [ check_trace/1,
-                             efbug/2,
-                             if_trace/2,
-                             if_tracemsg/2,
-                             indentq_d/3,
-                             is_debugging/1,
-                             maybe_trace/1,
-                             reset_eval_num/0,
-                             sub_term_safely/2,
-                             sub_var_safely/2,
-                             trace_eval/6,
-                             trace_if_debug/2,
-                             with_debug/2,
-                             woc/1 ]).
-:- use_module(metta_interp, [ catch_err/3,
-                              ctime_eval/2,
-                              current_self/1,
-                              dcall0000000000/1,
-                              default_depth/1,
-                              do_metta/5,
-                              eval_H/2,
-                              fake_notrace/1,
-                              false_flag/0,
-                              fbug/1,
-                              find_missing_cuts/0,
-                              function_arity/3,
-                              get_metta_atom_from/2,
-                              if_or_else/2,
-                              into_space/4,
-                              is_False/1,
-                              is_flag/1,
-                              is_metta_data_functor/1,
-                              is_metta_space/1,
-                              is_testing/0,
-                              load_ontology/0,
-                              make_empty/2,
-                              make_empty/3,
-                              make_nop/2,
-                              make_nop/3,
-                              metta_atom_asserted/2,
-                              metta_compiled_predicate/3,
-                              metta_defn/3,
-                              metta_type/3,
-                              nocut/0,
-                              pfcAdd_Now/1,
-                              rtrace_on_error/1,
-                              rtrace_on_failure/1,
-                              s2p/2,
-                              time_eval/2,
-                              trace_on_fail/0,
-                              trace_on_pass/0,
-                              true_flag/0,
-                              user_io/1,
-                              wtime_eval/2,
-                              wtimed_call/2 ]).
-:- use_module(metta_loader, [ import_metta/2,
-                              include_metta/2,
-                              load_metta/2,
-                              no_cons_reduce/0,
-                              register_module/2,
-                              register_module/3 ]).
-:- use_module(metta_parser, [ read_metta/2,
-                              svar_fixvarname/2 ]).
-:- use_module(metta_printer, [ write_src/1,
-                               write_src_woi/1 ]).
-:- use_module(metta_python, [ 'extend-py!'/2,
-                              is_rust_operation/1,
-                              make_py_dot/3,
-                              py_call_method_and_args/3,
-                              py_is_function/1,
-                              py_is_py/1,
-                              py_pp_str/2,
-                              rust_metta_run/2 ]).
-:- use_module(metta_repl, [ eval/2,
-                            repl/0 ]).
-:- use_module(metta_server, [ metta_concurrent_maplist/3,
-                              metta_concurrent_maplist/5,
-                              metta_concurrent_maplist/6,
-                              metta_concurrent_maplist/7,
-                              metta_hyperpose/6 ]).
-:- use_module(metta_space, [ 'atom-count'/2,
-                             'save-space!'/2 ]).
-:- use_module(metta_subst, [ is_space_op/1,
-                             subst_args/6 ]).
-:- use_module(metta_testing, [ color_g_mesg/2,
-                               loonit_asserts/3,
-                               tst_call_limited/1 ]).
-:- use_module(metta_typed_functions, [ arrow_type/3,
-                                       assignable_to/2,
-                                       freeist/3,
-                                       function_declaration/9,
-                                       get_ftype/6 ]).
-:- use_module(metta_types, [ adjust_args_9/9,
-                             can_assign/2,
-                             dont_put_attr/3,
-                             get_operator_typedef/5,
-                             get_operator_typedef_R/5,
-                             get_type/4,
-                             get_type_each/4,
-                             get_types/4,
-                             get_value_type/4,
-                             into_typed_arg/5,
-                             is_pro_eval_kind/1,
-                             is_syspred/3,
-                             is_type/1,
-                             is_user_defined_head/2,
-                             is_user_defined_head/3,
-                             is_user_defined_head_f/2,
-                             narrow_types/3,
-                             throw_metta_return/1,
-                             thrown_metta_return/1,
-                             type_conform/2,
-                             type_violation/2 ]).
-:- use_module(metta_utils, [ always_rethrow/1,
-                             maplist/6,
-                             maplist/7,
-                             subst001/4,
-                             subst0011a/4,
-                             super_safety_checks/1,
-                             write_src_uo/1 ]).
-:- use_module(swi_support, [ if_t/2,
-                             must_det_ll/1,
-                             option_else/3,
-                             option_value/2,
-                             symbol/1,
-                             symbol_concat/3 ]).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+:- ensure_loaded(metta_subst).
 
 solve_quadratic(A, B, I, J, K) :-
     %X in -1000..1000,  % Define a domain for X
