@@ -1,4 +1,4 @@
-:- module(metta_compiler_lib_douglas, []).
+:- module(metta_compiler_lib_douglas, [ from_prolog_args/3 ]).
 :- use_module(metta_compiler_douglas, [ transpile_impl_prefix/3 ]).
 :- use_module(metta_compiler_roy, [ fullvar/1,
                                     get_operator_typedef_props/5,
@@ -133,6 +133,8 @@ transpiler_clause_store('decons-atom', 2, 0, ['Expression'],'Expression', [x(noe
 
 %%%%%%%%%%%%%%%%%%%%% set
 
+
+:- meta_predicate lazy_member(?,0,?).
 lazy_member(R1,Code2,R2) :- call(Code2),R1=R2.
 
 transpiler_clause_store(subtraction, 3, 0, ['Atom','Atom'], 'Atom', [x(doeval,lazy),x(doeval,lazy)], x(doeval,eager), [], []).

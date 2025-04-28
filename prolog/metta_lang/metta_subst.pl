@@ -1,4 +1,5 @@
-:- module(metta_subst, [ is_space_op/1 ]).
+:- module(metta_subst, [ subst_args/6,
+                         is_space_op/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -133,6 +134,8 @@ subst_args(Eq,RetType,A,AA):-
 %subst_args(Eq,RetType,Depth,_Self,X,_Y):- forall(between(6,Depth,_),write(' ')),writeqln(subst_args(Eq,RetType,X)),fail.
 */
 
+
+:- meta_predicate subst_args(6,?,?,?,?,?).
 subst_args(Eq,RetType,Depth,Self,X,Y):- atom(Eq),  ( Eq \== ('=')),  ( Eq \== ('match')) ,!,
    call(Eq,'=',RetType,Depth,Self,X,Y). % '
 
@@ -182,6 +185,8 @@ subst_args0(Eq,RetType,Depth,Self,X,Y):-
 :- discontiguous subst_args1/6.
 :- discontiguous subst_args2/6.
 
+
+:- meta_predicate subst_args1(6,?,?,?,?,?).
 subst_args1(Eq,RetType,Depth,Self,X,Y):-
   var(Eq) -> (!,subst_args1('=',RetType,Depth,Self,X,Y));
     (atom(Eq),  ( Eq \== ('='), Eq \== ('match')) ,!, call(Eq,'=',RetType,Depth,Self,X,Y)).
@@ -761,6 +766,8 @@ subst_args2(Eq,_Dpth,_Slf,Name,Value):- atom(Name), nb_bound(Name,Value),!.
 % Macro Functions
 %subst_args1(Eq,RetType,Depth,_,_,_):- Depth<1,!,fail.
 subst_args2(Eq,Depth,_,X,Y):- Depth<3, !, fail, ground(X), (Y=X).
+
+:- meta_predicate subst_args2(6,?,?,?,?).
 subst_args2(Eq,Depth,Self,[F|PredDecl],Res):- fail,
    Depth>1,
    mnotrace((sub_sterm1(SSub,PredDecl), ground(SSub),SSub=[_|Sub], is_list(Sub), maplist(atomic,SSub))),
@@ -906,18 +913,24 @@ subst_args34(_Dpth,Self,H,B):-
   metta_eq_def(Eq,Self,H,B).
 
 % Has argument that is headed by the same function
+
+:- meta_predicate subst_args37(6,?,?,?,?).
 subst_args37(Eq,Depth,Self,[H1|Args],Res):-
    mnotrace((append(Left,[[H2|H2Args]|Rest],Args), H2==H1)),!,
    subst_args(Eq,RetType,Depth,Self,[H2|H2Args],ArgRes),
    mnotrace((ArgRes\==[H2|H2Args], append(Left,[ArgRes|Rest],NewArgs))),
    subst_args30(Eq,Depth,Self,[H1|NewArgs],Res).
 
+
+:- meta_predicate subst_args37(6,?,?,?,?).
 subst_args37(Eq,Depth,Self,[[H|Start]|T1],Y):- !,
    mnotrace((is_user_defined_head_f(Eq,Self,H),is_list(Start))),
    metta_eq_def(Eq,Self,[H|Start],Left),
    subst_args(Eq,RetType,Depth,Self,[Left|T1],Y).
 
 % Has subterm to subst
+
+:- meta_predicate subst_args37(6,?,?,?,?).
 subst_args37(Eq,Depth,Self,[F|PredDecl],Res):-
    Depth>1, fail,
    quietly(sub_sterm1(SSub,PredDecl)),

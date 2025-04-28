@@ -84,8 +84,10 @@
 :- use_module(metta_debug, [ sub_term_safely/2,
                              woc/1 ]).
 :- use_module(metta_eval, [ as_tf/2 ]).
-:- use_module(metta_interp, [ descend_and_transform/3 ]).
-:- use_module(metta_loader, [ mlog_sym/1 ]).
+:- use_module(metta_interp, [ descend_and_transform/3,
+                              is_compatio/0 ]).
+:- use_module(metta_loader, [ mlog_sym/1,
+                              silent_loading/0 ]).
 :- use_module(metta_parser, [ parse_sexpr/2 ]).
 :- use_module(metta_python, [ py_is_py/1,
                               py_ppp/1 ]).
@@ -300,6 +302,8 @@ print_pl_source(P) :-
     % Run the primary source-printing predicate within `run_pl_source/1`.
     run_pl_source(print_pl_source0(P)).
 
+
+:- meta_predicate pnotrace(0).
 pnotrace(G):- notrace(G).
 %pnotrace(G):- quietly(G).
 
@@ -313,6 +317,8 @@ pnotrace(G):- notrace(G).
 %
 %   @arg G The goal to be executed.
 %
+
+:- meta_predicate run_pl_source(0).
 run_pl_source(G) :-
     % Fail silently on error.
     catch(G, E, (
@@ -461,6 +467,8 @@ pp_fb1_e(P) :-
 %     % Apply the available formatting function to the term.
 %     ?- pp_fb2(print, example_term).
 %
+
+:- meta_predicate pp_fb2(1,?).
 pp_fb2(F, P) :-
     % Ensure F is an atom and a defined predicate.
     atom(F), current_predicate(F / 1),
@@ -1438,6 +1446,8 @@ indent_len(Need) :-
 %     % Run a goal with 4 spaces of indentation.
 %     ?- w_proper_indent(4, writeln('Indented line')).
 %
+
+:- meta_predicate w_proper_indent(?,0).
 w_proper_indent(N, G) :-
     % Calculate indentation based on the `w_in_p` flag.
     flag(w_in_p, X, X),
@@ -1458,6 +1468,8 @@ w_proper_indent(N, G) :-
 %     % Run a goal with one level of increased indentation.
 %     ?- w_in_p(writeln('Indented by level')).
 %
+
+:- meta_predicate w_in_p(0).
 w_in_p(G) :-
     % Increment indentation flag, execute `G`, then reset flag.
     setup_call_cleanup(flag(w_in_p, X, X + 1), G, flag(w_in_p, _, X)).

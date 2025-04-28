@@ -246,6 +246,8 @@ py_catch((G1, G2)):-
     % Handle exceptions for two goals executed sequentially.
     !,py_catch(G1),py_catch(G2).
 
+
+:- meta_predicate py_catch(0).
 py_catch(Goal):-
     % Catch any exceptions during goal execution.
     catch(Goal, E,

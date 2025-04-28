@@ -188,6 +188,8 @@ call_match([G]) :- !, call(G).
 % Call the first goal in the list, then recursively call the rest of the goals.
 call_match([G | GG]) :- !, call(G), call_match(GG).
 % Call a single goal that is not part of a list.
+
+:- meta_predicate call_match(0).
 call_match(G) :- call(G).
 
 %!  'save-space!'(+Space, +File) is det.

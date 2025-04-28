@@ -89,6 +89,8 @@
 
 % Uncomment the next line for quieter runs, meaning any debugging or tracing calls will be suppressed.
 % if_bugger(_):- !.
+
+:- meta_predicate if_bugger(0).
 if_bugger(G) :- call(G).
 
 % Define a no-op predicate if `nop/1` is not already defined.
@@ -148,6 +150,8 @@ wfailed(G) :-
 %   @arg Goal The Prolog goal to evaluate.
 %   @arg TF   The result, '@'(true)' or '@'(false)', depending on the success of the Goal.
 %
+
+:- meta_predicate py_is_tf(0,?).
 py_is_tf(Goal, TF) :- once(Goal) -> TF = '@'(true) ; TF = '@'(false).
 
 % Dynamic predicate to store registered Python functions with details about their parameters and return type.
@@ -242,12 +246,16 @@ from_python(ModuleFunctionName, TupleArgs, LArgs, KwArgs, Return) :-
 %     ?- call_ret_type(is_list([1, 2]), _, [1, 2], Result).
 %     Result = [1, 2].
 %
+
+:- meta_predicate call_ret_type(0,?,?,?).
 call_ret_type(Predicate, bool, _Return, Result) :- !,
     % Predicate to handle calling a predicate with a boolean return type.
     (call(Predicate) -> ignore(Result = '@'('true')); ignore(Result = '@'('false'))).
 call_ret_type(Predicate, 'None', _Return, Result) :- !,
     % Predicate to handle calling a predicate with a 'None' return type.
     ignore(trace_failures(Predicate)) -> ignore(Result = '@'('none')).
+
+:- meta_predicate call_ret_type(0,?,?,?).
 call_ret_type(Predicate, _RetType, Return, Result) :- !,
     % Generic handler for other return types.
     call(Predicate), ret_res(Return, Result).

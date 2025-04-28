@@ -21,8 +21,7 @@
                          with_option/2,
                          with_option/3,
                          set_option_value/2,
-                         must_det_ll/1
-                       ]).
+                         must_det_ll/1 ]).
 :- use_module(metta_interp, [ is_compatio/0 ]).
 
 /*
@@ -163,6 +162,8 @@ fbdebug1(Message) :-
 swi_only(_) :-
     % Fail if running on Scryer-Prolog.
     is_scryer, !, fail.
+
+:- meta_predicate swi_only(0).
 swi_only(G) :-
     % Execute the goal in SWI-Prolog.
     call(G).
@@ -199,15 +200,21 @@ is_scryer :-
 %     ?- with_cwd('/tmp', writeln('Hello from /tmp')).
 %     Hello from /tmp
 %
+
+:- meta_predicate with_cwd(?,0).
 with_cwd(Dir, Goal) :-
     % Execute the goal in the current directory if Dir is '.'.
     Dir == '.',!,setup_call_cleanup(working_directory(X, X), Goal, working_directory(_, X)).
+
+:- meta_predicate with_cwd(?,0).
 with_cwd(Dir, Goal) :-
     % Bind Dir to the current directory if it is a variable.
     var(Dir),X = Dir,!,setup_call_cleanup(working_directory(X, X), Goal, working_directory(_, X)).
 with_cwd(Dir, Goal) :-
     % Throw an exception if the directory does not exist.
     \+ exists_directory(Dir),!,throw(with_cwd(Dir, Goal)), !.
+
+:- meta_predicate with_cwd(?,0).
 with_cwd(Dir, Goal) :-
     % Execute the goal in the given directory, restoring the original afterward.
     setup_call_cleanup(working_directory(X, Dir), Goal, working_directory(_, X)).
@@ -226,6 +233,8 @@ with_cwd(Dir, Goal) :-
 %     ?- with_option(samples_per_million=100, writeln('Option applied')).
 %     Option applied
 %
+
+:- meta_predicate with_option(?,0).
 with_option([], G) :-
     % Call the goal when no options are provided.
     !, call(G).
@@ -241,6 +250,8 @@ with_option(NV, G) :-
 with_option(N, G) :-
     % Apply an option with a default value of `true`.
     with_option(N, true, G).
+
+:- meta_predicate with_option(?,?,0).
 with_option(N, V, G) :-
     % Set the option value temporarily and restore it after the goal completes.
     (was_option_value(N, W) -> true ; W = []),
@@ -833,6 +844,8 @@ must_det_ll(M, (GoalA -> GoalB)) :-
 must_det_ll(_, M:Goal) :-
     % If the goal has a module prefix, handle it.
     !, must_det_ll(M, Goal).
+
+:- meta_predicate must_det_ll(0,?).
 must_det_ll(M, Goal) :-
     % Call the goal, and if it fails, throw an exception.
     M:call(Goal) -> true ; throw(failed(Goal)).
@@ -858,6 +871,8 @@ call_ll(_M, Goal) :-
 call_ll(M, Goal) :-
     % Strips the module from Goal if M is a variable and re-executes.
     var(M), !, strip_module(Goal, M, NewGoal), !, call_ll(M, NewGoal).
+
+:- meta_predicate call_ll(0,?).
 call_ll(M, Goal) :-
     % Calls the Goal within the specified Module.
     M:call(Goal).
@@ -866,6 +881,8 @@ call_ll(M, Goal) :-
 
 % Defines if_t/2 if it does not already exist; executes Then if If succeeds, otherwise does nothing.
 :- if(\+ current_predicate(if_t/2)).
+
+:- meta_predicate if_t(0,0).
 if_t(If, Then) :- call(If) -> call(Then) ; true.
 :- endif.
 

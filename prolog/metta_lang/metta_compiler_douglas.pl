@@ -1,4 +1,8 @@
-:- module(metta_compiler_douglas, [ compile_flow_control1/6,
+:- module(metta_compiler_douglas, [ output_prolog/1,
+                                    print_ast/2,
+                                    show_recompile/3,
+                                    tree_deps/3,
+                                    compile_flow_control1/6,
                                     compile_flow_control2/6,
                                     compile_test_then_else/7,
                                     f2p/6,
@@ -421,8 +425,12 @@ cns:attr_unify_hook(_V,_T):- true.
 %must_det_lls(G):- catch(G,E,(wdmsg(E),fail)),!.
 %must_det_lls(G):- rtrace(G),!.
 must_det_lls((A,B)):- !, must_det_lls(A),must_det_lls(B).
+
+:- meta_predicate must_det_lls(0).
 must_det_lls(G):- catch(G,E,(wdmsg(E),fail)),!.
 %must_det_lls(G):- must_det_ll(G).
+
+:- meta_predicate must_det_lls(0).
 must_det_lls(G):- notrace,nortrace,trace,call(G),!.
 
 extract_constraints(V,VS):- var(V),get_attr(V,vn,Name),get_attr(V,cns,Set),!,extract_constraints(Name,Set,VS),!.
@@ -538,9 +546,13 @@ precompute_typeinfo(HResult,HeadIs,AsBodyFn,Ast,Result) :-
                               subst_vars/4 ]).
 :- use_module(metta_printer, [ print_pl_source/1 ]).
 :- use_module(metta_testing, [ color_g_mesg/2 ]).
-:- use_module(metta_types, [ get_operator_typedef/5 ]).
-:- use_module(swi_support, [ symbol/1,
+:- use_module(metta_types, [ as_prolog/2,
+                             get_operator_typedef/5 ]).
+:- use_module(swi_support, [ if_t/2,
+                             symbol/1,
                              symbol_concat/3 ]).
+:- use_module(metta_compiler_lib_douglas, [ from_prolog_args/3 ]).
+
 
 
 
@@ -874,7 +886,11 @@ prefix_impl_preds_pp(Prefix,F,A):- predicate_property('mc_2__:'(_,_,_),file(File
 maplist_and_conj(_,A,B):- fullvar(A),!,B=A.
 maplist_and_conj(_,A,B):- \+ compound(A),!,B=A.
 maplist_and_conj(P2,(A,AA),[B|BB]):- !, maplist_and_conj(P2,A,B), maplist_and_conj(P2,AA,BB).
+
+:- meta_predicate maplist_and_conj(2,?,?).
 maplist_and_conj(P2,[A|AA],[B|BB]):- !, call(P2,A,B), maplist_and_conj(P2,AA,BB).
+
+:- meta_predicate maplist_and_conj(2,?,?).
 maplist_and_conj(P2,A,B):- call(P2,A,B), !.
 
 notice_callee(Caller,Callee):-
@@ -931,10 +947,20 @@ optimize_prolog(_,Prolog,Prolog).
 
 de_eval(eval(X),X):- compound(X),!.
 
+
+:- meta_predicate call1(0).
 call1(G):- call(G).
+
+:- meta_predicate call2(0).
 call2(G):- call(G).
+
+:- meta_predicate call3(0).
 call3(G):- call(G).
+
+:- meta_predicate call4(0).
 call4(G):- call(G).
+
+:- meta_predicate call5(0).
 call5(G):- call(G).
 
 trace_break:- trace,break.
@@ -943,6 +969,8 @@ trace_break:- trace,break.
 :- set_prolog_flag(gc,false).
 :- endif.
 
+
+:- meta_predicate call_fr(1,?,?).
 call_fr(G,Result,FA):- current_predicate(FA),!,call(G,Result).
 call_fr(G,Result,_):- Result=G.
 
@@ -1656,6 +1684,8 @@ u_assign_c(FList,RR):-
 u_assign_c(FList,RR):- as_tf(FList,RR),!.
 u_assign_c(FList,R):- compound(FList), !, FList=~R.
 
+
+:- meta_predicate quietlY(0).
 quietlY(G):- call(G).
 
 var_prop_lookup(_,[],eager).
@@ -1715,6 +1745,8 @@ f2p(HeadIs, _LazyVars, RetResult, ResultLazy, Convert, Converted) :- HeadIs\=@=C
 unshebang(S,US):- symbol(S),(symbol_concat(US,'!',S)->true;US=S).
 
 compile_maplist_p2(_,[],[],[]).
+
+:- meta_predicate compile_maplist_p2(2,?,?,?).
 compile_maplist_p2(P2,[Var|Args],[Res|NewArgs],PreCode):- \+ fullvar(Var), call(P2,Var,Res), !,
   compile_maplist_p2(P2,Args,NewArgs,PreCode).
 compile_maplist_p2(P2,[Var|Args],[Res|NewArgs],TheCode):-

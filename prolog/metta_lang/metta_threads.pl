@@ -159,6 +159,8 @@ spawn(Goal) :-
 %
 %   @see async/3 for more fine-grained control when no free variables are present.
 %
+
+:- meta_predicate spawn(0,?).
 spawn(Goal, Options) :-
     term_variables(Goal, Vars),          % Collect free variables in Goal
     async(Goal, Token, Options),         % Start async execution with options
@@ -258,6 +260,8 @@ spawn_thaw(Id, Token, Opts) :-
 %   the `lazy` policy prevents `i_am_slow/3` from executing at all, avoiding 
 %   unnecessary computation.
 %
+
+:- meta_predicate lazy(0).
 lazy(Goal) :-
     spawn(Goal, [policy(lazy)]).
 

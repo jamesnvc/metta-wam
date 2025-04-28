@@ -545,6 +545,8 @@ ok_varname_or_int(Name) :-
 %
 %   @arg Name The name to validate.
 %
+
+:- meta_predicate quietly_sreader(0).
 quietly_sreader(G):- notrace(G).
 ok_var_name(Name):-
     % Ensure the name follows valid Prolog variable naming rules.
@@ -577,6 +579,8 @@ atom_upper(A,U):-string_upper(A,S),quietly_sreader(((atom_string(U,S)))).
 %   @example Redirect the output of a simple print goal:
 %       ?- io_to_err(write('Error message')).
 %
+
+:- meta_predicate io_to_err(0).
 io_to_err(Goal):-
     with_output_to(user_error, Goal).
 
@@ -663,6 +667,8 @@ show_input_files(Output, InputFile) :-
 %
 % Handles the regeneration of buffer files for the specified input file.
 % @arg InputFile The name of the input file.
+
+:- meta_predicate gen_tmp_file(0,?).
 gen_tmp_file(Forced, InputFile) :-
     file_name_extension(InputFile, 'buffer~', OutputFile),  % Formulate the output file name.
     check_input_file(InputFile),  % Ensure the input file exists and is readable.
@@ -885,6 +891,8 @@ get_percent_done(InStream, TotalLines, Percent):-
 %
 % This predicate assumes the `CalcPercent` predicate handles all necessary file stream interactions to determine the progress.
 %
+
+:- meta_predicate report_progress_so_far(?,1,?,?).
 report_progress_so_far(FileName, CalcPercent, StartTime, RemainingTime):-
     call(CalcPercent, PercentDone),  % Call the provided predicate to calculate the percentage completed
     remaining_time(PercentDone, StartTime, RemainingTime),
@@ -1500,6 +1508,8 @@ read_list(EndChar,  Stream, List):-
         throw(stream_error(Line:Col:CharPos,Why))),
   nb_setval('$file_src_depth', LvL)).
 
+
+:- meta_predicate read_list_cont(1,?,?).
 read_list_cont(EndChar,  Stream, List) :-
     skip_spaces(Stream),  % Skip any leading spaces before reading.
 
@@ -1546,6 +1556,8 @@ read_quoted_symbol(Stream, EndChar,  Symbol) :-
 % @arg Stream Stream from which to read.
 % @arg EndChar that indicates the end of the reading.
 % @arg Chars List of characters read until the end character.
+
+:- meta_predicate read_until_char(?,1,?).
 read_until_char(Stream, EndChar,  Chars) :-
     get_char(Stream, Char),
     (   Char = end_of_file -> throw_stream_error(Stream, unexpected_end_of_file(read_until_char(EndChar)))
@@ -1559,6 +1571,8 @@ read_until_char(Stream, EndChar,  Chars) :-
     ).
 
 chall(Test,Char):- \+ compound(Test),!, Test == Char.
+
+:- meta_predicate chall(1,?).
 chall(Test,Char):- call(Test,Char),!.
 was_end(X,Y):- X==Y.
 
@@ -1635,6 +1649,8 @@ classify_and_convert_charseq_(Chars, Symbolic) :-
 % @arg EndChar that indicates the end of the reading unless escaped.
 % @arg Stream Stream from which to read.
 % @arg Chars List of characters read, forming part of a symbolic expression.
+
+:- meta_predicate read_symbolic_cont(1,?,?).
 read_symbolic_cont(EndChar,  Stream, Chars) :-
     peek_char(Stream, NextChar),
     (   is_delimiter(NextChar) -> Chars = []  % Stop when a delimiter is found.

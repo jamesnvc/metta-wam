@@ -4,6 +4,7 @@
                              pfcError/2,
                              pfcFact/1,
                              pfcTF1/1,
+                             pfcTraceAdd/2,
                              pfcTraceExecution/0,
                              pfcTraceMsg/1,
                              pfcTraceMsg/2,
@@ -1871,6 +1872,8 @@ pp_DB :- prolog_load_context(module, M), pp_DB(M).
 %   @example Executing a goal in a specific module:
 %       ?- with_exact_kb(my_module, my_goal).
 %
+
+:- meta_predicate with_exact_kb(0,?).
 with_exact_kb(M, G) :-
     M:call(G).
 
@@ -1884,6 +1887,8 @@ with_exact_kb(M, G) :-
 %   @example Pretty printing the Pfc database for a module:
 %       ?- pp_DB(my_module).
 %
+
+:- meta_predicate pp_DB(0).
 pp_DB(M) :-
     with_exact_kb(M, M:must_det_ll((
         pp_db_facts,    % Pretty print facts.
@@ -2075,6 +2080,8 @@ pp_db_triggers(MM) :-
 %
 %   @arg Module The module context.
 %
+
+:- meta_predicate pp_db_supports(0).
 pp_db_supports(MM) :-
     % temporary hack to print supports
     format("~N~nSupports in [~w]...~n", [MM]),
@@ -2155,6 +2162,8 @@ has_cl(H) :- predicate_property(H, number_of_clauses(_)).
 % PFC2.0 clause_or_call(isa(I,C),true):-!,call_u(isa_asserted(I,C)).
 % PFC2.0 clause_or_call(genls(I,C),true):-!,on_x_log_throw(call_u(genls(I,C))).
 clause_or_call(H, B) :- clause(src_edit(_Before, H), B).
+
+:- meta_predicate clause_or_call(0,?).
 clause_or_call(H, B) :-
     predicate_property(H, number_of_clauses(C)),
     predicate_property(H, number_of_rules(R)),
@@ -2205,6 +2214,8 @@ no_side_effects(P) :- (\+ is_side_effect_disabled -> true;(get_functor(P, F, _),
 %   @arg Condition The condition to filter facts.
 %   @arg Facts The retrieved facts.
 %
+
+:- meta_predicate pfc_facts_in_kb(0,?,?,?).
 pfc_facts_in_kb(MM, P, C, L) :-
     with_exact_kb(MM, setof_or_nil(P, pfcFact(P, C), L)).
 

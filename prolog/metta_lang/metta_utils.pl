@@ -480,6 +480,8 @@ arc_option(O) :-
 %
 %   @arg O The option to check.
 %   @arg G The goal to be executed if the option `O` is true.
+
+:- meta_predicate if_arc_option(?,0).
 if_arc_option(O, G) :-
     % If `arc_option(O)` succeeds (i.e., option `O` is set), execute `G`. Otherwise, do nothing.
     (arc_option(O) -> must_det_ll(G); true).
@@ -644,6 +646,8 @@ main_thread :-
 %   thread is `main`, it calls the goal `G`. If not, it simply succeeds without executing `G`.
 %
 %   @arg G The goal to execute if the current thread is `main`.
+
+:- meta_predicate if_thread_main(0).
 if_thread_main(G) :-
     % Check if the current thread is the main thread.
     main_thread ->
@@ -747,6 +751,8 @@ pp_q(Cl):-
 %   @arg G The goal to be executed.
 %   @arg E The exception to catch.
 %   @arg F The fallback goal to be executed if an exception `E` is caught.
+
+:- meta_predicate ncatch(0,?,0).
 ncatch(G, E, F) :-
     % Catch exceptions that occur while executing `G` and handle them with `F`.
     catch(G, E, F).
@@ -760,6 +766,8 @@ ncatch(G, E, F) :-
 %   @arg G The goal to be executed.
 %   @arg E The exception to catch.
 %   @arg F The fallback goal to be executed if an exception `E` is caught.
+
+:- meta_predicate mcatch(0,?,0).
 mcatch(G, E, F) :-
     % Catch exceptions that occur while executing `G` and handle them with `F`.
     catch(G, E, F).
@@ -1065,6 +1073,8 @@ wno_must(G) :-
 %   @arg List Input list.
 %
 md_maplist(_MD, _, []) :- !.
+
+:- meta_predicate md_maplist(1,?,?).
 md_maplist(MD, P1, [H|T]) :-
     % Call the modifier MD with the predicate P1 applied to H.
     call(MD, call(P1, H)),
@@ -1083,6 +1093,8 @@ md_maplist(MD, P1, [H|T]) :-
 %   @arg ListB  Second input list (output list).
 %
 md_maplist(_MD, _, [], []) :- !.
+
+:- meta_predicate md_maplist(1,?,?,?).
 md_maplist(MD, P2, [HA|TA], [HB|TB]) :-
     % Call the modifier MD with the predicate P2 applied to HA and HB.
     call(MD, call(P2, HA, HB)),
@@ -1102,6 +1114,8 @@ md_maplist(MD, P2, [HA|TA], [HB|TB]) :-
 %   @arg ListC  Third input list (output list).
 %
 md_maplist(_MD, _, [], [], []) :- !.
+
+:- meta_predicate md_maplist(1,?,?,?,?).
 md_maplist(MD, P3, [HA|TA], [HB|TB], [HC|TC]) :-
     % Call the modifier MD with the predicate P3 applied to HA, HB, and HC.
     call(MD, call(P3, HA, HB, HC)),
@@ -1143,10 +1157,16 @@ must_det_ll(X) :-
 %   @arg G   The goal to be executed, possibly wrapped with `P1` and evaluated under various conditions.
 %
 % If tracing is enabled, execute the goal G with modifier P1.
+
+:- meta_predicate md(1,?).
 md(P1, G):- tracing, !, call(P1, G).
 % Remove the deterministic checks (must_det) and apply the wrapped P1 to the goal G.
+
+:- meta_predicate md(?,0).
 md(P1, G):- remove_must_det(MD), wraps_each(MD, P1), !, call(G).
 % If rrtrace is never allowed, directly call the goal G with modifier P1.
+
+:- meta_predicate md(1,?).
 md(P1, G):- never_rrtrace, !, call(P1, G).
 % If in an HTML environment, call the goal G and ignore any errors.
 md(P1, G):- (arc_html), !, ignore((call(P1, G))), !.
@@ -1156,6 +1176,8 @@ md(P1, (X, Goal)):- is_trace_call(X), !, call((itrace, call(P1, Goal))).
 % If X is a trace call, start tracing.
 md(_, X):- is_trace_call(X), !, itrace.
 % If no deterministic check is allowed, call X directly with P1.
+
+:- meta_predicate md(1,?).
 md(P1, X):- nb_current(no_must_det_ll, t), !, call(P1, X).
 % Throw an error if X is not callable.
 md(P1, X):- \+ callable(X), !, throw(md_not_callable(P1, X)).
@@ -1166,10 +1188,16 @@ md(P1, (A -> X ; Y)):- !, (must_not_error(A) -> md(P1, X); md(P1, Y)).
 % Handle cuts by executing the first goal and applying the cut.
 md(P1,(X,Cut)):-(Cut==(!)),md(P1,X),!.
 % Handle maplist/2 for applying P1 to each element in the list.
+
+:- meta_predicate md(1,?).
 md(MD, maplist(P1, List)):- !, call(MD, md_maplist(MD, P1, List)).
 % Handle maplist/3 for applying P2 to corresponding elements of ListA and ListB.
+
+:- meta_predicate md(1,?).
 md(MD, maplist(P2, ListA, ListB)):- !, call(MD, md_maplist(MD, P2, ListA, ListB)).
 % Handle maplist/4 for applying P3 to corresponding elements of ListA, ListB, and ListC.
+
+:- meta_predicate md(1,?).
 md(MD, maplist(P3, ListA, ListB, ListC)):- !, call(MD, md_maplist(MD, P3, ListA, ListB, ListC)).
 % Handle conjunction with cuts by executing X, then Y.
 md(P1,(X,Cut,Y)):-(Cut==(!)),!,(md(P1,X),!,md(P1,Y)).
@@ -1188,8 +1216,12 @@ md(P1, forall(X, Y)):- !, md(P1, forall(must_not_error(X), must_not_error(Y))).
 % Handle nested negations by converting them to a forall construct with error handling.
 md(P1, \+ (X, \+ Y)):- !, md(P1, forall(must_not_error(X), must_not_error(Y))).
 % Handle disjunction (or) of two goals, ensuring errors are caught and handled.
+
+:- meta_predicate md(1,?).
 md(P1, (X; Y)):- !, ((must_not_error(X); must_not_error(Y)) -> true; md_failed(P1, X; Y)).
 % Handle negation of a goal, ensuring proper error handling.
+
+:- meta_predicate md(1,?).
 md(P1, \+ (X)):- !, (\+ must_not_error(X) -> true ; md_failed(P1, \+ X)).
 %md(P1,(M:Y)):- nonvar(M), !, M:md(P1,Y).
 % Attempt deterministic execution of the goal X, catching failures and exceptions.
@@ -1330,8 +1362,12 @@ rethrow_abort(E):- ds, !, format(user_error,'~N~q~n',[catch_non_abort(E)]), !.
 %   - Using `setup_call_cleanup/3` to disable and re-enable tracing around the execution of `Goal`.
 %
 % If never_rrtrace is enabled, execute the goal directly without any special setup.
+
+:- meta_predicate cant_rrtrace(0).
 cant_rrtrace(Goal):- never_rrtrace, !, call(Goal).
 % Otherwise, set up a restricted tracing environment for the duration of the goal execution.
+
+:- meta_predicate cant_rrtrace(0).
 cant_rrtrace(Goal):- setup_call_cleanup(cant_rrtrace, Goal, can_rrtrace).
 
 %!  main_debug is det.
@@ -1669,8 +1705,12 @@ bts:-
 %   ?- my_assertion(my_goal).
 %
 % First clause: Call the goal G directly.
+
+:- meta_predicate my_assertion(0).
 my_assertion(G):- my_assertion(call(G), G).
 % If G succeeds, exit without further action.
+
+:- meta_predicate my_assertion(?,0).
 my_assertion(_, G):- call(G), !.
 % If G fails, log the failure, print debugging information, and enter a break for inspection.
 my_assertion(Why, G):- u_dmsg(my_assertion(Why, G)), writeq(Why = goal(G)), nl, !, ibreak.
@@ -2507,6 +2547,8 @@ my_append(A, B, C) :- append(A, B, C).
 %   ?- with_tty_false(write('Hello, World!')).
 %
 % Execute a goal with the tty(false) stream setting.
+
+:- meta_predicate with_tty_false(0).
 with_tty_false(Goal) :- with_set_stream(current_output, tty(false), Goal).
 
 %!  with_tty_true(:Goal) is det.
@@ -2519,6 +2561,8 @@ with_tty_false(Goal) :- with_set_stream(current_output, tty(false), Goal).
 %   ?- with_tty_true(write('Hello, World!')).
 %
 % Execute a goal with the tty(true) stream setting.
+
+:- meta_predicate with_tty_true(0).
 with_tty_true(Goal) :- with_set_stream(current_output, tty(true), Goal).
 
 %!  count_of(+G, -N) is det.
@@ -2532,6 +2576,8 @@ with_tty_true(Goal) :- with_set_stream(current_output, tty(true), Goal).
 %   ?- count_of(member(X, [1, 2, 2, 3]), N).
 %
 % Count occurrences of G and store the result in N.
+
+:- meta_predicate count_of(0,?).
 count_of(G, N) :- findall_vset(G, G, S), length(S, N).
 
 %!  findall_vset(+T, :G, -S) is det.
@@ -2546,6 +2592,8 @@ count_of(G, N) :- findall_vset(G, G, S), length(S, N).
 %   ?- findall_vset(X, member(X, [1, 2, 2, 3]), Set).
 %
 % Find all solutions of G and remove duplicates to create a set.
+
+:- meta_predicate findall_vset(?,0,?).
 findall_vset(T, G, S) :- findall(T, G, L), variant_list_to_set(L, S).
 
 %!  flatten_objects(+Objs, -ObjsO) is det.
@@ -2755,6 +2803,8 @@ set_nth1(N, [W|Row], E, [W|RowMod]) :- Nm1 is N - 1,set_nth1(Nm1, Row, E, RowMod
 %     Count = 3.
 %
 % Collect unique solutions as a set and count the elements.
+
+:- meta_predicate findall_count(?,0,?).
 findall_count(T, G, N) :- findall_set(T, G, S),length(S, N).
 
 %!  findall_set(+Template, +Goal, -Set) is det.
@@ -2770,6 +2820,8 @@ findall_count(T, G, N) :- findall_set(T, G, S),length(S, N).
 %     Set = [1, 2, 3].
 %
 % Find all solutions and convert them to a set to remove duplicates.
+
+:- meta_predicate findall_set(?,0,?).
 findall_set(T, G, S) :- findall(T, G, L),list_to_set(L, S).
 
 %!  make_list_inited(+Length, +Element, -List) is det.
@@ -2803,6 +2855,8 @@ make_list_inited(N, E, [E|List]) :- Nm1 is N - 1,make_list_inited(Nm1, E, List).
 %     ?- nth_fact(foo, 2).
 %
 % Retrieve the clause reference and unify it with the index.
+
+:- meta_predicate nth_fact(0,?).
 nth_fact(P, I) :- clause(P, true, Ref),nth_clause(P, I, Ref).
 
 %!  nonvar_or_ci(+Term) is nondet.
@@ -2891,6 +2945,8 @@ add_cond(Info) :- add_i(cond, Info).
 %     ?- do_action(write('Hello')).
 %
 % Copy the call, execute it, and record it as an action.
+
+:- meta_predicate do_action(0).
 do_action(Call) :- !, copy_term(Call, Info), call(Call), add_i(action, Info).
 
 %!  add_action(+Info) is det.
@@ -3003,6 +3059,8 @@ my_list_to_set_cmp(List, Set) :- my_list_to_set(List, (=@=), Set).
 %   @arg P2   The predicate used for comparison.
 %   @arg Set  The output list without duplicates.
 %
+
+:- meta_predicate my_list_to_set(?,2,?).
 my_list_to_set([E|List], P2, Set) :- select(C, List, Rest),p2_call(P2, E, C),!,my_list_to_set([E|Rest], P2, Set).
 my_list_to_set([E|List], P2, [E|Set]) :- !, my_list_to_set(List, P2, Set).
 my_list_to_set([], _, []).
@@ -3015,6 +3073,8 @@ my_list_to_set([], _, []).
 %   @arg C3   The comparison predicate.
 %   @arg Set  The resulting list with duplicates removed.
 %
+
+:- meta_predicate my_list_to_set_cmp(?,3,?).
 my_list_to_set_cmp([E|List], C3, Set) :- select(C, List, Rest),call(C3, R, E, C),R == (=),
     my_list_to_set_cmp([C|Rest], C3, Set),!.
 my_list_to_set_cmp([E|List], C3, [E|Set]) :- !, my_list_to_set_cmp(List, C3, Set).
@@ -3124,6 +3184,8 @@ count_each_inv([], _, []).
 %   @arg Predicate The predicate to be applied to each element.
 %   @arg List     The list of elements to process.
 %
+
+:- meta_predicate maplist_n(?,2,?).
 maplist_n(N, P, [H1|T1]) :- p2_call(P, N, H1),N1 is N + 1,maplist_n(N1, P, T1).
 maplist_n(_N, _P, []).
 
@@ -3137,6 +3199,8 @@ maplist_n(_N, _P, []).
 %   @arg List1    The input list.
 %   @arg List2    The output list with transformed elements.
 %
+
+:- meta_predicate maplist_n(?,3,?,?).
 maplist_n(N, P, [H1|T1], [H2|T2]) :- call(P, N, H1, H2),N1 is N + 1,maplist_n(N1, P, T1, T2).
 maplist_n(_N, _P, [], []).
 
@@ -3214,6 +3278,8 @@ map_pred1(Pred, P, P1) :- map_pred1(P, Pred, P, P1).
 %   @arg ArgSO    The output term after transformation.
 %
 map_pred0(_NoCycles, _Pred, Args, ArgSO) :- must_be_free(ArgSO), Args == [], !, ArgSO = [].
+
+:- meta_predicate map_pred0(?,2,?,?).
 map_pred0(_NoCycles, Pred, P, P1) :- p2_call(Pred, P, P1), !. % *->true;fail.
 map_pred0(NoCycles, Pred, P, X) :-
     fail, attvar(P), !,
@@ -3347,11 +3413,15 @@ maybe_mapgrid(P4, I, O, M, N) :- is_grid(I), !, mapgrid(P4, I, O, M, N).
 %     true.
 %
 % Ensure all inputs are normalized to grids and apply `P4` with `mapg_list/5`.
+
+:- meta_predicate mapgrid(4,?,?,?,?).
 mapgrid(P4, Grid, GridM, GridN, GridO) :- into_grid_or_var(Grid, G1),into_grid_or_var(GridM, G2),
     into_grid_or_var(GridN, G3),into_grid_or_var(GridO, G4),mapg_list(P4, G1, G2, G3, G4).
 % Apply P4 recursively if the input is a list of grids.
 mapg_list(P4, Grid, GridM, GridN, GridO) :- is_list(Grid),!,maplist(mapg_list(P4), Grid, GridM, GridN, GridO).
 % Call P4 on the grids when they are not lists.
+
+:- meta_predicate mapg_list(4,?,?,?,?).
 mapg_list(P4, Grid, GridM, GridN, GridO) :- call(P4, Grid, GridM, GridN, GridO), !.
 
 %!  mapgrid(+P3, +Grid, +GridN, +GridO) is det.
@@ -3362,11 +3432,15 @@ mapg_list(P4, Grid, GridM, GridN, GridO) :- call(P4, Grid, GridM, GridN, GridO),
 %   @arg Grid, GridN, GridO The input and output grids.
 %
 % Normalize inputs to grids and call `mapg_list/4`.
+
+:- meta_predicate mapgrid(3,?,?,?).
 mapgrid(P3, Grid, GridN, GridO) :- into_grid_or_var(Grid, G1),into_grid_or_var(GridN, G2),into_grid_or_var(GridO, G3),
     mapg_list(P3, G1, G2, G3).
 % Apply P3 recursively if the input is a list of grids.
 mapg_list(P3, Grid, GridN, GridO) :- is_list(Grid),!,maplist(mapg_list(P3), Grid, GridN, GridO).
 % Call P3 on the grids when they are not lists.
+
+:- meta_predicate mapg_list(3,?,?,?).
 mapg_list(P3, Grid, GridN, GridO) :- call(P3, Grid, GridN, GridO), !.
 
 %!  mapgrid(+P2, +Grid, +GridN) is det.
@@ -3381,6 +3455,8 @@ mapgrid(P2, Grid, GridN) :- into_grid_or_var(Grid, G1),into_grid_or_var(GridN, G
 % Apply P2 recursively if the input is a list of grids.
 mapg_list(P2, Grid, GridN) :- is_list(Grid),!,maplist(mapg_list(P2), Grid, GridN).
 % Call P2 on the grids when they are not lists.
+
+:- meta_predicate mapg_list(2,?,?).
 mapg_list(P2, Grid, GridN) :- p2_call(P2, Grid, GridN), !.
 
 %!  mapgrid(+P1, +Grid) is det.
@@ -3395,6 +3471,8 @@ mapgrid(P1, Grid) :- into_grid_or_var(Grid, G1),mapg_list(P1, G1).
 % Apply P1 recursively if the input is a list of grids.
 mapg_list(P1, Grid) :- is_list(Grid),!,maplist(mapg_list(P1), Grid).
 % Call P1 on the grid when it is not a list.
+
+:- meta_predicate mapg_list(1,?).
 mapg_list(P1, Grid) :- p1_call(P1, Grid), !.
 
 %!  maplist_ignore(+P3, +H, +I, +J) is det.
@@ -3458,6 +3536,8 @@ p1_call(chk(P1), E) :- !, \+ \+ (p1_call(P1, E)).
 % Handle negation (\+/1).
 p1_call(\+ (P1), E) :- !, \+ p1_call(P1, E).
 % Call the predicate with the given argument.
+
+:- meta_predicate p1_call(1,?).
 p1_call(P1, E) :- !, call(P1, E).
 
 %!  chk(+X, +E) is nondet.
@@ -3477,6 +3557,8 @@ chk(X, E) :- \+ \+ call(X, E).
 %   @arg A Input to the first predicate.
 %   @arg B Final output from the second predicate.
 % Execute P2a on A, and use its result as input to P2b.
+
+:- meta_predicate p2_call_p2(2,2,?,?).
 p2_call_p2(P2a, P2b, A, B) :- p2_call(P2a, A, M), p2_call(P2b, M, B).
 
 %!  p2_call(+P2, +A, -B) is det.
@@ -3503,6 +3585,8 @@ p2_call(or(P2, Q2), A, B) :- nop(must_be(callable, P2)), !, (p2_call(P2, A, B) ;
 % Handle logical AND between two predicates.
 p2_call(and(P2, Q2), A, B) :- nop(must_be(callable, P2)), !, (p2_call(P2, A, AB), p2_call(Q2, AB, B)).
 % Call P2 if it is a valid callable term.
+
+:- meta_predicate p2_call(2,?,?).
 p2_call(P2, A, B) :- must_be(callable, P2), call(P2, A, B).
 
 %!  p1_or(+P1A, +P1B, +X) is nondet.
@@ -3512,6 +3596,8 @@ p2_call(P2, A, B) :- must_be(callable, P2), call(P2, A, B).
 %   @arg P1A, P1B The predicates to apply.
 %   @arg X The input to the predicates.
 % Try P1A on X; if it fails, try P1B.
+
+:- meta_predicate p1_or(1,1,?).
 p1_or(P1A, P1B, X) :- p1_call(P1A, X) -> true ; p1_call(P1B, X).
 
 %!  p1_and(+P1A, +P1B, +X) is nondet.
@@ -3521,6 +3607,8 @@ p1_or(P1A, P1B, X) :- p1_call(P1A, X) -> true ; p1_call(P1B, X).
 %   @arg P1A, P1B The predicates to apply.
 %   @arg X The input to the predicates.
 % Apply both P1A and P1B on X.
+
+:- meta_predicate p1_and(1,1,?).
 p1_and(P1A, P1B, X) :- p1_call(P1A, X), p1_call(P1B, X).
 
 %!  p1_not(+P1, +E) is nondet.
@@ -3549,6 +3637,8 @@ p1_ignore(P1, E) :- ignore(p1_call(P1, E)).
 %   @arg P1 The predicate to apply to the argument.
 %   @arg E The input term.
 % Extract the Nth argument and apply P1.
+
+:- meta_predicate p1_arg(?,1,?).
 p1_arg(N, P1, E) :- tc_arg(N, E, Arg), p1_call(P1, Arg).
 
 %!  p1_subterm(+P1, +E) is nondet.
@@ -3558,6 +3648,8 @@ p1_arg(N, P1, E) :- tc_arg(N, E, Arg), p1_call(P1, Arg).
 %   @arg P1 The predicate to apply to subterms.
 %   @arg E The term containing subterms.
 % Apply P1 to each subterm of E.
+
+:- meta_predicate p1_subterm(1,?).
 p1_subterm(P1, E) :- sub_term_safely(Arg, E), p1_call(P1, Arg).
 
 :- meta_predicate my_partition(-, ?, ?, ?).
@@ -3635,6 +3727,8 @@ sub_cmpd(X, Term) :-
 %
 %with_my_group([O|Grp],Goal):- compound(O),O=obj(_),!, locally(nb_setval('$outer_group',[O|Grp]),Goal).
 % Call the goal without special handling.
+
+:- meta_predicate with_my_group(?,0).
 with_my_group(_, Goal) :- call(Goal).
 
 %!  into_mlist(+L, -L) is det.
@@ -3896,6 +3990,8 @@ subst0011_p2(P2, X, Y, Term, NewTerm) :-
 %   @arg Term The original term.
 %   @arg NewTerm The resulting term after substitution.
 % Apply substitution using the comparison predicate or recurse into terms.
+
+:- meta_predicate subst0011a_p2(2,?,?,?,?).
 subst0011a_p2(P2, X, Y, Term, NewTerm) :-
     (p2_call(P2, X, Term) -> Y = NewTerm
     ; (is_list(Term) -> maplist(subst0011a_p2(P2, X, Y), Term, NewTerm)
@@ -4104,6 +4200,8 @@ warn_skip(P) :- pp(warn_skip(P)).
 %   @arg NewStream The new stream to use during the execution of `Goal`.
 %   @arg Goal The goal to execute within the stream context.
 % Call the goal with the stream context.
+
+:- meta_predicate with_set_stream(?,?,0).
 with_set_stream(_, _, G) :- call(G).
 
 %!  fake_impl(+Spec) is det.
@@ -4145,6 +4243,8 @@ fake_impl(F/A) :-
 maplist(Goal, List1, List2, List3, List4, List5) :-
     maplist_(List1, List2, List3, List4, List5, Goal).
 maplist_([], [], [], [], [], _).
+
+:- meta_predicate maplist_(?,?,?,?,?,5).
 maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail5], Goal) :-
     call(Goal, Elem1, Elem2, Elem3, Elem4, Elem5),
     maplist_(Tail1, Tail2, Tail3, Tail4, Tail5, Goal).
@@ -4153,6 +4253,8 @@ maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail
 maplist(Goal, List1, List2, List3, List4, List5, List6) :-
     maplist_(List1, List2, List3, List4, List5, List6, Goal).
 maplist_([], [], [], [], [], [], _).
+
+:- meta_predicate maplist_(?,?,?,?,?,?,6).
 maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail5], [Elem6|Tail6], Goal) :-
     call(Goal, Elem1, Elem2, Elem3, Elem4, Elem5, Elem6),
     maplist_(Tail1, Tail2, Tail3, Tail4, Tail5, Tail6, Goal).
@@ -4161,6 +4263,8 @@ maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail
 maplist(Goal, List1, List2, List3, List4, List5, List6, List7) :-
     maplist_(List1, List2, List3, List4, List5, List6, List7, Goal).
 maplist_([], [], [], [], [], [], [], _).
+
+:- meta_predicate maplist_(?,?,?,?,?,?,?,7).
 maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail5], [Elem6|Tail6], [Elem7|Tail7], Goal) :-
     call(Goal, Elem1, Elem2, Elem3, Elem4, Elem5, Elem6, Elem7),
     maplist_(Tail1, Tail2, Tail3, Tail4, Tail5, Tail6, Tail7, Goal).
@@ -4169,11 +4273,15 @@ maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail
 maplist(Goal, List1, List2, List3, List4, List5, List6, List7, List8) :-
     maplist_(List1, List2, List3, List4, List5, List6, List7, List8, Goal).
 maplist_([], [], [], [], [], [], [], [], _).
+
+:- meta_predicate maplist_(?,?,?,?,?,?,?,?,8).
 maplist_([Elem1|Tail1], [Elem2|Tail2], [Elem3|Tail3], [Elem4|Tail4], [Elem5|Tail5], [Elem6|Tail6], [Elem7|Tail7], [Elem8|Tail8], Goal) :-
     call(Goal, Elem1, Elem2, Elem3, Elem4, Elem5, Elem6, Elem7, Elem8),
     maplist_(Tail1, Tail2, Tail3, Tail4, Tail5, Tail6, Tail7, Tail8, Goal).
 
 map_fold1(_,[],[],A,A).
+
+:- meta_predicate map_fold1(4,?,?,?,?).
 map_fold1(Pred,[X|Xt],[Y|Yt],A1,A3) :- call(Pred,X,Y,A1,A2),map_fold1(Pred,Xt,Yt,A2,A3).
 
 end_of_file.

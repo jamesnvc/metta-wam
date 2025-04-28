@@ -281,6 +281,8 @@ color_g_mesg(C, G) :-
 %   @example
 %     % Execute a message with color formatting if allowed:
 %     ?- color_g_mesg_ok(red, writeln('Important message')).
+
+:- meta_predicate color_g_mesg_ok(?,0).
 color_g_mesg_ok(_, G) :-
     % In compatibility mode, simply execute the Goal without formatting.
     is_compatio, !, call(G).
@@ -366,6 +368,8 @@ print_current_test :-
 %   @example
 %     % Track a goal and increment failure count if it fails:
 %     ?- ensure_increments(writeln('Running test goal...')).
+
+:- meta_predicate ensure_increments(0).
 ensure_increments(Goal) :-
     % Sets up initial conditions and executes Goal, adjusting counters afterward.
     setup_call_cleanup(
@@ -427,6 +431,8 @@ loonit_asserts(S, Pre, G) :-
 %   @example
 %     % Perform assertion with tracking, assuming precondition holds:
 %     ?- loonit_asserts0('source', true, writeln('Executing goal')).
+
+:- meta_predicate loonit_asserts0(?,0,?).
 loonit_asserts0(S, Pre, G) :-
     % Increments the test number.
     flag(loonit_test_number, X, X + 1),
@@ -699,7 +705,11 @@ trim_gstring_bar_I(Goal, MaxLen) :-
 %    ?- tst_cwdl(member(X, [1,2,3]), 0).
 %    ERROR: Unhandled exception: over_test_resource_limit(depth_limit, 0, 1)
 %
+
+:- meta_predicate tst_cwdl(0,?).
 tst_cwdl(Goal, _MaxDepth) :- !, call(Goal).
+
+:- meta_predicate tst_cwdl(0,?).
 tst_cwdl(Goal, MaxDepth) :-
     call_with_depth_limit(Goal, MaxDepth, Result),
     cwdl_handle_result(Result, MaxDepth).
@@ -750,7 +760,11 @@ cwdl_handle_result(_, _).
 %    ?- tst_cwil(member(X, [1,2,3]), 0).
 %    ERROR: Unhandled exception: over_test_resource_limit(inference_limit, 0, 1)
 %
+
+:- meta_predicate tst_cwil(0,?).
 tst_cwil(Goal, _MaxInference) :- !, call(Goal).
+
+:- meta_predicate tst_cwil(0,?).
 tst_cwil(Goal, MaxInference) :-
     call_with_inference_limit(Goal, MaxInference, Result),
     cwil_handle_result(Result, MaxInference).

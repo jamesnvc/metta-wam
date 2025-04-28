@@ -1,4 +1,5 @@
-:- module(metta_types, [ adjust_args_9/9,
+:- module(metta_types, [ as_prolog/2,
+                         adjust_args_9/9,
                          can_assign/2,
                          dont_put_attr/3,
                          get_operator_typedef/4,
@@ -216,6 +217,8 @@ is_metta_data_functor(Eq, Other, H) :-
 %     Hello
 %
 :- if(\+ current_predicate(mnotrace/1)).
+
+:- meta_predicate mnotrace(0).
 mnotrace(G) :-
     % Execute the goal exactly once.
     once(G).
@@ -504,6 +507,8 @@ return_only_first_type :- fail,
 is_space_type(Space, is_asserted_space) :-
     % Check if the space was asserted.
     was_asserted_space(Space), !.
+
+:- meta_predicate is_space_type(?,1).
 is_space_type(Space, Test) :-
     % Use no_repeats to ensure uniqueness in space type methods.
     no_repeats(Test, space_type_method(Test, _, _)),
@@ -518,6 +523,9 @@ is_space_type(Space, Test) :-
 %   @arg State The state to be checked.
 %   @arg Type  The type determined by the relevant state type method.
 %
+
+
+:- meta_predicate is_state_type(?,1).
 is_state_type(State, Test) :-
     % Use no_repeats to ensure uniqueness in state type methods.
     no_repeats(Test, state_type_method(Test, _, _)),
@@ -1252,6 +1260,8 @@ adjust_argsB(Else, Eq, _RetType, Res, Res, Depth, Self, _, Args, Adjusted) :-
     % If Args is a list, evaluate each element.
     is_list(Args), !,
     maplist(eval_1_arg(Else, Eq, _, Depth, Self), Args, Adjusted).
+
+:- meta_predicate adjust_argsB(2,?,?,?,?,?,?,?,?,?).
 adjust_argsB(Else, _Eq, _RetType, Res, Res, Depth, Self, _, X, Y) :-
     % Fallback to the alternative strategy.
     call(Else, X, Y).

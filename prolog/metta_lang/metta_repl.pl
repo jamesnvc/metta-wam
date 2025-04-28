@@ -1236,6 +1236,8 @@ u_do_metta_exec02(From,Self,TermV,BaseEval,Term,_X,NamedVarsList,Was,VOutput,FOu
    flag(need_prompt,_,1),
    ignore(Result = res(FOut)).
 
+
+:- meta_predicate print_result_output(0,?,?,?,?,?,?,?,?,?,?).
 print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Result,Seconds,Was,Output,Stepping):-
          set_option_value(interactive,WasInteractive),
          Control = contrl(InitialResultLeash,Max,DoLeap),
@@ -1288,6 +1290,8 @@ print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Re
 
 
 %old_not_compatio(_G):- \+ is_testing, !.
+
+:- meta_predicate old_not_compatio(0).
 old_not_compatio(G):- call(G),ttyflush.
 
 %! maybe_assign(+N_V) is det.
@@ -1377,12 +1381,16 @@ get_single_char_key(C, A):- name(A, [C]).
 %   @arg Complete indicates whether the goal reached a final result.
 %   @arg Goal is the main goal to be executed interactively.
 %   @arg After is the action to perform after the goal is executed.
+
+:- meta_predicate forall_interactive(?,?,?,0,0).
 forall_interactive(file(_), false, Complete, Goal, After) :- !,
     % Execute the goal.
     %format("%%%%%%%%%%%%%%%%%%%%%%%%%0 ~w\n",[Goal]),
     Goal,
     % If the goal is complete, execute 'After', otherwise skip it.
     (Complete == true -> (!, call(After), !) ; ( \+ quietly(After))).
+
+:- meta_predicate forall_interactive(?,?,?,0,?).
 forall_interactive(prolog, false, Complete, Goal, After) :- !,
     % Execute the goal.
     %format("%%%%%%%%%%%%%%%%%%%%%%%%%1 ~w\n",[Goal]),
@@ -1391,6 +1399,8 @@ forall_interactive(prolog, false, Complete, Goal, After) :- !,
     (Complete == true -> ! ; true),
     % Execute 'After' quietly (without trace output).
     quietly(After).
+
+:- meta_predicate forall_interactive(?,?,?,0,?).
 forall_interactive(From, WasInteractive, Complete, Goal, After) :-
     % Check if the source (From) is interactive.
     (is_interactive(From) -> WasInteractive = true ; WasInteractive = false),
@@ -1924,6 +1934,8 @@ vu(trace, _Value):-
 %
 
 % Entry point for a goal execution, tracing is turned off by default.
+
+:- meta_predicate toplevel_goal(0).
 toplevel_goal(Goal) :-
     % Extract variables from the goal.
     term_variables(Goal,Vars),
@@ -1946,11 +1958,15 @@ toplevel_goal(Goal) :-
 %
 
 % Entry point for executing a goal with tracing enabled by default.
+
+:- meta_predicate trace_goal(0).
 trace_goal(Goal) :-
     % By default, tracing is enabled.
     trace_goal(Goal, trace_on).
 
 % Execute a goal with optional tracing.
+
+:- meta_predicate trace_goal(0,?).
 trace_goal(Goal, Tracing) :-
     % If tracing is on, print the goal being entered.
     (Tracing == trace_on -> writeln('Entering goal:'), writeln(Goal) ; true),
@@ -1982,6 +1998,8 @@ trace_goal(Goal, Tracing) :-
 %
 
 % This predicate handles user interaction and command processing during execution.
+
+:- meta_predicate interact(?,0,?).
 interact(Variables, Goal, Tracing) :-
     % Call the goal and print the result.
     call(Goal), write('Solution: '), write_src(Variables),

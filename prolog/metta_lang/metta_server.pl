@@ -69,6 +69,8 @@
 %
 %   @arg Goal is the goal to execute.
 %   @arg WasDet is true if the Goal was deterministic, false otherwise.
+
+:- meta_predicate call_wdet(0,?).
 call_wdet(Goal,WasDet):-
     % Execute the provided Goal
     call(Goal),
@@ -542,6 +544,8 @@ unregister_remote_code(MSpace, EntryPoint, Server) :-
 %   @example Execute a goal:
 %       ?- execute_goal(my_goal).
 %
+
+:- meta_predicate execute_goal(0).
 execute_goal(Goal) :-
     % Retrieve the current module space.
     current_self(MSpace),
@@ -600,6 +604,8 @@ execute_goal(_Self, fail, IsDet) :-
     (was_t(IsDet) -> throw(cut_fail); fail).
 
 % If the goal has associated clauses, process it by retrieving and executing the body.
+
+:- meta_predicate execute_goal(?,0,?).
 execute_goal(MSpace, Goal, _) :-
     % Check if the goal has clauses.
     predicate_property(Goal, number_of_clauses(_)),
@@ -793,6 +799,8 @@ metta_concurrent_maplist(P2, InList, OutList) :-
              % Cleanup the results after processing.
              cleanup_results(Tag)).
 
+
+:- meta_predicate metta_concurrent_maplist(2,?,?).
 metta_concurrent_maplist(P2, InList, OutList) :-
     % Fallback to standard maplist if threading isn't used.
     maplist(P2, InList, OutList).

@@ -151,13 +151,18 @@
 % UTF-8 is more universal and can handle a wider range of characters.
 :- encoding(utf8).
 
+
+:- meta_predicate o_quietly(0).
 o_quietly(G):- call(G).
 % o_quietly(G):- quietly(G).
 
+
+:- meta_predicate o_woc(0).
 o_woc(G):- call(G).
 % o_woc(G):- woc(G).
 
 :- dynamic('$metta_setup':on_init_metta/1).
+:- meta_predicate on_metta_setup(0).
 on_metta_setup(Goal):-
    assertz('$metta_setup':on_init_metta(Goal)).
 do_metta_setup:- forall('$metta_setup':on_init_metta(Goal),
@@ -359,7 +364,7 @@ metta_root_dir(Dir) :-
     getenv('METTALOG_DIR', Dir), !.
 metta_root_dir(Dir) :-
     % Attempt to resolve the root directory relative to the source directory.
-    is_metta_src_dir(Value),
+    user:is_metta_src_dir(Value),
     absolute_file_name('../../', Dir, [relative_to(Value)]).
 metta_root_dir(Dir) :-
     % Fallback to using the METTA_DIR environment variable.
@@ -415,7 +420,7 @@ metta_dir(Dir) :-
     absolute_file_name('./loaders/genome/', Dir, [relative_to(Value)]).
     % Fallback to the source directory if the above resolution fails.
 metta_dir(Dir) :-
-    is_metta_src_dir(Dir).
+    user:is_metta_src_dir(Dir).
     % Fallback to the Mettalog library directory if previous attempts fail.
 metta_dir(Dir) :-
     metta_library_dir(Dir).
@@ -1876,6 +1881,8 @@ with_answer_output(Goal, S) :-
 %
 %   @arg Goal The Prolog goal to execute with output suppressed.
 %
+
+:- meta_predicate null_io(0).
 null_io(G) :-
     % Redirect output to a null stream and execute the Goal.
     null_user_output(Out), !,
@@ -1900,9 +1907,13 @@ user_io(G) :-
 %
 %   @arg Goal The Prolog goal to execute with appropriate output redirection.
 %
+
+:- meta_predicate user_io_0(0).
 user_io_0(G) :-
     nb_current('$dont_redirect_output', true), !,
     call(G).
+
+:- meta_predicate user_io_0(0).
 user_io_0(G) :-
     % If in MettaLog runtime mode, output to the error stream.
     current_prolog_flag(mettalog_rt, true), !,
@@ -1911,6 +1922,8 @@ user_io_0(G) :-
     with_output_to(Out, G),
     flush_output(Out),
     ttyflush.
+
+:- meta_predicate user_io_0(0).
 user_io_0(G) :-
     % Otherwise, output to the original user output stream.
     original_user_output(Out),
@@ -1925,6 +1938,8 @@ user_io_0(G) :-
 %
 %   @arg Goal The Prolog goal to execute with error-directed output.
 %
+
+:- meta_predicate user_err(0).
 user_err(G) :-
     % Redirect output to the original error stream and execute the Goal.
     original_user_error(Out), !,
@@ -1990,6 +2005,8 @@ extra_answer_padding(_).
 %   @arg G The goal to be executed.
 in_answer_io(G):- notrace((in_answer_io_0(G))).
 in_answer_io_0(_):- nb_current(suspend_answers,true),!.
+
+:- meta_predicate in_answer_io_0(0).
 in_answer_io_0(G) :-
     % Get the answer_output stream
     answer_output(AnswerOut),
@@ -2176,6 +2193,8 @@ transcode_content(Content, FromEncoding, ToEncoding, TranscodedContent) :-
 %     % Example usage to check for non-compatibility mode and run a task:
 %     ?- not_compat_io(writeln('Non-compatible environment active.')).
 %
+
+:- meta_predicate not_compat_io(0).
 not_compat_io(G) :- not_compatio(G).
 
 %!  non_compat_io(Goal) is nondet.
@@ -2190,6 +2209,8 @@ not_compat_io(G) :- not_compatio(G).
 %     % Example usage to run a goal in non-compatible mode:
 %     ?- non_compat_io(writeln('Non-compatible I/O behavior enabled.')).
 %
+
+:- meta_predicate non_compat_io(0).
 non_compat_io(G) :- not_compatio(G).
 
 %!  trace_on_pass is det.
@@ -2266,6 +2287,8 @@ doing_repl :- option_value('doing_repl', true).
 %     ?- if_repl(writeln('This is REPL mode.')).
 %     This is REPL mode.
 %
+
+:- meta_predicate if_repl(0).
 if_repl(Goal) :- doing_repl -> call(Goal) ; true.
 
 %!  any_floats(+List) is nondet.
@@ -3046,6 +3069,8 @@ load_metta_file(_Slf, Filemask) :-
 %     ?- catch_abort(my_source, abort).
 %     % Logs: aborted(my_source, abort)
 %
+
+:- meta_predicate catch_abort(?,0).
 catch_abort(From, Goal) :-
     % Redirect to the three-argument version of `catch_abort`.
     catch_abort(From, Goal, Goal).
@@ -3064,6 +3089,8 @@ catch_abort(From, Goal) :-
 %     ?- catch_abort(my_source, some_context, abort).
 %     % Logs: aborted(my_source, some_context)
 %
+
+:- meta_predicate catch_abort(?,?,0).
 catch_abort(From, TermV, Goal) :-
     % Use `catch/3` to handle exceptions raised by the Goal.
     catch(
@@ -3262,6 +3289,8 @@ cmdline_load_file(Self, Filemask) :-
 %     ?- if_phase(execute, execute, writeln('Executing...')).
 %     Executing...
 %
+
+:- meta_predicate if_phase(?,?,0).
 if_phase(Current, Phase, Goal) :-
     sub_var_safely(Current, Phase) -> call(Goal) ; true.
 
@@ -3484,6 +3513,8 @@ clear_space(S) :-
 %     ?- dcall(writeln('Hello, World!')).
 %     Hello, World!
 %
+
+:- meta_predicate dcall(0).
 dcall(G) :- call(G).
 
 %!  lsm is det.
@@ -3693,6 +3724,8 @@ into_underscores(D, U) :-
 %     % Transform components of a compound term:
 %     ?- descend_and_transform(into_underscores, foo('some-symbol', bar-baz), Result).
 %     Result = foo('some_symbol', bar_baz).
+
+:- meta_predicate descend_and_transform(2,?,?).
 descend_and_transform(P2, Input, Transformed) :-
     (   var(Input)
     ->  Transformed = Input  % Keep variables as they are
@@ -3956,8 +3989,12 @@ load_hook(Load,Hooked):-
 %     % Execute a goal and trace errors:
 %     ?- rtrace_on_error(writeln('Hello, World!')).
 %
+
+:- meta_predicate rtrace_on_error(0).
 rtrace_on_error(G):- !, call(G).
 %rtrace_on_error(G):- catch(G,_,fail).
+
+:- meta_predicate rtrace_on_error(0).
 rtrace_on_error(G):-
   catch_err(G,E,
    (%notrace,
@@ -3978,6 +4015,8 @@ rtrace_on_error(G):-
 %     % Execute a goal and trace failures:
 %     ?- rtrace_on_failure(writeln('This will not fail.')).
 %
+
+:- meta_predicate rtrace_on_failure(0).
 rtrace_on_failure(G):- tracing,!,call(G).
 rtrace_on_failure(G):-
   catch_err((G*->true;(write_src_uo(rtrace_on_failure(G)),
@@ -4002,6 +4041,8 @@ rtrace_on_failure(G):-
 %     % Execute a goal and trace failures, breaking on failure:
 %     ?- rtrace_on_failure_and_break(writeln('This may fail.')).
 %
+
+:- meta_predicate rtrace_on_failure_and_break(0).
 rtrace_on_failure_and_break(G):-
     % If tracing is already active, execute the Goal directly.
     tracing, !, call(G).
@@ -6111,6 +6152,8 @@ call_max_time(Goal, _MaxTime, Else) :-
 call_max_time(Goal, _MaxTime, Else) :-
     % Fallback to executing the goal directly if no time limit is set.
     !, if_or_else(Goal, Else).
+
+:- meta_predicate call_max_time(?,?,0).
 call_max_time(Goal, MaxTime, Else) :-
     % Use `call_with_time_limit/2` to enforce the time limit, handling exceptions for timeouts.
     catch(if_or_else(call_with_time_limit(MaxTime, Goal), Else), time_limit_exceeded, Else).
@@ -6135,6 +6178,8 @@ catch_err(G, E, C) :-
 %
 %   @arg Goal The goal to execute.
 %
+
+:- meta_predicate dont_give_up(0).
 dont_give_up(G) :-
     catch(G, give_up(E), write_src_uo(dont_give_up(E))).
 
@@ -6297,6 +6342,8 @@ timed_call(Goal, Seconds) :-
 %   @arg Goal    The goal to be executed and timed.
 %   @arg Seconds The elapsed CPU time in seconds.
 %
+
+:- meta_predicate ctimed_call(0,?).
 ctimed_call(Goal, Seconds) :-
     statistics(cputime, Start),
     % Use `rtrace` for debugging if applicable.
@@ -6312,6 +6359,8 @@ ctimed_call(Goal, Seconds) :-
 %   @arg Goal    The goal to be executed and timed.
 %   @arg Seconds The elapsed wall-clock time in seconds.
 %
+
+:- meta_predicate wtimed_call(0,?).
 wtimed_call(Goal, Seconds) :-
     statistics(walltime, [Start, _]),
     % Use `rtrace` for debugging if applicable.
@@ -6428,6 +6477,8 @@ example3(_) :- fail.
 %
 %   @arg Goal The goal to execute.
 %
+
+:- meta_predicate chkdet_call(0).
 chkdet_call(XX) :- !, call(XX).
 
 %!  chkdet_call0(+Goal) is det.
@@ -6436,6 +6487,8 @@ chkdet_call(XX) :- !, call(XX).
 %
 %   @arg Goal The goal to execute.
 %
+
+:- meta_predicate chkdet_call0(0).
 chkdet_call0(XX) :- !, call(XX).
 
 %!  dcall0000000000(+Goal) is nondet.
@@ -6499,6 +6552,8 @@ call_nth(USol, XX, Nth, Det, Prev) :-
 %
 %   @arg Term The term to be executed.
 %
+
+:- meta_predicate catch_red(0).
 catch_red(Term) :-
     catch_err(Term, E, pp_m_m_red(red, in(Term, E))).
 
@@ -6640,6 +6695,8 @@ extreme_tracing :-
 ggtrace(G) :-
     % If extreme tracing is enabled, use `rtrace/1` for the goal.
     extreme_tracing, !, rtrace(G).
+
+:- meta_predicate ggtrace(0).
 ggtrace(G) :-
     % If extreme tracing is disabled, fail silently.
     !, fail, call(G).
@@ -6658,6 +6715,8 @@ ggtrace(G) :-
 %     % Execute a goal with enhanced tracing:
 %     ?- ggtrace0(my_goal(X)).
 %
+
+:- meta_predicate ggtrace0(0).
 ggtrace0(G) :-
     % Enable general tracing using `ggtrace/1`.
     ggtrace,
@@ -7566,6 +7625,8 @@ findall_or_skip(Var, Call, []) :-
     % If the `exec` option is set to `skip`, log the skipped execution and return an empty list.
     fast_option_value(exec, skip), !,
     once_writeq_nl_now(red, (skipping :- time(findall(Var, Call, _List)))).
+
+:- meta_predicate findall_or_skip(?,0,?).
 findall_or_skip(Var, Call, List) :-
     % Execute the query using `findall/3` to collect results into `List`.
     findall(Var, Call, List).
@@ -7588,6 +7649,7 @@ findall_or_skip(Var, Call, List) :-
                              if_verbose/2,
                              is_debugging/1,
                              is_extreme_debug/1,
+                             output_language/2,
                              set_debug/2,
                              sub_term_safely/2,
                              sub_var_safely/2 ]).

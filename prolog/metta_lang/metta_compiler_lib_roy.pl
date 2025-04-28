@@ -157,6 +157,8 @@ transpiler_predicate_store('decons-atom', 2,  [x(noeval,eager)], x(noeval,eager)
 
 %%%%%%%%%%%%%%%%%%%%% set
 
+
+:- meta_predicate lazy_member(?,0,?).
 lazy_member(R1,Code2,R2) :- call(Code2),R1=R2.
 
 transpiler_predicate_store(subtraction, 3, [x(doeval,lazy),x(doeval,lazy)], x(doeval,eager)).

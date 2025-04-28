@@ -165,6 +165,8 @@ optimize_unit11(I,true):- I=eval_for(_,'%Undefined%', A, C), \+ iz_conz(A),\+ iz
 optimize_unit1(_,_):- disable_optimizer, !, fail.
 optimize_unit1(Var,_):- var(Var),!,fail.
 optimize_unit1(true,true):-!.
+
+:- meta_predicate optimize_unit1(0,?).
 optimize_unit1(I,O):- fail, \+ is_list(I), I\=(_,_), compound(I),
   predicate_property(I,number_of_rule(1)),predicate_property(I,number_of_causes(1)),
   clause(I,O), O\==true, O\=(_,_).
@@ -411,6 +413,8 @@ optimize_body(_HB,Body,BodyNew):- optimize_body_unit(Body,BodyNew).
 %
 optimize_body_unit(I,O):- I==true,!,I=O.
 optimize_body_unit(I,O):- I==('True'='True'),!,O=true.
+
+:- meta_predicate optimize_body_unit(0,?).
 optimize_body_unit(I,O):- fail,
    copy_term(I,II),
    optimize_unit1(I,Opt),I=@=II,!,

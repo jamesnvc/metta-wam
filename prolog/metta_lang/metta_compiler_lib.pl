@@ -508,7 +508,11 @@ random_float_between(Min, Max, R_):-
 %
 %     keep RNGId changes local to the term being passed about.
 %
+
+:- meta_predicate with_random_generator(?,0).
 with_random_generator('&rng', Call):- !, call(Call).
+
+:- meta_predicate with_random_generator(?,0).
 with_random_generator(RNGId, Call):-
     Setup = (getrand(OLD),
              into_rng(RNGId, Current),
