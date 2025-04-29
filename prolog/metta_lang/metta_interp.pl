@@ -74,6 +74,7 @@ o_woc(G):- call(G).
 :- dynamic('$metta_setup':on_init_metta/1).
 on_metta_setup(Goal):-
    assertz('$metta_setup':on_init_metta(Goal)).
+do_metta_setup:- thread_self(Self), Self\==main,!.
 do_metta_setup:- forall('$metta_setup':on_init_metta(Goal),
                         ignore(catch(Goal, Err, format(user_error, '; Goal: ~q   Caused: ~q', [Goal, Err])))).
 
@@ -584,16 +585,17 @@ is_flag0(What, _FWhatTrue, FWhatFalse) :-
     % Check if the flag is explicitly set to false in command-line arguments.
     current_prolog_flag(os_argv, ArgV),member(FWhat, FWhatFalse),member(FWhat, ArgV),!,
     % notrace(catch(set_prolog_flag(What, false), _, true)),
-    set_option_value(What, 'False'),!,fail.
+    set_option_value_interp(What, 'False'),!,fail.
 is_flag0(What, FWhatTrue, _FWhatFalse) :-
     % Check if the flag is explicitly set to true in command-line arguments.
     current_prolog_flag(os_argv, ArgV),member(FWhat, FWhatTrue),member(FWhat, ArgV),!,
     % notrace(catch(set_prolog_flag(What, true), _, true)),
-    set_option_value(What, 'True'),!.
+    set_option_value_interp(What, 'True'),!.
 is_flag0(What, _FWhatTrue, _FWhatFalse) :-
     % Parse flags with specific key-value pair syntax in command-line arguments.
     current_prolog_flag(os_argv, ArgV),symbolic_list_concat(['--', What, '='], Starts),
-    member(FWhat, ArgV),symbol_concat(Starts, Rest, FWhat),set_option_value_interp(What, Rest),!.
+    member(FWhat, ArgV),symbol_concat(Starts, Rest, FWhat),
+    undress_value(Rest,Value),set_option_value_interp(What, Value),!.
 
 %!  is_compiling is nondet.
 %
@@ -912,13 +914,14 @@ set_output_stream :- \+ keep_output -> nullify_output; unnullify_output.
 %     true.
 switch_to_mettalog :-
     unnullify_output,
+    %set_option_value('test', true),
+    forall(mettalog_option_value_def(Name, DefaultValue), set_option_value(Name, DefaultValue)),
     set_option_value('compatio', false),
     set_option_value('compat', false),
     set_option_value('load', show),
     set_option_value('load', verbose),
     set_option_value('log', true),
-    %set_option_value('test', true),
-    forall(mettalog_option_value_def(Name, DefaultValue), set_option_value(Name, DefaultValue)),
+
     set_output_stream.
 
 %!  switch_to_mettarust is det.
@@ -934,11 +937,12 @@ switch_to_mettalog :-
 %     true.
 switch_to_mettarust :-
     nullify_output,
+    forall(rust_option_value_def(Name, DefaultValue), set_option_value(Name, DefaultValue)),
     set_option_value('compatio', true),
     set_option_value('compat', true),
     set_option_value('log', false),
     set_option_value('test', false),
-    forall(rust_option_value_def(Name, DefaultValue), set_option_value(Name, DefaultValue)),
+
     set_output_stream.
 
 %!  show_os_argv is det.
@@ -1482,10 +1486,10 @@ fbugio(IO):-
 %
 different_from(N,V) :-
     % Check if N matches V via option_value_def/2, fail if it matches.
-    \+ \+ option_value_def(N,V), !, fail.
+    \+ \+ (option_value_def(N,VV), VV=V), !, fail.
 different_from(N,V) :-
     % Check if N matches V via nb_current/2, fail if it matches.
-    \+ \+ nb_current(N,V), !, fail.
+    \+ \+ (nb_current(N,VV), VV=V), !, fail.
 different_from(_,_). % Default case: succeeds if no match was found.
 
 %!  set_option_value_interp(+N, +V) is det.
@@ -1511,10 +1515,13 @@ set_option_value_interp(N,V):-
     symbol(N), symbolic_list_concat(List,',',N),
     List \= [_], % Ensure it's not a single-element list.
     !,forall(member(E,List), set_option_value_interp(E,V)).
+
+set_option_value_interp(N,V):- atom(V), undress_value(V, List), V\==List,!,set_option_value_interp(N,List).
+set_option_value_interp(N,V):- nb_current(N,Was),Was==V,!.
 set_option_value_interp(N,V):-
     % Directly set the option value and trigger any callbacks.
     % Note can be used for debugging purposes (commented out).
-    %(different_from(N,V)->Note=true;Note=false),
+    if_t(different_from(N,V),debug_info(cmdargs,(N==V))),
     Note = true,
     %fbugio(Note,set_option_value(N,V)), % Uncomment for debugging.
     ignore(set_option_value(N,V)), % Set the value for the option.
@@ -1547,6 +1554,14 @@ on_set_value(Note,N,'True'):- nocut,
 on_set_value(Note,N,'False'):- nocut,
     on_set_value(Note,N,false).   % false
 on_set_value(_Note,abolish_trace,true):- nocut, ignore(abolish_trace),!.
+
+on_set_value(_Note,show, Value):-
+    if_t( \+ prolog_debug:debugging(filter_default,_,_), set_debug(default,false)),
+    listify(Value,List), maplist(set_tf_debug(true),List).
+on_set_value(_Note,hide,Value):-
+    if_t( \+ prolog_debug:debugging(filter_default,_,_), set_debug(default,true)),
+    listify(Value,List), maplist(set_tf_debug(false),List).
+
 on_set_value(_Note,log,true):-
     % Switch to mettalog mode if 'log' is set to true.
     switch_to_mettalog,!.
@@ -1650,7 +1665,7 @@ is_debug_like(verbose, true).
 % Disable unit testing and reset runtime options to defaults.
 set_is_unit_test(false):-
     % Reset all options to their default values.
-    reset_default_flags,
+    %reset_default_flags,
     % Explicitly disable trace and test-related settings.
     set_option_value_interp('trace-on-test', false),
     set_option_value_interp('trace-on-fail', false),
@@ -1659,9 +1674,9 @@ set_is_unit_test(false):-
     !.
 % Enable unit testing with specific runtime configurations.
 set_is_unit_test(TF):-
-    abolish_trace,
+    maybe_abolish_trace,
     % Reset all options to their default values.
-    reset_default_flags,
+    %reset_default_flags,
     % Disable specific trace settings during unit testing.
     set_option_value_interp('trace-on-test', false),
     set_option_value_interp('trace-on-fail', false),
@@ -2237,7 +2252,7 @@ show_options_values :-
 
 find_missing_cuts :-
     once(prolog_load_context(source, File);prolog_load_context(file, File)),!,
-    find_missing_cuts(File).
+    is_extreme_debug((debug_info(nondet_src,c(find_missing_cuts(File))))).
 
 find_missing_cuts(File) :-
     findall(Predicate, source_file(Predicate, File), Predicates),
@@ -2320,7 +2335,7 @@ nocut.
 %     % Disable unit testing mode:
 %     ?- set_is_unit_test(false).
 %
-:- on_metta_setup(set_is_unit_test(false)).
+%:- on_metta_setup(set_is_unit_test(false)).
 
 %!  extract_prolog_arity(+TypesList, -PrologArity) is nondet.
 %
@@ -2645,8 +2660,14 @@ cmdline_flag_option_value(What, Value):-
   symbolic_list_concat(['--', What,'='],FWhat),
   metta_cmd_args(Args),!,member(FWhatQValue,Args),
   symbol_concat(FWhat,QValue,FWhatQValue),
-  unquote_value(QValue,Value),!.
+  undress_value(QValue,Value),!.
 cmdline_flag_option_value(What, Value):- option_value(What, Value),!.
+
+undress_value(Atom, New) :- \+ atom(Atom), New=Atom.
+undress_value(Atom, New) :- concat_atom_safe(List, ",", Atom),List=[_,_|_],!,maplist(undress_value,List,New).
+undress_value(Atom, New) :- atom_number(Atom,New),!.
+undress_value(Atom, New) :- unquote_value(Atom, NewAtom),NewAtom\==Atom,!,undress_value(NewAtom,New).
+undress_value(Atom, New) :- Atom=New,!.
 
 unquote_value(Atom, New) :- concat_atom_safe(['',New,''], '"', Atom),!.
 unquote_value(Atom, New) :- concat_atom_safe(['',New,''], "'", Atom),!.
@@ -2666,7 +2687,7 @@ metta_cmd_args(Rest) :-
     % Use late options if the `late_metta_opts` flag is set.
     current_prolog_flag(late_metta_opts, Rest), !.
 metta_cmd_args(Rest) :-
-    % Extract arguments after `--` in the OS arguments.
+    % Extract arguments after first `--` in the OS arguments.
     current_prolog_flag(os_argv, P),
     append(_, ['--' | Rest], P), !.
 metta_cmd_args(Rest) :-
@@ -2791,7 +2812,7 @@ is_cmd_option(Opt, M, TF) :-
 %
 get_flag_value(M, V) :-
     % If the command contains '=', extract the value after '='.
-    symbolic_list_concat([_, V], '=', M), !.
+    symbolic_list_concat([_, Rest], '=', M), !, undress_value(Rest,V).
 get_flag_value(M, false) :-
     % If the command contains '-no', set the value to `false`.
     atom_contains(M, '-no'), !.
@@ -2804,7 +2825,7 @@ set_default_flags:- ignore(((
        % Check if the current context is not in reload mode.
        \+ prolog_load_context(reloading, true),
        % Set default option values for all defined options.
-       nop((reset_default_flags))
+       reset_default_flags
 ))).
 
 :- on_metta_setup(set_default_flags).
@@ -2899,7 +2920,7 @@ do_cmdline_load_metta(Phase, Self, Rest) :-
     % Store the remaining arguments in the `late_metta_opts` Prolog flag.
     set_prolog_flag(late_metta_opts, Rest),
     % Process all defined options using `process_python_option/0`.
-    forall(process_python_option, true), !,
+    % forall(process_python_option, true), !,
     % Execute the Metta command-line loading logic for the specified Phase and context.
     cmdline_load_metta(Phase, Self, Rest), !,
     % Process any late options, such as enabling specific features.
@@ -3037,6 +3058,9 @@ maybe_do_repl(_Why) :- flag(cmdline_load_file, X, X), X==0, once(repl).
 
 % Base case: succeed when the argument list is empty.
 cmdline_load_metta(_, _, Nil) :- Nil == [], !.
+
+cmdline_load_metta(Phase, Self, [M | _]) :- fail,
+      debug_info(argv,cmdline_load_metta(Phase, Self, M)), fail.
 % Handle double-dash (`--`) by skipping it and continuing with the rest of the arguments.
 cmdline_load_metta(Phase, Self, ['--' | Rest]) :- !,
     cmdline_load_metta(Phase, Self, Rest).
@@ -3060,6 +3084,14 @@ cmdline_load_metta(Phase, Self, ['-g', M | Rest]) :- !,
         ignore(call(Term)))
     ))), !,
     cmdline_load_metta(Phase, Self, Rest).
+
+cmdline_load_metta(Phase, Self, ['--gg', M | Rest]) :- !,
+    if_phase(Phase, execute, catch_abort(['--gg', M], ((
+        read_term_from_atom(M, Term, []),
+        ignore(call(Term)))
+    ))), !,
+    cmdline_load_metta(Phase, Self, Rest).
+
 % Handle `-G` by evaluating a Metta expression within the current context.
 cmdline_load_metta(Phase, Self, ['-G', Str | Rest]) :- !,
     current_self(Self),
@@ -3073,10 +3105,15 @@ cmdline_load_metta(Phase, Self, [Filemask | Rest]) :-
     if_phase(Phase, execute, cmdline_load_file(Self, Filemask)), !,
     cmdline_load_metta(Phase, Self, Rest).
 % Handle command-line options by setting their corresponding values.
+
+cmdline_load_metta(Phase, Self, [Skip, _ | Rest]) :- skip_cmdarg(Skip), !,
+    cmdline_load_metta(Phase, Self, Rest).
+
+cmdline_load_metta(Phase, Self, ['-D', M | Rest]) :- !,
+    process_flag(M), !,
+    cmdline_load_metta(Phase, Self, Rest).
 cmdline_load_metta(Phase, Self, [M | Rest]) :-
-    m_opt(M, Opt),
-    is_cmd_option(Opt, M, TF),
-    set_option_value_interp(Opt, TF), !,
+    process_flag(M), !,
     cmdline_load_metta(Phase, Self, Rest).
 % Handle unrecognized command-line options by logging a warning.
 cmdline_load_metta(Phase, Self, [M | Rest]) :-
@@ -3085,16 +3122,47 @@ cmdline_load_metta(Phase, Self, [M | Rest]) :-
     cmdline_load_metta(Phase, Self, Rest).
 
 
+skip_cmdarg('-l').
+skip_cmdarg('-g').
+%skip_cmdarg('--gg').
+skip_cmdarg('-x').
+
+:- dynamic(is_reseting_default_flags/0).
+reset_default_flags:- is_reseting_default_flags,!.
 reset_default_flags:-
-   forall(option_value_def(A,B), set_option_value_interp(A,B)),
-   metta_cmd_args(Rest),
-   forall(member(Flag,Rest),process_flag(Flag)).
+    asserta(is_reseting_default_flags),!,
+    forall(option_value_def(A,B), set_option_value(A,B)),
+    reset_cmdline_flags,
+    retractall(is_reseting_default_flags).
 
-process_flag(M) :- ignore((symbol(M),
-    m_opt(M, Opt),
-    is_cmd_option(Opt, M, TF),
-    set_option_value_interp(Opt, TF))),!.
+:- dynamic(is_reseting_cmdline_flags/0).
+reset_cmdline_flags:- is_reseting_cmdline_flags,!.
+reset_cmdline_flags:-
+    asserta(is_reseting_cmdline_flags),!,
+    metta_cmd_args(Rest),!,
+    debug_info(initialize,reset_cmdline_flags(Rest)),!,
 
+    process_metta_cmd_arg_flags(Rest),
+    current_prolog_flag(os_argv,[Exec|ArgV]),
+    if_t(ArgV\==Rest,
+      (debug_info(initialize,os_argv([Exec|ArgV])),process_metta_cmd_arg_flags(ArgV))),
+    retractall(is_reseting_cmdline_flags).
+
+            %metta_cmd_args(Rest),process_metta_cmd_arg_flags(Rest),
+            %current_prolog_flag(os_argv,ArgV), process_metta_cmd_arg_flags(ArgV),
+
+
+process_metta_cmd_arg_flags(Rest):-
+   do_cmdline_load_metta('reset', '&self', Rest).
+
+
+process_flag(M) :- m_opt(M, Opt), is_cmd_option(Opt, M, TF),!,set_option_value_interp(Opt,TF).
+process_flag(M) :- atomic_list_concat([N, V], '=', M),!, set_option_value_interp(N,V).
+process_flag(M) :- !, set_option_value_interp(M,true).
+
+%cmdargs(Opt,TF):-
+%    debug_info(cmdargs(Opt,TF)),
+%    set_option_value_interp(Opt, TF),!.
 
 
 %!  install_ontology is det.
@@ -3821,6 +3889,9 @@ assert_preds(Self,Load,List):- is_list(List),!,maplist(assert_preds(Self,Load),L
 %assert_preds(_Self,_Load,Clause):- assertz(Clause),!.
 %assert_preds(_Self,_Load,_Preds):- \+ show_transpiler,!.
 assert_preds(Self,Load,Preds):-
+   forall(assert_preds_now(Self,Load,Preds),true).
+
+assert_preds_now(_Self,_Load,Preds):- fail,
   expand_to_hb(Preds,H,_B),
   functor(H,F,A), %trace,
   if_t((false,show_transpiler),
@@ -3832,12 +3903,23 @@ assert_preds(Self,Load,Preds):-
            not_compatio(format('  :- ~q.~n',[dynamic(F/A)]))),
       if_t(option_value('tabling','True'),
            not_compatio(format('  :- ~q.~n',[table(F/A)]))))),
-      not_compatio(format('~N~n  ~@',[portray_clause(Preds)]))))),
+      not_compatio(format('~N~n  ~@',[portray_clause(Preds)]))))).
 
   %if_t(is_transpiling, if_t( \+ predicate_property(H, static), add_assertion(Self,Preds))),
   % allow errors and warning rather than silently doing nothing as the clause above would have done
-  if_t(is_transpiling, add_assertion(Self,Preds)),
+assert_preds_now(Self,_Load,Preds):-
+  if_t(is_transpiling, add_assertion_now(Self,Preds)).
+
+assert_preds_now(Self,_Load,Preds):-
+  if_t( (\+ is_transpiling), add_assertion_now(Self,Preds)).
+
+assert_preds_now(_Self,Load,Preds):-
   nop(metta_anew1(Load,Preds)).
+
+add_assertion_now(Self,Preds):-
+    nop(debug_info(assert_hooks,add_assertion_now(Self,Preds))),
+    ignore(woc(add_assertion(Self,Preds))),
+    nop(debug_info(assert_hooks,added_assertion_now(Self,Preds))),!.
 
 %!  load_hook(+Load, -Hooked) is det.
 %
@@ -3856,6 +3938,7 @@ assert_preds(Self,Load,Preds):-
 %load_hook(_Load,_Hooked):- !.
 load_hook(Load,Hooked):-
    ignore(( \+ ((forall(load_hook0(Load,Hooked),true))))),!.
+
 
 %!  rtrace_on_error(:Goal) is det.
 %
@@ -3973,6 +4056,10 @@ assertion_hb(metta_atom_asserted(Self, [Eq, H, B]), Self, Eq, H, B) :-
     assertion_neck_cl(Eq),
     !.
 
+assertion_fact(metta_atom_asserted(Self, Fact), Self, Fact).
+assertion_fact(Assertion,Self,[Eq, H, B]):- assertion_hb(Assertion, Self, Eq, H, B),!.
+assertion_fact(Assertion,Self,Assertion):- current_self(Self),!.
+
 %!  assertion_neck_cl(+Eq) is nondet.
 %
 %   Verifies if the provided equality operator (`Eq`) is valid.
@@ -4014,9 +4101,15 @@ assertion_neck_cl(':-').
 %   % load_hook0(_, _) :- \+ show_transpiler, !. % \+ is_transpiling, !.
 load_hook0(Load, Assertion) :-
     % Extract components of the assertion using `assertion_hb/5`.
-    once(assertion_hb(Assertion, Self, Eq, H, B)),
+    once(assertion_hb(Assertion, Self, Eq, H, B)), !,
     % Pass the components to `load_hook1/5` for further processing.
-    load_hook1(Load, Self, Eq, H, B).
+    load_hook1(Load, Self, [Eq, H, B]).
+
+load_hook0(Load, Assertion) :- fail,
+    % Extract components of the assertion using `assertion_hb/5`.
+    once(assertion_fact(Assertion, Self, Fact)), !,
+    % Pass the components to `load_hook1/5` for further processing.
+    load_hook1(Load, Self, Fact).
 
 %!  load_hook1(+Load, +Self, +Eq, +H, +B) is det.
 %
@@ -4035,16 +4128,46 @@ load_hook0(Load, Assertion) :-
 %     ?- load_hook1(my_load, '&corelib', '=', head, body).
 
 % load_hook1(_Load, '&corelib', _Eq, _H, _B) :- !.
-load_hook1(_, _, _, _, _) :-
+load_hook1(Load, Self, Fact) :-
     % Skip processing if the `metta_interp` flag is not set to `ready`.
-    \+ current_prolog_flag(metta_interp, ready), !.
-load_hook1(Load, Self, Eq, H, B) :-
+    % \+ is_metta_interp_ready,
+    % debug_info(assert_hooks,load_hook_not_ready(Load, Self, Fact)),
+    %fail,
+    !,
+    woc(load_hook_compiler(Load, Self, Fact)).
+
+load_hook1(Load, Self, Fact) :-
     % Ensure the Metta compiler is ready for use.
-    use_metta_compiler,
+    once(use_metta_compiler),!,
+    %debug_info(assert_hooks,use_metta_compiler(Load, Self, Fact)),
+    woc(load_hook_compiler(Load, Self, Fact)).
+load_hook1(Load, Self, Fact):-
+    %debug_info(assert_hooks,not_use_metta_compiler(Load, Self, Fact)),
+    woc(load_hook_compiler(Load, Self, Fact)).
+
+metta_atom_asserted_hook(Self,Assertion):-
+  nop(woc(load_hook(load, metta_atom_asserted(Self,Assertion)))).
+
+is_metta_interp_ready :- current_prolog_flag(metta_interp, ready).
+
+:- dynamic(did_load_hook_compiler/3).
+
+load_hook_compiler(Load, Self, Assertion):- \+ \+ ((did_load_hook_compiler(Load, Self, Assertion1),Assertion1=@=Assertion)),!,
+    %debug_info(skip_load_repeated_hook_compiler(Load, Self, Assertion)),!.
+    debug_info(skip_2nd(Load, Self, Assertion)),!.
+load_hook_compiler(Load, Self, Assertion):-
+    asserta(did_load_hook_compiler(Load, Self, Assertion)),
+    Assertion = [Eq, _, _], Eq == '=', !,
     % Convert functions to predicates.
-    functs_to_preds([Eq, H, B], Preds),
+    % debug_info(load_hook_compiler,(Load, Self, Assertion)),
+    ignore(catch(load_compiler(Load, Self, Assertion),_,true)),!.
+load_hook_compiler(Load, Self, Assertion):-
+  nop(debug_info(assert_hooks,skip_load_hook_compiler(Load, Self, Assertion))).
+
+load_compiler(Load, Self, Assertion):-
+    woc(functs_to_preds(Assertion, Preds)), !,
     % Assert the converted predicates into the knowledge base.
-    assert_preds(Self, Load, Preds), !.
+    woc(assert_preds(Self, Load, Preds)), !.
 
 % old compiler hook
 /*
@@ -4101,7 +4224,7 @@ use_metta_compiler :-
 % preview_compiler :- use_metta_compiler, !.
 preview_compiler :-
     % Use the compiler or check if the `compile` option is `true`.
-    notrace(use_metta_compiler; option_value('compile', 'true')).
+    notrace(use_metta_compiler; option_value('compile', 'true')),!.
 
 %!  show_transpiler is nondet.
 %
@@ -5155,6 +5278,12 @@ toplevel_interp_only_symbol('import!').
 toplevel_interp_only_symbol('extend-py!').
 toplevel_interp_only_symbol('include').
 toplevel_interp_only_symbol('include!').
+toplevel_interp_only_symbol('call-string').
+toplevel_interp_only_symbol('compiled-info').
+toplevel_interp_only_symbol('repl!').
+toplevel_interp_only_symbol('eval').
+toplevel_interp_only_symbol('pragma!').
+
 toplevel_interp_only_symbol(H):- symbol_concat('add-atom',_,H),!.
 
 %!  always_exec(+W) is nondet.
@@ -5815,7 +5944,15 @@ into_metta_callable(_Self,TermV,Term,X,NamedVarsList,Was):-
   X = RealRes)))),!.
 
 
-into_metta_callable(Self,TermV,CALL,X,NamedVarsList,Was):-!,
+into_metta_callable(Self,TermV, OUT,X,NamedVarsList,Was):-
+  toplevel_interp_only(TermV),
+  into_metta_callable_H(Self,TermV,CALL,X,NamedVarsList,Was),!,
+  OUT=locally(nb_setval('eval_in_only', interp),CALL).
+
+into_metta_callable(Self,TermV,CALL,X,NamedVarsList,Was):-
+  into_metta_callable_H(Self,TermV,CALL,X,NamedVarsList,Was),!.
+
+into_metta_callable_H(Self,TermV,CALL,X,NamedVarsList,Was):-!,
  default_depth(DEPTH),
  option_else('stack-max',StackMax,DEPTH),
  CALL = eval_H(StackMax,Self,Term,X),
@@ -5873,7 +6010,7 @@ eval_string(String, Out):-
 %
 eval_H(Term, X) :-
     % Wrap the evaluation in `catch_metta_return/2` to handle any errors.
-    catch_metta_return(eval_args(Term, X), X).
+    woc(catch_metta_return(eval_args(Term, X), X)).
 
 %!  eval_H(+StackMax, +Self, +Term, -Result) is det.
 %
@@ -5895,7 +6032,7 @@ eval_H(_StackMax, _Self, Term, Term) :-
     fast_option_value(compile, save), !.
 eval_H(StackMax, Self, Term, X) :-
     % Otherwise, perform evaluation with error handling, passing the stack limit.
-    catch_metta_return(eval_args('=', _, StackMax, Self, Term, X), X).
+    woc(catch_metta_return(eval_args('=', _, StackMax, Self, Term, X), X)).
 /*
 eval_H(StackMax,Self,Term,X).
 
@@ -6861,10 +6998,12 @@ ensure_mettalog_system_compilable:-
 %
 ensure_mettalog_system:-
  must_det_lls((
+    debug_info(initialize,ensure_mettalog_system),
     abolish(began_loon/1),
     dynamic(began_loon/1),
     system:use_module(library(quasi_quotations)),
     system:use_module(library(hashtable)),
+    %system:use_module(library(threadutil)),
     system:use_module(library(gensym)),
     system:use_module(library(sort)),
     system:use_module(library(writef)),
@@ -6973,11 +7112,13 @@ qcompile_mettalog :-
     ensure_mettalog_system,
     % Retrieve the target executable name from the `exeout` option.
     cmdline_flag_option_value(exeout, Name),
+    debug_info(qcompile,qsave_program(Name)),
     % Attempt to save the program as an executable.
-    qsave_program(Name), nonvar(Name),
+    qsave_program(Name),
     % Exit the program with success status.
     true)),
     inform_compiler_success,
+    debug_info(qcompile,inform_compiler_success),
     halt(0).
 
 inform_compiler_success:- ignore((catch((getenv('METTALOG_COMPILE_SUCCESS',STAMP),tell(STAMP),told),_,true))).
@@ -7031,7 +7172,7 @@ qsave_program(Name) :-
 %   is allowed, it handles modifications to `system:notrace/1` to customize its behavior.
 %
 
-%nts1 :- !. % Disable redefinition by cutting execution.
+nts1 :- !. % Disable redefinition by cutting execution.
 %nts1 :- is_flag(notrace),!.
 nts1 :-
     % Redefine the system predicate `system:notrace/1` to customize its behavior.
@@ -7520,4 +7661,7 @@ complex_relationship3_ex(Likelihood1, Likelihood2, Likelihood3) :-
 
 
 :- thread_initialization(do_metta_setup).
+
+
+
 

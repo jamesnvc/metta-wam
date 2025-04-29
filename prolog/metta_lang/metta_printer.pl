@@ -104,7 +104,7 @@ ppc(Msg, Term) :-
 %   This predicate attempts to print Term in a structured format. It calls `ppct/2`
 %   for terms that match specific patterns, or uses a generalized pretty-printing
 %   structure if none of the patterns apply. Additional information such as source
-%   representation (`write_src/1`) and conversion trees (`print_tree/1`) is also
+%   representation (`write_src/1`) and conversion trees (`ppt/1`) is also
 %   displayed to enhance readability.
 %
 %   @arg Msg  A message or label associated with this printout for context.
@@ -126,7 +126,7 @@ ppc1(Msg, Term) :-
         portray_clause(Term),  % Print Term in clause form.
         writeln('---------------------'),
         % Display the conversion tree if available.
-        undo_bindings(print_tree(?-show_cvts(Term))), nl,
+        undo_bindings(ppt(?-show_cvts(Term))), nl,
         writeln('---------------------'),
         write(s(Msg)), write(':'), nl,
         write_src(Term), nl  % Display source representation.
@@ -174,7 +174,7 @@ ppct(Msg, Term) :-
     writeln('---------------------'),
     write((Msg)), write(':'), nl,
     dont_numbervars(Term, 222, _, [attvar(skip)]),
-    print_tree(Term), nl.
+    ppt(Term), nl.
 
 %!  pp_metta(+P) is det.
 %
@@ -243,6 +243,7 @@ print_pl_source(P) :-
     % Run the primary source-printing predicate within `run_pl_source/1`.
     run_pl_source(print_pl_source0(P)).
 
+%pnotrace(G):- !, call(G).
 pnotrace(G):- notrace(G).
 %pnotrace(G):- quietly(G).
 
@@ -288,7 +289,7 @@ print_pl_source0(_) :-
 
 print_pl_source0(P) :- fail,!,
     format('~N'),
-    print_tree(P),
+    ppt(P),
     format('~N'), !.
 
 print_pl_source0(P) :-
@@ -301,13 +302,13 @@ print_pl_source0((:- B)) :-
     % For directives (:- B), display using portray_clause.
     !,portray_clause((:- B)).
 print_pl_source0(P) :-
-    % Default printing using `print_tree/1`.
+    % Default printing using `ppt/1`.
     format('~N'),
-    print_tree(P),
+    ppt(P),
     format('~N'), !.
 print_pl_source0(P) :-
     % Try different display actions and choose the output with the least height.
-    Actions = [print_tree, portray_clause, pp_fb1_e],
+    Actions = [ppt, portray_clause, pp_fb1_e],
     % For each action, produce output and measure its height.
     findall(
         H - Pt,
@@ -368,8 +369,8 @@ pp_fb1_a(P) :-
 %   @arg P The Prolog term to be printed.
 %
 pp_fb1_e(P) :-
-    % Attempt to print P using `print_tree`.
-    pp_fb2(print_tree, P).
+    % Attempt to print P using `ppt`.
+    pp_fb2(ppt, P).
 pp_fb1_e(P) :-
     % Attempt to print P using `pp_ilp`.
     pp_fb2(pp_ilp, P).
@@ -596,7 +597,7 @@ mvar_str(S,N) :- % For an unbound variable without a name, format it as `$<varia
 mvar_str(S,N) :- % For an unbound variable without a name, format it as `$<variable>`.
    attvar(S), notrace,ignore(nortrace),
    with_output_to(string(SS),ignore((get_attrs(S,Attrs),display(Attrs)))),
-   trace,
+   %trace,
    sformat(N,'a-~w-~w', [SS,S]). % bou
 mvar_str(S,N) :- % For an unbound variable without a name, format it as `$<variable>`.
     var(S), !, sformat(N,'~p', [S]).
@@ -698,7 +699,7 @@ into_hyphens(D, U) :-
 unlooped_fbug(W, Mesg) :-
     % Check if W is already set to avoid looping; if so, print Mesg and break.
     nb_current(W, true), !,
-    print(Mesg), nl, bt, break.
+    writeq(Mesg), nl, bt, break.
 unlooped_fbug(W, Mesg) :-
     % Otherwise, safely set W and execute Mesg once, cleaning up afterward.
     setup_call_cleanup(
@@ -764,10 +765,19 @@ write_src(V) :-
  % display(v=V),
  no_type_unification((
     % Guess variables in V and pretty-print using `pp_sex/1`.
+
     undo_bindings(pnotrace((
-               gather_src_and_goal(V,Nat,NatGoals),
-               once((pp_sex(Nat))),
-               maybe_write_goals(NatGoals)))))), !.
+               term_variables(V,Vars),
+               copy_term(V+Vars,CV+CVars,_),
+               maplist(transfer_varname,Vars,CVars),
+               ((CVars=@=Vars)
+              -> pp_sex(V);
+                (gather_src_and_goal(V,Nat,NatGoals),
+                 unify_with_occurs_check(CV,Nat),
+                 write_src_ng(CV,NatGoals)))))))),!.
+
+write_src_ng(Nat,NatGoals):- pp_sex(Nat),
+   if_t(NatGoals\==[],if_t(nb_current('$write_goals',true),maybe_write_goals(NatGoals))).
 
 bou:attr_portray_hook(Val,_V):- copy_term(Val,_,Info),!,format(' bou ~w ',[Info]),!. %writeq(break_on_unify(V,Val)),write(' ').
 bou:attr_unify_hook(_,_):- bt,!,trace,break.
@@ -848,11 +858,10 @@ no_type_unification(G):-
 with_written_goals(Call):-
    locally(b_setval('$write_goals',true),Call).
 
-maybe_write_goals(_Goals):- \+ nb_current('$write_goals',true), !.
-maybe_write_goals(Goals):-
-   exclude(is_f_nv,Goals,LGoals),
-   if_t(LGoals\==[],format(' {<~q>} ', [LGoals])).
-   %if_t(LGoals\==[],with_output_to(user_error,ansi_format([fg(yellow)], ' {~q} ', [LGoals]))).
+maybe_write_goals(Goals):- Goals==[],!.
+maybe_write_goals(_):- \+ nb_current('$write_goals',true), !.
+maybe_write_goals(Goals):- once(exclude(is_f_nv,Goals,LGoals)),if_t(LGoals\==[],format(' {<~q>} ', [LGoals])).
+
 is_f_nv(P):- compound(P), functor(P,F,A,_), !, is_f_nv(F,A).
 is_f_nv(break_on_unify,2). is_f_nv(name_variable,2).
 
@@ -959,7 +968,7 @@ pp_sexi(V) :-
     is_final_write(V), !.
 pp_sexi(V) :-
     % If `V` is a dictionary, print it directly.
-    is_dict(V), !, print(V).
+    is_dict(V), !, write_term(V,[]).
 pp_sexi((USER:Body)) :- fail,
     % If `V` is in the format `user:Body`, process `Body` directly.
     USER == user, !, pp_sex(Body).

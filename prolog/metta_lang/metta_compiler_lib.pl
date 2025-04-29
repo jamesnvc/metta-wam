@@ -1,7 +1,6 @@
 :- dynamic(transpiler_predicate_store/7).
 :- discontiguous transpiler_predicate_store/7.
-
-:- discontiguous compile_test_then_else/10.
+:- discontiguous transpiler_predicate_nary_store/9.
 :- discontiguous compile_flow_control/8.
 
 from_prolog_args(_,X,X).
@@ -72,6 +71,7 @@ compile_test_then_else(HeadIs,RetResult,RetResultN,LazyVars,LazyEval,If,Then,Els
   append(ElseCodeN,[[assign,RetResultN,ElseResultN]],EN),
   ConvertedN=[[prolog_if,If,TN,EN]].
 
+/*
 transpiler_predicate_store(builtin, 'if-decons-expr', [5], '@doc', '@doc', [x(doeval,eager,[]),x(doeval,eager,[]),x(doeval,eager,[]),x(doeval,lazy,[]),x(doeval,lazy,[])], x(doeval,lazy,[])).
 'mc__1_5_if-decons-expr'(If,H,T,Then,Else,Result) :- (If=[H|T]*->Result=Then;Result=Else).
 compile_flow_control(HeadIs,LazyVars,RetResult,RetResultN,LazyEval,Convert, Converted, ConvertedN) :-
@@ -84,30 +84,34 @@ compile_flow_control(HeadIs,LazyVars,RetResult,RetResultN,LazyEval,Convert, Conv
   lazy_impedance_match(LazyRetTail,x(doeval,eager,[]),TailResult,TailCode,TailResultN,TailCodeN,TailResult1,TailCode1),
   append([CondCode1,[[assign,CondResult1,list_with_tail([H],T)]],HeadCode1,[[assign,H,HeadResult1]],TailCode1,[[assign,T,TailResult1]]],If),
   compile_test_then_else(HeadIs,RetResult,RetResultN,LazyVars,LazyEval,If,Then,Else,Converted,ConvertedN).
-
+*/
 %%%%%%%%%%%%%%%%%%%%% case. NOTE: there is no library equivalent for this, as various parts of the structure have to be lazy
 
 compile_flow_control(HeadIs,LazyVars,RetResult,RetResultN,LazyEval,Convert,Converted,ConvertedN) :-
+   %trace,
    Convert=['case',Value,Cases],!,
    f2p(HeadIs,LazyVars,ValueResult,ValueResultN,LazyRetValue,Value,ValueCode,ValueCodeN),
+   lazy_impedance_match(LazyRetValue,x(doeval,eager,[]),ValueResult,ValueCode,ValueResultN,ValueCodeN,ValueResult1,ValueCode1),
    lazy_impedance_match(LazyRetValue,x(doeval,eager,[]),ValueResult,ValueCode,ValueResultN,ValueCodeN,ValueResult1,ValueCode1),
    ValueCode1a=[[prolog_if,ValueCode1,[[assign,ValueResult1a,ValueResult1]],[[assign,ValueResult1a,'Empty']]]],
    compile_flow_control_case(HeadIs,LazyVars,RetResult,RetResultN,LazyEval,ValueResult1a,Cases,Converted0,Converted0N),
    append(ValueCode1a,Converted0,Converted),
    append(ValueCode1a,Converted0N,ConvertedN).
 
-compile_flow_control_case(_,_,RetResult,RetResultN,_,_,[],[[assign,RetResult,'Empty']],[[assign,RetResultN,'Empty']]) :- !.
-compile_flow_control_case(HeadIs,LazyVars,RetResult,RetResultN,LazyEval,ValueResult,[[Match,Target]|Rest],Converted,ConvertedN) :-
+compile_flow_control_case(_,_,RetResult,RetResultN,x(doeval,eager,[]),_,[],[[assign,RetResult,'Empty']],[[assign,RetResultN,'Empty']]) :- !.
+compile_flow_control_case(HeadIs,LazyVars,RetResult,RetResult,LazyEval,ValueResult,[[Match,Target]|Rest],Converted,ConvertedN) :-
    f2p(HeadIs,LazyVars,MatchResult,MatchResultN,LazyRetMatch,Match,MatchCode,MatchCodeN),
    lazy_impedance_match(LazyRetMatch,x(doeval,eager,[]),MatchResult,MatchCode,MatchResultN,MatchCodeN,MatchResult1,MatchCode1),
    f2p(HeadIs,LazyVars,TargetResult,TargetResultN,LazyEval0,Target,TargetCode,TargetCodeN),
    compile_flow_control_case(HeadIs,LazyVars,RestResult,RestResultN,LazyEval1,ValueResult,Rest,RestCode,RestCodeN),
    arg_properties_widen(LazyEval0,LazyEval1,LazyEval),
-   append(TargetCode,[[assign,RetResult,TargetResult]],T),
-   append(RestCode,[[assign,RetResult,RestResult]],R),
+   lazy_impedance_match(LazyEval0,LazyEval,TargetResult,TargetCode,TargetResultN,TargetCodeN,TargetResult1,TargetCode1),
+   lazy_impedance_match(LazyEval1,LazyEval,RestResult,RestCode,RestResultN,RestCodeN,RestResult1,RestCode1),
+   append(TargetCode1,[[assign,RetResult,TargetResult1]],T),
+   append(RestCode1,[[assign,RetResult,RestResult1]],R),
    append(MatchCode1,[[prolog_if,[[prolog_match,ValueResult,MatchResult1]],T,R]],Converted),
-   append(TargetCodeN,[[assign,RetResultN,TargetResultN]],TN),
-   append(RestCodeN,[[assign,RetResultN,RestResultN]],RN),
+   append(TargetCodeN,[[assign,RetResult,TargetResultN]],TN),
+   append(RestCodeN,[[assign,RetResult,RestResultN]],RN),
    append(MatchCode1,[[prolog_if,[[prolog_match,ValueResult,MatchResult1]],TN,RN]],ConvertedN).
 
 /*
@@ -129,16 +133,26 @@ case_list_to_if_list(Var, [[Pattern, Result] | Tail], Out, IfEvalFailed, EvalFai
 %%%%%%%%%%%%%%%%%%%%% arithmetic
 
 transpiler_predicate_store(builtin, '+', [2], '@doc', '@doc', [x(doeval,eager,[number]), x(doeval,eager,[number])], x(doeval,eager,[number])).
-'mc__1_2_+'(A,B,R) :- number(A),number(B),!,plus(A,B,R).
+'mc__1_2_+'(A,B,R) :- integer(A),integer(B),!,plus(A,B,R).
+'mc__1_2_+'(A,B,R) :- number(A),number(B),!,R is A+B.
 'mc__1_2_+'(A,B,['+',A,B]).
 
 transpiler_predicate_store(builtin, '-', [2], '@doc', '@doc', [x(doeval,eager,[number]), x(doeval,eager,[number])], x(doeval,eager,[number])).
-'mc__1_2_-'(A,B,R) :- number(A),number(B),!,plus(B,R,A).
+'mc__1_2_-'(A,B,R) :- integer(A),integer(B),!,plus(B,R,A).
+'mc__1_2_-'(A,B,R) :- number(A),number(B),!,R is A-B.
 'mc__1_2_-'(A,B,['-',A,B]).
 
 transpiler_predicate_store(builtin, '*', [2], '@doc', '@doc', [x(doeval,eager,[number]), x(doeval,eager,[number])], x(doeval,eager,[number])).
 'mc__1_2_*'(A,B,R) :- number(A),number(B),!,R is A*B.
 'mc__1_2_*'(A,B,['*',A,B]).
+
+transpiler_predicate_store(builtin, '/', [2], '@doc', '@doc', [x(doeval,eager,[number]), x(doeval,eager,[number])], x(doeval,eager,[number])).
+'mc__1_2_/'(A,B,R) :- number(A),number(B),!,R is A/B.
+'mc__1_2_/'(A,B,['/',A,B]).
+
+transpiler_predicate_store(builtin, '%', [2], '@doc', '@doc', [x(doeval,eager,[number]), x(doeval,eager,[number])], x(doeval,eager,[number])).
+'mc__1_2_%'(A,B,R) :- number(A),number(B),!,R is A mod B.
+'mc__1_2_%'(A,B,['%',A,B]).
 
 %%%%%%%%%%%%%%%%%%%%% logic
 
@@ -198,8 +212,9 @@ mc__1_1_not(_,'True').
 
 % not sure about the signature for this one
 transpiler_predicate_store(builtin, '==', [2], '@doc', '@doc', [x(doeval,eager,[]), x(doeval,eager,[])], x(doeval,eager,[boolean])).
-'mc__1_2_=='(A,B,'True') :- A==B,!.
-'mc__1_2_=='(_,_,'False').
+%'mc__1_2_=='(A,B,TF):- eval_40(['==',A,B],TF).
+'mc__1_2_=='(A,B,TF) :- var(A),!,as_tf(A==B,TF).
+'mc__1_2_=='(A,B,TF) :- as_tf(A=@=B,TF).
 
 transpiler_predicate_store(builtin, '<', [2], '@doc', '@doc', [x(doeval,eager,[number]), x(doeval,eager,[number])], x(doeval,eager,[boolean])).
 'mc__1_2_<'(A,B,R) :- number(A),number(B),!,(A<B -> R='True' ; R='False').
@@ -230,6 +245,12 @@ transpiler_predicate_store(builtin, 'cons-atom', [2], '@doc', '@doc', [x(noeval,
 
 transpiler_predicate_store(builtin, 'decons-atom', [1], '@doc', '@doc', [x(noeval,eager,[list])], x(noeval,eager,[list])).
 'mc__1_1_decons-atom'([A|B],[A,B]).
+
+%transpiler_predicate_store(builtin, 'length', [1], '@doc', '@doc', [x(noeval,eager,[list])], x(noeval,eager,[number])).
+%'mc__1_1_length'(L,S) :- length(L,S).
+
+transpiler_predicate_store(builtin, 'size-atom', [1], '@doc', '@doc', [x(noeval,eager,[list])], x(noeval,eager,[number])).
+'mc__1_1_size-atom'(L,S) :- length(L,S).
 
 %%%%%%%%%%%%%%%%%%%%% set
 
@@ -262,7 +283,7 @@ transpiler_predicate_store(builtin, 'limit!', [2], '@doc', '@doc', [x(doeval,eag
 
 %%%%%%%%%%%%%%%%%%%%% superpose, collapse
 
-transpiler_predicate_store(builtin, superpose, [1], '@doc', '@doc', [x(doeval,eager,[])], x(doeval,eager,[])).
+transpiler_predicate_store(builtin, superpose, [1], '@doc', '@doc', [x(doeval,eager,[])], x(noeval,eager,[])).
 'mc__1_1_superpose'(S,R) :- member(R,S).
 
 transpiler_predicate_store(builtin, collapse, [1], '@doc', '@doc', [x(doeval,lazy,[])], x(doeval,eager,[])).
@@ -304,11 +325,15 @@ transpiler_predicate_store(builtin, 'get-atoms', [1], '@doc', '@doc', [x(noeval,
 match_pattern(Space, Pattern):-
     if_t(compound(Pattern),
        (functor(Pattern,F,A,Type), functor(Atom,F,A,Type))),
-    metta_atom_fast(Space, Atom), Atom=Pattern.
+    metta_atom(Space, Atom),
+    %unify_with_occurs_check(Atom,Pattern). % 0.262 secs.
+    Atom=Pattern. % 0.170 secs
+    %wocf(Atom=Pattern).
+    %woc(Atom=Pattern). %  2.09 seconds.
 
-transpiler_predicate_store(builtin, match, [3], '@doc', '@doc', [x(doeval,eager,[]), x(doeval,eager,[]), x(doeval,lazy,[])], x(doeval,eager,[])).
-'mc__1_3_match'(Space,P,P1,Ret) :- is_list(P),P=[','|Patterns],!,(maplist(match_aux(Space),Patterns) -> as_p1_exec(P1,Ret) ; fail).
-'mc__1_3_match'(Space,Pattern,P1,Ret) :- match_pattern(Space, Atom),Atom=Pattern,as_p1_exec(P1,Ret).
+transpiler_predicate_store(builtin, match, [3], '@doc', '@doc', [x(doeval,eager,[]), x(noeval,eager,[]), x(doeval,lazy,[])], x(doeval,eager,[])).
+'mc__1_3_match'(Space,P,P1,Ret) :- is_list(P),P=[Comma|Patterns],Comma==',',!,(maplist(match_aux(Space),Patterns) -> as_p1_exec(P1,Ret) ; fail).
+'mc__1_3_match'(Space,Pattern,P1,Ret) :- match_pattern(Space, Atom),unify_with_occurs_check(Atom,Pattern),as_p1_exec(P1,Ret).
 %'mc__1_3_match'(Space,Pattern,P1,Ret) :- match_pattern(Space, Atom),format("match1 ~w: ~w:\n",[Pattern,Atom]),Atom=Pattern,as_p1_exec(P1,Ret),format("match2 ~w:\n",[Ret]),trace.
 %transpiler_predicate_store(builtin, match, [3], '@doc', '@doc', [x(doeval,eager,[]), x(doeval,lazy,[]), x(doeval,lazy,[])], x(doeval,eager,[])).
 %'mc__1_3_match'(Space,Pattern,P1,Ret) :- match_pattern(Space, Atom),as_p1_exec(Pattern,Atom),as_p1_exec(P1,Ret).
@@ -335,6 +360,18 @@ transpiler_predicate_store(builtin, unify, [4], '@doc', '@doc', [x(doeval,eager,
 transpiler_predicate_nary_store(builtin, progn, 0, [], 'Atom', 'Atom', [], x(doeval,eager,[]), x(doeval,eager,[])).
 'mc_n_0__progn'(List,Ret) :- append(_,[Ret],List).
 
+transpiler_predicate_nary_store(builtin, 'call-fn!', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(noeval,eager,[]), x(doeval,eager,[])).
+'mc_n_1__call-fn!'(Fn,List,Ret) :- append(List,[Ret],List2),apply(Fn,List2).
+
+transpiler_predicate_nary_store(builtin, 'call-fn', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(doeval,eager,[]), x(doeval,eager,[])).
+'mc_n_1__call-fn'(Fn,List,Ret) :- append(List,[Ret],List2),apply(Fn,List2).
+
+transpiler_predicate_nary_store(builtin, 'call-p!', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(noeval,eager,[]), x(doeval,eager,[bool])).
+'mc_n_1__call-p!'(Fn,List,Ret) :- (apply(Fn,List)->Ret='True';Ret='False').
+
+transpiler_predicate_nary_store(builtin, 'call-p', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(doeval,eager,[]), x(doeval,eager,[bool])).
+'mc_n_1__call-p'(Fn,List,Ret) :- (apply(Fn,List)->Ret='True';Ret='False').
+
 %%%%%%%%%%%%%%%%%%%%% misc
 
 transpiler_predicate_store(builtin, time, [1], '@doc', '@doc', [x(doeval,lazy,[])], x(doeval,eager,[])).
@@ -351,6 +388,11 @@ transpiler_predicate_store(builtin, 'get-metatype', [1], '@doc', '@doc', [x(noev
 
 transpiler_predicate_store(builtin, 'println!', [1], '@doc', '@doc', [x(doeval,eager,[])], x(doeval,eager,[])).
 'mc__1_1_println!'(X,[]) :- println_impl(X).
+
+transpiler_predicate_store(builtin, 'format-args', [2], '@doc', '@doc', [x(doeval,eager,[]),x(noeval,eager,[])], x(doeval,eager,[])).
+'mc__1_2_format-args'(EFormat,EArgs,Str) :-
+    string_chars(EFormat, FormatChars), !,
+    user_io(with_output_to_str( Str, format_nth_args(FormatChars, 0, EArgs))).
 
 transpiler_predicate_store(builtin, 'stringToChars', [1], '@doc', '@doc', [x(doeval,eager,[])], x(doeval,eager,[])).
 'mc__1_1_stringToChars'(S,C) :- string_chars(S,C).
@@ -376,6 +418,15 @@ transpiler_predicate_store(builtin, 'assertEqualToResult', [2], '@doc', '@doc', 
         ['assertEqualToResult',A,B],AA,B,
         ('mc__1_1_collapse'(A,AA)),
          equal_enough_for_test_renumbered_l(strict_equals_allow_vn,AA,B), C).
+
+
+transpiler_predicate_store(builtin, 'assertAlphaEqual', [2], '@doc', '@doc', [x(doeval,lazy,[]),x(noeval,lazy,[])], x(doeval,eager,[])).
+'mc__1_2_assertAlphaEqual'(A,B,C) :-
+   loonit_assert_source_tf_empty(
+        ['assertAlphaEqual',A,B],AA,BB,
+        ('mc__1_1_collapse'(A,AA),
+         'mc__1_1_collapse'(B,BB)),
+         equal_enough_for_test_renumbered_l(alpha_equ,AA,BB), C).
 
 transpiler_predicate_store(builtin, 'quote', [1], '@doc', '@doc', [x(noeval,eager,[])], x(noeval,eager,[])).
 'mc__1_1_quote'(A,['quote',A]).
@@ -507,6 +558,132 @@ transpiler_predicate_store(builtin, 'transpiler-listing', [0], [], '', [], x(doe
   findall([Origin,Fn,Arity,['variable arity']],transpiler_predicate_nary_store(Origin,Fn,Arity,_,_,_,_,_,_),Unsorted2),
   append(Unsorted1,Unsorted2,Unsorted),
   predsort(listing_order,Unsorted,Sorted).
+
+
+
+
+
+transpiler_predicate_store(builtin, 'metta-equals', [2], '@doc', '@doc', [x(noeval,eager,[]), x(noeval,eager,[])], x(doeval,eager,[boolean])).
+'mc__1_2_metta-equals'(A,B,TF):- as_tf(A=@=B,TF).
+
+transpiler_predicate_store(builtin, 'metta-unify', [2], '@doc', '@doc', [x(noeval,eager,[]), x(noeval,eager,[])], x(doeval,eager,[boolean])).
+'mc__1_2_metta-unify'(A,B,TF):- as_tf(unify_with_occurs_check(A,B),TF).
+
+transpiler_predicate_store(builtin, 'decons-ht', [3], '@doc', '@doc', [x(noeval,eager,[]),x(noeval,eager,[]),x(noeval,eager,[])],x(doeval,eager,[boolean])).
+'mc__1_3_decons-ht'(E,H,T,TF):- as_tf(E=[H|T],TF).
+
+transpiler_predicate_nary_store(builtin, 'py-atom-call', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(doeval,eager,[]), x(doeval,eager,[])).
+'mc_n_1__py-atom-call'(SymRef,Args,Ret) :- 'mc_n_1__py-atom-call!'(SymRef,Args,Ret).
+
+transpiler_predicate_nary_store(builtin, 'py-atom-call!', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(noeval,eager,[]), x(doeval,eager,[])).
+'mc_n_1__py-atom-call!'(SymRef,Args,Ret) :-
+    py_call_method_and_args(SymRef,Args,Res),
+    py_metta_return_value(_RetType,Ret,Res).
+
+transpiler_predicate_nary_store(builtin, 'py-dot-call', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(doeval,eager,[]), x(doeval,eager,[])).
+'mc_n_1__py-dot-call'(SymRef,Args,Ret) :- 'mc_n_1__py-dot-call!'(SymRef,Args,Ret).
+
+transpiler_predicate_nary_store(builtin, 'py-dot-call!', 1, ['Atom'], 'Atom', 'Atom', [x(doeval,eager,[])], x(noeval,eager,[]), x(doeval,eager,[])).
+'mc_n_1__py-dot-call!'(SymRef,Args,Ret) :-
+    eval_only_interp([['py-dot'|SymRef]|Args],Ret).
+    %make_py_dot(Arg1,Arg2,Res)
+    %py_call_method_and_args(SymRef,Args,Res),
+    %py_metta_return_value(_RetType,Ret,Res).
+
+this_is_in_compiler_lib.
+
+metta_to_metta_macro_recurse(I,O):-
+  metta_to_metta_macro(I,M),I\=@=M,!,
+  metta_to_metta_macro_recurse(M,O).
+metta_to_metta_macro_recurse(I,I).
+
+metta_to_metta_macro(NoList,NoList):- \+ is_list(NoList),!.
+metta_to_metta_macro([EQ,HeadIsN,AsBodyFnN], ['=',HeadIsC, AsBodyFnOut]):- EQ=='=', !,
+ ((
+ copy_term(AsBodyFnN+HeadIsN,AsBodyFnC+HeadIsC,_),
+ number_vars_wo_conficts(AsBodyFnC+HeadIsC,AsBodyFn+HeadIs),
+ (AsBodyFnC+HeadIsC=AsBodyFn+HeadIs),
+    metta_body_macro(HeadIs, AsBodyFn, AsBodyFnOut),!,
+    \+ \+ if_t(AsBodyFn\=@=AsBodyFnOut,
+    ( debug_info(metta_macro_in,t(([=,HeadIs, AsBodyFn]))),!,
+      debug_info(metta_macro_out,t(([=,HeadIs, AsBodyFnOut]))))))),!.
+metta_to_metta_macro(Body,BodyOut):- metta_to_metta_macro(['=',[whatever],Body],['=',[whatever],BodyOut]),!.
+
+
+%metta_body_macro(_HeadIs, AsBodyFn, AsBodyFnOut):-!, AsBodyFnOut=AsBodyFn.
+metta_body_macro(HeadIs, AsBodyFn, AsBodyFnOut):-
+   must_det_lls((
+    nop((term_variables(HeadIs+AsBodyFn,Vars),copy_term(Vars,Copy),freeze_vars(Vars,Copy))),
+    metta_body_macro1(HeadIs, [], AsBodyFn, AsBodyFnE),
+    metta_body_macro2(HeadIs, [], AsBodyFnE, AsBodyFnMid),
+   (AsBodyFn =@= AsBodyFnMid -> AsBodyFnMid = AsBodyFnOut ;
+     metta_body_macro(HeadIs, AsBodyFnMid, AsBodyFnOut)),
+    nop((unfreeze_vars(Vars,Copy))))).
+
+variables_are_safe(Inp,Goal):-
+    term_variables(Inp,Vars),copy_term(Inp+Vars,InpC+Copy),freeze_vars(Vars,Copy),
+    call(Goal),Inp=@=InpC,
+    unfreeze_vars(Vars,Copy).
+
+freeze_var(Var,Copy):- put_attr(Var,cant_bind,Copy).
+freeze_vars(Vars,Copy):- maplist(freeze_var,Vars,Copy).
+cant_bind:attr_unify_hook(Copy,NewValue):- var(Copy),Copy=@=NewValue.
+unfreeze_var(Var,_):- del_attr(Var,cant_bind),!.
+%unfreeze_var(Var,Copy):- get_attr(Var,cant_bind,Now),Copy==Now,del_attr(Var,cant_bind),Var=@=Copy.
+unfreeze_vars(Vars,Copy):- maplist(unfreeze_var,Vars,Copy).
+
+
+metta_body_macro1(_HeadIs, _,_AsBodyFn, AsBodyFnO):- nonvar(AsBodyFnO),!,trace_break(nonvar(AsBodyFnO)).
+metta_body_macro1(_HeadIs, _, AsBodyFn, AsBodyFnO):- \+ compound(AsBodyFn), !, AsBodyFn=AsBodyFnO.
+metta_body_macro1(_HeadIs, _, AsBodyFn, AsBodyFnO):- \+ is_list(AsBodyFn), !, AsBodyFn=AsBodyFnO.
+metta_body_macro1(HeadIs, Stack, [Op|AsBodyFn], AsBodyFnOut):- fail, \+ is_funcall_op(Op),  !, maplist(metta_body_macro1(HeadIs, Stack), [Op|AsBodyFn], AsBodyFnOut),!.
+
+metta_body_macro1(HeadIs, Stack, [Op|AsBodyFn], AsBodyFnOut):-
+   once((copy_term(AsBodyFn,AsBodyFnCopy),
+   maplist( metta_body_macro1(HeadIs, Stack), AsBodyFn, AsBodyFnMid),
+   AsBodyFn=@=AsBodyFnCopy)),
+   [Op|AsBodyFnMid]=OpAsBodyMid,
+   copy_term(OpAsBodyMid,OpAsBodyMidCopy),
+   metta_body_macro_pass(e,OpAsBodyMid,AsBodyFnOut),
+   OpAsBodyMid=@=OpAsBodyMidCopy,!.
+metta_body_macro1(_HeadIs, _, AsBodyFn, AsBodyFn).
+
+metta_body_macro2(_HeadIs, _,_AsBodyFn, AsBodyFnO):- nonvar(AsBodyFnO),!,trace_break(nonvar(AsBodyFnO)).
+metta_body_macro2(_HeadIs, _, AsBodyFn, AsBodyFnO):- \+ compound(AsBodyFn), !, AsBodyFn=AsBodyFnO.
+metta_body_macro2(_HeadIs, _, AsBodyFn, AsBodyFnO):- \+ is_list(AsBodyFn), !, AsBodyFn=AsBodyFnO.
+metta_body_macro2(HeadIs, Stack, [Op|AsBodyFn], AsBodyFnOut):- fail, \+ is_funcall_op(Op),  !, maplist(metta_body_macro1(HeadIs, Stack), [Op|AsBodyFn], AsBodyFnOut),!.
+
+metta_body_macro2(HeadIs, Stack, OpAsBody, AsBodyFnOutReally):-
+   once((copy_term(OpAsBody,OpAsBodyMidCopy),
+   metta_body_macro_pass(f, OpAsBody , AsBodyFnOut),
+   OpAsBody=@=OpAsBodyMidCopy)),
+   maplist( metta_body_macro2(HeadIs, Stack), AsBodyFnOut,AsBodyFnOutReally),!.
+metta_body_macro2(_HeadIs, _, AsBodyFn, AsBodyFn).
+
+metta_body_macro_pass(e,[NonOp|More], AsBodyFn):- \+ callable(NonOp),!,[NonOp|More]= AsBodyFn.
+metta_body_macro_pass(e,['if-unify',Var1,Var2|Rest], [if,['metta-unify',Var1,Var2]|Rest]).
+metta_body_macro_pass(e,['if-equal',Var1,Var2|Rest], [if,['metta-equal',Var1,Var2]|Rest]).
+metta_body_macro_pass(e,['if-decons-expr',Expr,Head,Tail|Rest],[if,['decons-ht',Expr,Head,Tail]|Rest]).
+metta_body_macro_pass(e,['if-decons',Expr,Head,Tail|Rest],[if,['decons-ht',Expr,Head,Tail]|Rest]).
+metta_body_macro_pass(e,['chain',[Ceval,Eval],Var|Rest], ['let',Var,Eval|Rest]):- Ceval == eval,!.
+metta_body_macro_pass(e,['chain',Eval,Var|Rest], ['let',Var,Eval|Rest]).
+
+metta_body_macro_pass(f,[['py-dot'|Args]|Rest], ['py-dot-call',Args|Rest]).
+metta_body_macro_pass(f,[['py-atom'|Args]|Rest], ['py-atom-call',Args|Rest]).
+
+%metta_body_macro_pass(e,[eval,Next], Next).
+metta_body_macro_pass(e,AsBodyFnOut, AsBodyFnOut).
+
+metta_body_macro_pass(f,[NonOp|More], AsBodyFn):- \+ callable(NonOp),!,[NonOp|More]= AsBodyFn.
+metta_body_macro_pass(f,[eval,Eval], Eval).
+
+metta_body_macro_pass(f,['unique',Eval],
+   ['let',Var,['call-fn!','no_repeat_var',variant_by_type],
+     ['let',Res,Eval,['metta-unify',Var,Res],Res]]).
+
+metta_body_macro_pass(_,AsBodyFnOut, AsBodyFnOut).
+
+
 
 
 
