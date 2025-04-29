@@ -364,20 +364,16 @@ insert_meta_predicate([meta_at(Pred, At)|MetaRest], Offset, ContentStr, NewConte
 insert_meta_predicate([], _, Remainder, [Remainder]).
 
 file_missing_meta_predicates(Path, Missing) :-
-    Acc = a([]),
-    setup_call_cleanup(
-        prolog_open_source(Path, Stream),
-        ( repeat,
-          prolog_read_source_term(Stream, _T, Term, [ term_position(TermPos) ]),
-          ( compound(Term), Term = ':-'(_Head, _Body), check_needs_meta_predicate(Path, Term, MaybeMeta)
-          -> arg(1, Acc, L),
-             stream_position_data(char_count, TermPos, InsertAt),
-             nb_setarg(1, Acc, [meta_at(MaybeMeta, InsertAt)|L])
-          ; true ),
-          Term = end_of_file, !
-        ),
-        prolog_close_source(Stream)),
-    arg(1, Acc, Missing).
+    find_in_source(Path,
+                   {Path}/[_Term, Dict, Result]>>(
+                       get_dict(expanded_term, Dict, Term),
+                       compound(Term), Term = ':-'(_Head, _Body),
+                       check_needs_meta_predicate(Path, Term, MaybeMeta),
+                       get_dict(term_position, Dict, TermPos),
+                       stream_position_data(char_count, TermPos, InsertAt),
+                       Result = meta_at(MaybeMeta, InsertAt)
+                   ),
+                   Missing).
 
 check_needs_meta_predicate(Path, ':-'(Head, Body), MetaPred) :-
     \+ xref_meta(Path, Head, _),
@@ -447,3 +443,26 @@ map_kv(black(L, K, V, R), Goal, NewTree, Nil) =>
     map_kv(R, Goal, NR, Nil).
 
 :- meta_predicate map_kv(?, 3, ?, ?).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% finding source locations helper
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- meta_predicate find_in_source(+, 3, -).
+
+find_in_source(Path, Find, Results) :-
+    Acc = a([]),
+    setup_call_cleanup(
+        prolog_open_source(Path, Stream),
+        ( repeat,
+          prolog_read_source_term(Stream, Term, ExTerm, [ term_position(TermPos),
+                                                          subterm_positions(SubTermPos) ]),
+          ( call(Find, Term, _{term_position: TermPos, subterm_positions: SubTermPos,
+                               expanded_term: ExTerm},
+                ToInsert)
+          -> arg(1, Acc, L), nb_setarg(1, Acc, [ToInsert|L])
+          ; true ),
+          Term = end_of_file, !
+        ),
+        prolog_close_source(Stream)),
+    arg(1, Acc, Results).
