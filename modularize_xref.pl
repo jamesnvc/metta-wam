@@ -37,8 +37,7 @@ main([DirPath]) :-
     % Remove ensure_loaded/1 decls for things that are now use_module/1'd
     maplist(file_module, AllFiles, AllModules),
     forall(member(File, AllFiles),
-           forall(member(Module, AllModules),
-                  remove_ensure_loaded(File, Module))),
+           remove_ensure_loaded(File, AllModules)),
     add_all_missing_meta_preds(AllFiles).
 
 add_all_missing_meta_preds(AllFiles) :-
@@ -231,34 +230,36 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
 
 % remove ensure_loaded/1
 
-remove_ensure_loaded(Path, Module) :-
-    setup_call_cleanup(prolog_open_source(Path, Stream),
-                       find_ensure_loaded(Stream, Module, TermPos),
-                       prolog_close_source(Stream)), !,
-    splice_out_term_in_file(Path, TermPos).
-remove_ensure_loaded(_, _).
+remove_ensure_loaded(Path, Modules) :-
+    find_in_source(Path,
+                   {Modules}/[Term, Dict, Result]>>(
+                       Term = (:- ensure_loaded(M)),
+                       memberchk(M, Modules),
+                       get_dict(subterm_positions, Dict, TermPos),
+                       arg(1, TermPos, Start),
+                       arg(2, TermPos, End0),
+                       End is End0 + 1, % include full stop
+                       Result = position(Start, End)
+                   ),
+                   Locations),
+    splice_out_terms_in_file(Path, Locations).
 
-find_ensure_loaded(Stream, Module, TermPos) :-
-    repeat,
-    prolog_read_source_term(Stream, Term, _, [ subterm_positions(TermPos),
-                                               syntax_errors(dec10) ]),
-    ( Term = end_of_file *-> !, fail
-      ; Term = (:- ensure_loaded(Module)), !,
-        arg(2, TermPos, End0),
-        End is End0 + 1, % include full stop
-        setarg(2, TermPos, End) ).
-
-splice_out_term_in_file(Path, TermPos) :-
-    arg(1, TermPos, Start),
-    arg(2, TermPos, End),
+splice_out_terms_in_file(Path, Positions) :-
     read_file_to_string(Path, FileContent, []),
-    sub_string(FileContent, 0, Start, After, BeforeContent),
-    After1 is After - (End - Start),
-    sub_string(FileContent, End, After1, _, AfterContent),
-    setup_call_cleanup(open(Path, write, S),
-                       format(S, "~s~s", [BeforeContent, AfterContent]),
-                       close(S)).
+    sort(1, @=<, Positions, Positions1),
+    splice_out_term_in_file(Positions1, 0, FileContent, NewContents),
+    atomics_to_string(NewContents, "", NewContent),
+    setup_call_cleanup(open(Path, write, S), write(S, NewContent), close(S)).
 
+splice_out_term_in_file([TermPos|TermPoses], Offset, ContentStr, NewContent0) :-
+    arg(1, TermPos, Start), arg(2, TermPos, End),
+    ReadLen is Start - Offset,
+    sub_string(ContentStr, 0, ReadLen, _After0, BeforeS),
+    AfterStart is End - Offset,
+    NewContent0 = [BeforeS|NewContent1],
+    sub_string(ContentStr, AfterStart, _, 0, AfterS),
+    splice_out_term_in_file(TermPoses, End, AfterS, NewContent1).
+splice_out_term_in_file([], _, Remainder, [Remainder]).
 
 % TODO: also need to import operators
 
