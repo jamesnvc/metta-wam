@@ -5,6 +5,7 @@
 :- use_module(library(readutil)).
 :- use_module(library(lists)).
 :- use_module(library(ordsets)).
+:- use_module(library(pairs)).
 :- use_module(library(rbtrees)).
 :- use_module(library(prolog_source)).
 :- use_module(library(yall)).
@@ -18,7 +19,10 @@
 main([DirPath]) :-
     debug(modularize_xref),
     add_modules_if_needed(DirPath),
+    % load xref data
     load_xrefs(DirPath, FileDefs),
+    % get mapping of imports & exports
+    findall(File, member(file_def_call_ex(File, _, _, _), FileDefs), AllFiles),
     files_imported_exported(FileDefs, FileImports, FileExports),
     setof(file_import(File, Module, Predicates),
           ImportFile^( setof(Pred,
@@ -27,13 +31,21 @@ main([DirPath]) :-
                        file_module(ImportFile, Module)
                      ),
           UniqueFileImports),
+    maplist([File, File-OpPositions]>>defined_operators(File, OpPositions),
+            AllFiles, FileDefinedOps),
+    maplist([File-OpPoses, Mod-OpPoses]>>file_module(File, Mod), FileDefinedOps,
+            ModuleDefinedOps),
+    list_to_rbtree(ModuleDefinedOps, ModDefOps),
     forall( member(file_import(File, Module, Predicates), UniqueFileImports),
-            add_use_if_needed(File, Module, Predicates) ),
+            ( add_use_if_needed(File, Module, Predicates),
+              ( rb_lookup(Module, Ops, ModDefOps), Ops \= []
+              -> pairs_keys_values(Ops, Os, _),
+                 add_use_if_needed(File, Module, Os)
+              ;  true ) ) ),
     forall( member(file_exports(File, Exports), FileExports),
             add_to_export(File, Exports) ),
-    findall(File,
-            member(file_def_call_ex(File, _, _, _), FileDefs),
-            AllFiles),
+    forall( member(File-DefOps, FileDefinedOps),
+            export_defined_operators(File, DefOps)),
     % Remove ensure_loaded/1 decls for things that are now use_module/1'd
     maplist(file_module, AllFiles, AllModules),
     forall(member(File, AllFiles),
@@ -186,6 +198,29 @@ file_module(Path, Module) :-
     file_name_extension(Module, '.pl', BaseName).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Find operator definitions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+defined_operators(Path, Ops) :-
+    % deliberately not finding operators defined in module/2, since
+    % those are already exported
+    find_in_source(Path,
+                   [Term, Dict, Result]>>(
+                       Term = (:- op(A, B, C)),
+                       get_dict(subterm_positions, Dict, TermPos),
+                       arg(1, TermPos, Start),
+                       arg(2, TermPos, End0), End is End0 + 1, % period
+                       Result = op(A, B, C)-position(Start, End)
+                   ),
+                   Ops).
+
+export_defined_operators(_Path, []) :- !.
+export_defined_operators(Path, OpPoses) :-
+    pairs_keys_values(OpPoses, Ops, Positions),
+    splice_out_terms_in_file(Path, Positions),
+    add_to_export(Path, Ops).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Adding imports
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -206,10 +241,10 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
     prolog_read_source_term(Stream, Term, _Ex, [subterm_positions(SubTermPos),
                                                 syntax_errors(dec10)]),
     once(( Term = (:- use_module(ImpModule)) ;
-               Term = (:- use_module(ImpModule, _)) ;
-                   Term = (:- ensure_loaded(_)) ;
-                       Term = (:- module(_, _)) ;
-                           Term = end_of_file )),
+           Term = (:- use_module(ImpModule, _)) ;
+           Term = (:- ensure_loaded(_)) ;
+           Term = (:- module(_, _)) ;
+           Term = end_of_file )),
     ( Term = end_of_file
     -> !
     ; ( Term = (:- module(_, _))
