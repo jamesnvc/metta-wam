@@ -717,7 +717,8 @@ is_testing :- o_quietly(is_metta_flag('test')).
 %   @example
 %     ?- is_html.
 %     true.
-is_html :- is_metta_flag('html').
+is_html :- is_metta_flag('html'),!.
+is_html.
 
 % If the file is not already loaded, this is equivalent to consult/1. Otherwise, if the file defines a module,
 % import all public predicates. Finally, if the file is already loaded, is not a module file, and the context
@@ -2710,7 +2711,7 @@ run_cmd_args_prescan :-
     % Mark that the prescan has been executed.
     assert(has_run_cmd_args),
     % Perform the prescan using `do_cmdline_load_metta/1`.
-    do_cmdline_load_metta(prescan).
+    do_cmdline_load_metta(prescan), setup_show_hide_debug.
 
 %!  run_cmd_args is det.
 %
@@ -3952,6 +3953,8 @@ load_hook(Load,Hooked):-
 %     % Execute a goal and trace errors:
 %     ?- rtrace_on_error(writeln('Hello, World!')).
 %
+
+rtrace_on_error(G):- is_user_repl, !, call(G).
 rtrace_on_error(G):- !, call(G).
 %rtrace_on_error(G):- catch(G,_,fail).
 rtrace_on_error(G):-
@@ -4470,7 +4473,7 @@ metta_atom0(_Inherit,Space, Atom) :- typed_list(Space, _, L), !, member(Atom, L)
 %metta_atom0(Inherit,X, Y) :- var(X), use_top_self, current_self(TopSelf),  metta_atom0(Inherit,TopSelf, Y), X = '&self'.
 metta_atom0(Inherit,X, Y) :- maybe_into_top_self(X, TopSelf), !, metta_atom0(Inherit,TopSelf, Y).
 
-metta_atom0(_Inherit,KB, Atom) :- metta_atom_added(KB, Atom).
+metta_atom0(_Inherit,KB, Atom) :- woct(metta_atom_added(KB, Atom)).
 
 
 
@@ -5279,7 +5282,7 @@ toplevel_interp_only_symbol('extend-py!').
 toplevel_interp_only_symbol('include').
 toplevel_interp_only_symbol('include!').
 toplevel_interp_only_symbol('call-string').
-toplevel_interp_only_symbol('compiled-info').
+toplevel_interp_only_symbol('listing!').
 toplevel_interp_only_symbol('repl!').
 toplevel_interp_only_symbol('eval').
 toplevel_interp_only_symbol('pragma!').
@@ -5993,6 +5996,12 @@ eval_string(String):- user_io((eval_string(String, _Out))).
 eval_string(String, Out):-
     current_self(Self),
     read_metta(String, Metta),
+    do_metta(true, +, Self, exec(Metta), Out).
+
+load_string(String):- user_io((eval_string(String, _Out))).
+load_string(String, Out):-
+    current_self(Self),
+    read_metta(String, Metta),
     do_metta(true, +, Self, Metta, Out).
 
 
@@ -6030,9 +6039,9 @@ eval_H(Term, X) :-
 eval_H(_StackMax, _Self, Term, Term) :-
     % If the `compile` option is set to `save`, return the term unchanged.
     fast_option_value(compile, save), !.
-eval_H(StackMax, Self, Term, X) :-
+eval_H(_StackMax, Self, Term, X) :-
     % Otherwise, perform evaluation with error handling, passing the stack limit.
-    woc(catch_metta_return(eval_args('=', _, StackMax, Self, Term, X), X)).
+    woc(catch_metta_return(eval_args('=', _, 0, Self, Term, X), X)).
 /*
 eval_H(StackMax,Self,Term,X).
 
@@ -7172,7 +7181,7 @@ qsave_program(Name) :-
 %   is allowed, it handles modifications to `system:notrace/1` to customize its behavior.
 %
 
-nts1 :- !. % Disable redefinition by cutting execution.
+%nts1 :- !. % Disable redefinition by cutting execution.
 %nts1 :- is_flag(notrace),!.
 nts1 :-
     % Redefine the system predicate `system:notrace/1` to customize its behavior.
