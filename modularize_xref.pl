@@ -446,13 +446,67 @@ var_meta_use(Path, V, G, Meta) =>
       Meta = N ).
 var_meta_use(_, _, _, _) => fail.
 
-% TODO: move these to tests
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% finding dependency loops
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-thingy(A, B) :-
-    call(A, 1, B).
+:- use_module(library(ugraphs)).
 
-thingy2(A, B) :-
-    ( B = 1 -> call(A, 1, B) ; writeln(B) ).
+build_graph(FileImports, Graph) :-
+    vertices_edges_to_ugraph([], [], G0),
+    foldl([file_import(I, _, E), G, G1]>>(
+              ( I = E
+              -> G1 = G
+              ; add_edges(G, [I-E], G1) )
+          ), FileImports, G0, Graph).
+
+xxy_build_deps(Graph) :-
+    load_xrefs("prolog", FileDefs),
+    files_imported_exported(FileDefs, FileImports, _FileExports),
+    build_graph(FileImports, Graph).
+
+loop_in_graph(Graph, Loop) :-
+    transitive_closure(Graph, Closure),
+    member(FileName-Reachable, Closure),
+    member(FileName, Reachable),
+    output_deps_graphviz(FileName, Graph, OutputFile),
+    Loop = loop(FileName, OutputFile).
+
+output_deps_graphviz(FileName, Graph, OutputFile) :-
+    file_module(FileName, Module),
+    format(string(GraphFileName), "~w_deps_graph.dot", [Module]),
+    setup_call_cleanup(
+        open(GraphFileName, write, S),
+        ( format(S, "digraph {~n", []),
+          forall(find_loop_path(Graph, FileName, FileName, [], a([]), PathR),
+                 ( reverse(Path, PathR),
+                   output_path_loop(S, Path) )
+          ),
+          format(S, "}", [])
+        ),
+        close(S)
+    ),
+    absolute_file_name(GraphFileName, OutputFile).
+
+output_path_loop(S, []) :- format(S, "~n", []).
+output_path_loop(_, [_]) :- true.
+output_path_loop(S, [X, Y|Rest]) :-
+    file_module(X, XMod),
+    file_module(Y, YMod),
+    format(S, "~w -> ~w~n", [XMod, YMod]),
+    output_path_loop(S, [Y|Rest]).
+
+find_loop_path(Graph, From, To, Path0, _Visited, Path) :-
+    neighbours(From, Graph, Neighbours),
+    memberchk(To, Neighbours), !,
+    Path = [To, From|Path0].
+find_loop_path(Graph, From, To, Path0, Visited, Path) :-
+    neighbours(From, Graph, Neighbours),
+    member(Neigh, Neighbours),
+    arg(1, Visited, AlreadySeen),
+    \+ memberchk(Neigh, AlreadySeen),
+    nb_setarg(1, Visited, [Neigh|AlreadySeen]),
+    find_loop_path(Graph, Neigh, To, [From|Path0], Visited, Path).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % red-black tree helper
