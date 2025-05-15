@@ -452,6 +452,7 @@ var_meta_use(_, _, _, _) => fail.
 
 :- use_module(library(ugraphs)).
 
+% graph of dependencies between modules
 build_graph(FileImports, Graph) :-
     vertices_edges_to_ugraph([], [], G0),
     foldl([file_import(I, _, E), G, G1]>>(
@@ -460,17 +461,117 @@ build_graph(FileImports, Graph) :-
               ; add_edges(G, [I-E], G1) )
           ), FileImports, G0, Graph).
 
+% graph of dependencies between predicates
+build_file_graph(File, Graph) :-
+    xref_source(File),
+    findall(edge(Goal, How, Called),
+            ( xref_called(File, Called, Goal),
+              xref_defined(File, Called, How),
+              once(( How = local(_) ; How = imported(_) ))
+            ),
+           Graph).
+
 xxy_build_deps(Graph) :-
     load_xrefs("prolog", FileDefs),
     files_imported_exported(FileDefs, FileImports, _FileExports),
     build_graph(FileImports, Graph).
 
+find_loops_in_file_graph(Loops) :-
+    xxy_build_deps(Graph),
+    setof(Loop, loop_in_graph(Graph, Loop), Loops).
+
+expand_graph_in_loop(Loop, LoopGraph) :-
+    maplist([F, file_graph(AF, Graph)]>>( build_file_graph(F, Graph),
+                                          absolute_file_name(F, AF)
+                                        ), Loop, LoopSubGraphs),
+    LoopSubGraphs = [_|LoopSubGraphsRest],
+    once(append(LoopSubGraphs0, [_], LoopSubGraphs)),
+    vertices_edges_to_ugraph([], [], EmptyGraph),
+    foldl([file_graph(ThisFile, Edges), file_graph(NextFile, _), Graph0, Graph1]>>(
+              maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1)
+          ),
+          LoopSubGraphs0,
+          LoopSubGraphsRest,
+          EmptyGraph,
+          LoopGraph
+         ).
+
+head_pred(Head, Name/Arity) :-
+    functor(Head, Name, Arity).
+
+maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1) :-
+    foldl({ThisFile, NextFile}/[edge(FromH, How, ToH), G0, G1]>>(
+              head_pred(FromH, From), head_pred(ToH, To),
+              file_module(ThisFile, ThisModule),
+              file_module(NextFile, NextModule),
+              ( How = local(_)
+              -> add_edges(G0, [(ThisModule:From)-(ThisModule:To)], G1)
+              ;  ( How = imported(NextFile)
+                 -> add_edges(G0, [(ThisModule:From)-(NextModule:To)], G1)
+                 ; G1 = G0 ) )
+          ), Edges, Graph0, Graph1).
+
+cross_module_edges(Graph, CrossingEdges) :-
+    findall(CrossingEdge,
+            ( member(Vertex-Edges, Graph),
+              Vertex = ThisModule:_Pred,
+              include({ThisModule}/[CalledMod:_Called]>>( CalledMod \= ThisModule ),
+                      Edges,
+                      OtherModVertices),
+              OtherModVertices = [_|_],
+              CrossingEdge = Vertex-OtherModVertices
+            ),
+            CrossingEdges0),
+    sort(CrossingEdges0, CrossingEdges).
+
+zzz_look_at_min_cuts :-
+    find_loops_in_file_graph(Loops),
+    Loops = [L|_],
+    L = loop(_F, Loop),
+    expand_graph_in_loop(Loop, LoopGraph),
+    cross_module_edges(LoopGraph, Crossings),
+    maplist({LoopGraph}/[V-Edges, Degree-(V-Edges)]>>(
+                neighbours(V, LoopGraph, Neighbours),
+                length(Neighbours, Degree)
+            ), Crossings, LengthCrossings),
+    % group by module & sum now?
+    findall(mod_preds_degree(Mod, Preds, TotalDegree),
+            aggregate(r(sum(Degree), set(Pred)),
+                      V^Edges^( member(Degree-(V-Edges), LengthCrossings),
+                                V = Mod:Pred),
+                      r(TotalDegree, Preds)),
+            ModPredsDegrees),
+    sort(3, @=<, ModPredsDegrees, SortedModPredsDegree),
+    forall(member(mod_preds_degree(Mod, Preds, TotalDegree), SortedModPredsDegree),
+           format(" ~w: ~q -> ~q~n", [TotalDegree, Mod, Preds])).
+
+zzz_make_graphs :-
+    xxy_build_deps(Graph),
+    forall(loop_in_graph(Graph, loop(_From, LoopF)),
+           ( format(string(Cmd), "dot -Tpng -O ~w", [LoopF]),
+             shell(Cmd) )).
+
+graphviz_graph(Graph, FileName) :-
+   setup_call_cleanup(
+        open(FileName, write, S),
+        ( format(S, "digraph {~n", []),
+          forall( ( member(V1-Edges, Graph),
+                    member(V2, Edges) ),
+                  format(S, "\"~q\" -> \"~q\"~n", [V1, V2]) ),
+          format(S, "}", [])
+        ),
+        close(S)
+    ).
+
 loop_in_graph(Graph, Loop) :-
     transitive_closure(Graph, Closure),
     member(FileName-Reachable, Closure),
     member(FileName, Reachable),
-    output_deps_graphviz(FileName, Graph, OutputFile),
-    Loop = loop(FileName, OutputFile).
+    %output_deps_graphviz(FileName, Graph, OutputFile),
+    %Loop = loop(FileName, OutputFile).
+    find_loop_path(Graph, FileName, FileName, [], a([]), PathR),
+    reverse(PathR, LoopPath),
+    Loop = loop(FileName, LoopPath).
 
 output_deps_graphviz(FileName, Graph, OutputFile) :-
     file_module(FileName, Module),
@@ -549,7 +650,7 @@ find_in_source(Path, Find, Results) :-
                                                           subterm_positions(SubTermPos) ]),
           ( call(Find, Term, _{term_position: TermPos, subterm_positions: SubTermPos,
                                expanded_term: ExTerm},
-                ToInsert)
+                 ToInsert)
           -> arg(1, Acc, L), nb_setarg(1, Acc, [ToInsert|L])
           ; true ),
           Term = end_of_file, !
