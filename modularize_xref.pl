@@ -2,6 +2,7 @@
 
 :- use_module(library(apply)).
 :- use_module(library(apply_macros)).
+:- use_module(library(filesex)).
 :- use_module(library(readutil)).
 :- use_module(library(lists)).
 :- use_module(library(ordsets)).
@@ -458,11 +459,11 @@ var_meta_use(_, _, _, _) => fail.
 % graph of dependencies between modules
 build_graph(FileImports, Graph) :-
     vertices_edges_to_ugraph([], [], G0),
-    foldl([file_import(I, _, E), G, G1]>>(
-                                             ( I = E
-                                             -> G1 = G
-                                             ; add_edges(G, [I-E], G1) )
-                                         ), FileImports, G0, Graph).
+    foldl([file_import(I, _, E), G, G1]>>
+              (( I = E
+               -> G1 = G
+               ; add_edges(G, [I-E], G1) )),
+          FileImports, G0, Graph).
 
 % graph of dependencies between predicates
 build_file_graph(File, Graph) :-
@@ -487,29 +488,29 @@ expand_graph_in_loop(Loop, LoopGraph) :-
     maplist([F, file_graph(AF, Graph)]>>( build_file_graph(F, Graph),
                                           absolute_file_name(F, AF) ),
             Loop, LoopSubGraphs),
-    LoopSubGraphs = [_|LoopSubGraphsRest],
-    once(append(LoopSubGraphs0, [_], LoopSubGraphs)),
     vertices_edges_to_ugraph([], [], EmptyGraph),
-    foldl([file_graph(ThisFile, Edges), file_graph(NextFile, _), Graph0, Graph1]>>
-              maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1),
-          LoopSubGraphs0,
-          LoopSubGraphsRest,
+    foldl([file_graph(ThisFile, Edges), Graph0, Graph1]>>
+              maybe_add_edges_to_graph(ThisFile, Edges, Graph0, Graph1),
+          LoopSubGraphs,
           EmptyGraph,
           LoopGraph
     ).
 
+head_pred('<directive>'(Line), '<directive>'(Line)) :- !.
 head_pred(Head, Name/Arity) :-
     functor(Head, Name, Arity).
 
-maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1) :-
-    foldl({ThisFile, NextFile}/[edge(FromH, How, ToH), G0, G1]>>
+maybe_add_edges_to_graph(ThisFile, Edges, Graph0, Graph1) :-
+    module_property(modularize_xref, file(ModularizeFile)),
+    file_directory_name(ModularizeFile, MettaDir),
+    foldl({ThisFile, MettaDir}/[edge(FromH, How, ToH), G0, G1]>>
               ( head_pred(FromH, From), head_pred(ToH, To),
                 file_module(ThisFile, ThisModule),
-                file_module(NextFile, NextModule),
                 ( How = local(_)
                 -> add_edges(G0, [(ThisModule:From)-(ThisModule:To)], G1)
-                ;  ( How = imported(NextFile)
-                   -> add_edges(G0, [(ThisModule:From)-(NextModule:To)], G1)
+                ;  ( How = imported(ImportFile), atom_concat(MettaDir, _, ImportFile)
+                   -> file_module(ImportFile, ImportModule),
+                      add_edges(G0, [(ThisModule:From)-(ImportModule:To)], G1)
                    ; G1 = G0 ) ) ),
           Edges, Graph0, Graph1).
 
@@ -536,7 +537,6 @@ zzz_look_at_min_cuts :-
                 ( neighbours(V, LoopGraph, Neighbours),
                   length(Neighbours, Degree) ),
             Crossings, LengthCrossings),
-    % group by module & sum now?
     findall(mod_preds_degree(Mod, Preds, TotalDegree),
             aggregate(r(sum(Degree), set(Pred)),
                       V^Edges^( member(Degree-(V-Edges), LengthCrossings),
@@ -649,9 +649,10 @@ find_in_source(Path, Find, Results) :-
         prolog_open_source(Path, Stream),
         ( repeat,
           prolog_read_source_term(Stream, Term, ExTerm, [ term_position(TermPos),
+                                                          comments(CommentPos),
                                                           subterm_positions(SubTermPos) ]),
           ( call(Find, Term, _{term_position: TermPos, subterm_positions: SubTermPos,
-                               expanded_term: ExTerm},
+                               expanded_term: ExTerm, comments: CommentPos},
                  ToInsert)
           -> arg(1, Acc, L), nb_setarg(1, Acc, [ToInsert|L])
           ; true ),
