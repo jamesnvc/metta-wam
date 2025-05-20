@@ -45,7 +45,7 @@ main([DirPath]) :-
     forall( member(file_exports(File, Exports), FileExports),
             add_to_export(File, Exports) ),
     forall( member(File-DefOps, FileDefinedOps),
-            export_defined_operators(File, DefOps)),
+            export_defined_operators(File, DefOps) ),
     % Remove ensure_loaded/1 decls for things that are now use_module/1'd
     maplist(file_module, AllFiles, AllModules),
     forall(member(File, AllFiles),
@@ -61,8 +61,8 @@ add_all_missing_meta_preds(AllFiles) :-
              ( Missing = []
              -> true
              ;  nb_setarg(1, X, true),
-                insert_meta_predicates(File, Missing),
-                xref_source(File) ) )),
+               insert_meta_predicates(File, Missing),
+               xref_source(File) ) )),
     arg(1, X, FoundSome),
     ( FoundSome = true
     -> add_all_missing_meta_preds(AllFiles)
@@ -205,13 +205,14 @@ defined_operators(Path, Ops) :-
     % deliberately not finding operators defined in module/2, since
     % those are already exported
     find_in_source(Path,
-                   [Term, Dict, Result]>>(
-                       Term = (:- op(A, B, C)),
-                       get_dict(subterm_positions, Dict, TermPos),
-                       arg(1, TermPos, Start),
-                       arg(2, TermPos, End0), End is End0 + 1, % period
-                       Result = op(A, B, C)-position(Start, End)
-                   ),
+                   [Term, Dict, Result]>>
+                       (
+                           Term = (:- op(A, B, C)),
+                           get_dict(subterm_positions, Dict, TermPos),
+                           arg(1, TermPos, Start),
+                           arg(2, TermPos, End0), End is End0 + 1, % period
+                           Result = op(A, B, C)-position(Start, End)
+                       ),
                    Ops).
 
 export_defined_operators(_Path, []) :- !.
@@ -253,12 +254,12 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
          nb_setarg(1, LastModuleAt, ModuleEndAt),
          fail
       ; (  nonvar(ImpModule), ImpModule = Module
-        -> debug(loading_message, "Already imported", []),
-           arg(1, SubTermPos, ImportStart),
-           arg(2, SubTermPos, ImportEnd0), ImportEnd is ImportEnd0 + 1, % to get the full-stop
-           update_existing_use_module_if_needed(Term, t(ImportStart, ImportEnd), Path, Module, Predicates),
-           nb_setarg(1, AlreadyImported, true), !
-        ;  arg(2, SubTermPos, ModuleEndAt0),
+         -> debug(loading_message, "Already imported", []),
+            arg(1, SubTermPos, ImportStart),
+            arg(2, SubTermPos, ImportEnd0), ImportEnd is ImportEnd0 + 1, % to get the full-stop
+            update_existing_use_module_if_needed(Term, t(ImportStart, ImportEnd), Path, Module, Predicates),
+            nb_setarg(1, AlreadyImported, true), !
+         ; arg(2, SubTermPos, ModuleEndAt0),
            succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
            nb_setarg(1, LastModuleAt, ModuleEndAt),
            fail  ) ) ).
@@ -267,15 +268,16 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
 
 remove_ensure_loaded(Path, Modules) :-
     find_in_source(Path,
-                   {Modules}/[Term, Dict, Result]>>(
-                       Term = (:- ensure_loaded(M)),
-                       memberchk(M, Modules),
-                       get_dict(subterm_positions, Dict, TermPos),
-                       arg(1, TermPos, Start),
-                       arg(2, TermPos, End0),
-                       End is End0 + 1, % include full stop
-                       Result = position(Start, End)
-                   ),
+                   {Modules}/[Term, Dict, Result]>>
+                       (
+                           Term = (:- ensure_loaded(M)),
+                           memberchk(M, Modules),
+                           get_dict(subterm_positions, Dict, TermPos),
+                           arg(1, TermPos, Start),
+                           arg(2, TermPos, End0),
+                           End is End0 + 1, % include full stop
+                           Result = position(Start, End)
+                       ),
                    Locations),
     splice_out_terms_in_file(Path, Locations).
 
@@ -401,14 +403,15 @@ insert_meta_predicate([], _, Remainder, [Remainder]).
 
 file_missing_meta_predicates(Path, Missing) :-
     find_in_source(Path,
-                   {Path}/[_Term, Dict, Result]>>(
-                       get_dict(expanded_term, Dict, Term),
-                       compound(Term), Term = ':-'(_Head, _Body),
-                       check_needs_meta_predicate(Path, Term, MaybeMeta),
-                       get_dict(term_position, Dict, TermPos),
-                       stream_position_data(char_count, TermPos, InsertAt),
-                       Result = meta_at(MaybeMeta, InsertAt)
-                   ),
+                   {Path}/[_Term, Dict, Result]>>
+                       (
+                           get_dict(expanded_term, Dict, Term),
+                           compound(Term), Term = ':-'(_Head, _Body),
+                           check_needs_meta_predicate(Path, Term, MaybeMeta),
+                           get_dict(term_position, Dict, TermPos),
+                           stream_position_data(char_count, TermPos, InsertAt),
+                           Result = meta_at(MaybeMeta, InsertAt)
+                       ),
                    Missing).
 
 check_needs_meta_predicate(Path, ':-'(Head, Body), MetaPred) :-
@@ -436,8 +439,8 @@ var_meta_use(_, V, G, Meta), var(G), V == G =>
     Meta = 0.
 var_meta_use(Path, V, (I -> T ; E), Meta) =>
     once(var_meta_use(Path, V, I, Meta) ;
-             var_meta_use(Path, V, T, Meta) ;
-                 var_meta_use(Path, V, E, Meta)).
+         var_meta_use(Path, V, T, Meta) ;
+         var_meta_use(Path, V, E, Meta)).
 var_meta_use(Path, V, G, Meta) =>
     xref_meta(Path, G, GoalMeta),
     ( member(X, GoalMeta), X == V
@@ -456,10 +459,10 @@ var_meta_use(_, _, _, _) => fail.
 build_graph(FileImports, Graph) :-
     vertices_edges_to_ugraph([], [], G0),
     foldl([file_import(I, _, E), G, G1]>>(
-              ( I = E
-              -> G1 = G
-              ; add_edges(G, [I-E], G1) )
-          ), FileImports, G0, Graph).
+                                             ( I = E
+                                             -> G1 = G
+                                             ; add_edges(G, [I-E], G1) )
+                                         ), FileImports, G0, Graph).
 
 % graph of dependencies between predicates
 build_file_graph(File, Graph) :-
@@ -469,7 +472,7 @@ build_file_graph(File, Graph) :-
               xref_defined(File, Called, How),
               once(( How = local(_) ; How = imported(_) ))
             ),
-           Graph).
+            Graph).
 
 xxy_build_deps(Graph) :-
     load_xrefs("prolog", FileDefs),
@@ -488,28 +491,28 @@ expand_graph_in_loop(Loop, LoopGraph) :-
     once(append(LoopSubGraphs0, [_], LoopSubGraphs)),
     vertices_edges_to_ugraph([], [], EmptyGraph),
     foldl([file_graph(ThisFile, Edges), file_graph(NextFile, _), Graph0, Graph1]>>(
-              maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1)
-          ),
+                                                                                      maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1)
+                                                                                  ),
           LoopSubGraphs0,
           LoopSubGraphsRest,
           EmptyGraph,
           LoopGraph
-         ).
+    ).
 
 head_pred(Head, Name/Arity) :-
     functor(Head, Name, Arity).
 
 maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1) :-
     foldl({ThisFile, NextFile}/[edge(FromH, How, ToH), G0, G1]>>(
-              head_pred(FromH, From), head_pred(ToH, To),
-              file_module(ThisFile, ThisModule),
-              file_module(NextFile, NextModule),
-              ( How = local(_)
-              -> add_edges(G0, [(ThisModule:From)-(ThisModule:To)], G1)
-              ;  ( How = imported(NextFile)
-                 -> add_edges(G0, [(ThisModule:From)-(NextModule:To)], G1)
-                 ; G1 = G0 ) )
-          ), Edges, Graph0, Graph1).
+                                                                    head_pred(FromH, From), head_pred(ToH, To),
+                                                                    file_module(ThisFile, ThisModule),
+                                                                    file_module(NextFile, NextModule),
+                                                                    ( How = local(_)
+                                                                    -> add_edges(G0, [(ThisModule:From)-(ThisModule:To)], G1)
+                                                                    ;  ( How = imported(NextFile)
+                                                                       -> add_edges(G0, [(ThisModule:From)-(NextModule:To)], G1)
+                                                                       ; G1 = G0 ) )
+                                                                ), Edges, Graph0, Graph1).
 
 cross_module_edges(Graph, CrossingEdges) :-
     findall(CrossingEdge,
@@ -531,14 +534,14 @@ zzz_look_at_min_cuts :-
     expand_graph_in_loop(Loop, LoopGraph),
     cross_module_edges(LoopGraph, Crossings),
     maplist({LoopGraph}/[V-Edges, Degree-(V-Edges)]>>(
-                neighbours(V, LoopGraph, Neighbours),
-                length(Neighbours, Degree)
-            ), Crossings, LengthCrossings),
+                                                         neighbours(V, LoopGraph, Neighbours),
+                                                         length(Neighbours, Degree)
+                                                     ), Crossings, LengthCrossings),
     % group by module & sum now?
     findall(mod_preds_degree(Mod, Preds, TotalDegree),
             aggregate(r(sum(Degree), set(Pred)),
                       V^Edges^( member(Degree-(V-Edges), LengthCrossings),
-                                V = Mod:Pred),
+                                V = Mod:Pred ),
                       r(TotalDegree, Preds)),
             ModPredsDegrees),
     sort(3, @=<, ModPredsDegrees, SortedModPredsDegree),
@@ -552,7 +555,7 @@ zzz_make_graphs :-
              shell(Cmd) )).
 
 graphviz_graph(Graph, FileName) :-
-   setup_call_cleanup(
+    setup_call_cleanup(
         open(FileName, write, S),
         ( format(S, "digraph {~n", []),
           forall( ( member(V1-Edges, Graph),
