@@ -485,14 +485,13 @@ find_loops_in_file_graph(Loops) :-
 
 expand_graph_in_loop(Loop, LoopGraph) :-
     maplist([F, file_graph(AF, Graph)]>>( build_file_graph(F, Graph),
-                                          absolute_file_name(F, AF)
-                                        ), Loop, LoopSubGraphs),
+                                          absolute_file_name(F, AF) ),
+            Loop, LoopSubGraphs),
     LoopSubGraphs = [_|LoopSubGraphsRest],
     once(append(LoopSubGraphs0, [_], LoopSubGraphs)),
     vertices_edges_to_ugraph([], [], EmptyGraph),
-    foldl([file_graph(ThisFile, Edges), file_graph(NextFile, _), Graph0, Graph1]>>(
-                                                                                      maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1)
-                                                                                  ),
+    foldl([file_graph(ThisFile, Edges), file_graph(NextFile, _), Graph0, Graph1]>>
+              maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1),
           LoopSubGraphs0,
           LoopSubGraphsRest,
           EmptyGraph,
@@ -503,16 +502,16 @@ head_pred(Head, Name/Arity) :-
     functor(Head, Name, Arity).
 
 maybe_add_edges_to_graph(ThisFile, NextFile, Edges, Graph0, Graph1) :-
-    foldl({ThisFile, NextFile}/[edge(FromH, How, ToH), G0, G1]>>(
-                                                                    head_pred(FromH, From), head_pred(ToH, To),
-                                                                    file_module(ThisFile, ThisModule),
-                                                                    file_module(NextFile, NextModule),
-                                                                    ( How = local(_)
-                                                                    -> add_edges(G0, [(ThisModule:From)-(ThisModule:To)], G1)
-                                                                    ;  ( How = imported(NextFile)
-                                                                       -> add_edges(G0, [(ThisModule:From)-(NextModule:To)], G1)
-                                                                       ; G1 = G0 ) )
-                                                                ), Edges, Graph0, Graph1).
+    foldl({ThisFile, NextFile}/[edge(FromH, How, ToH), G0, G1]>>
+              ( head_pred(FromH, From), head_pred(ToH, To),
+                file_module(ThisFile, ThisModule),
+                file_module(NextFile, NextModule),
+                ( How = local(_)
+                -> add_edges(G0, [(ThisModule:From)-(ThisModule:To)], G1)
+                ;  ( How = imported(NextFile)
+                   -> add_edges(G0, [(ThisModule:From)-(NextModule:To)], G1)
+                   ; G1 = G0 ) ) ),
+          Edges, Graph0, Graph1).
 
 cross_module_edges(Graph, CrossingEdges) :-
     findall(CrossingEdge,
@@ -533,10 +532,10 @@ zzz_look_at_min_cuts :-
     L = loop(_F, Loop),
     expand_graph_in_loop(Loop, LoopGraph),
     cross_module_edges(LoopGraph, Crossings),
-    maplist({LoopGraph}/[V-Edges, Degree-(V-Edges)]>>(
-                                                         neighbours(V, LoopGraph, Neighbours),
-                                                         length(Neighbours, Degree)
-                                                     ), Crossings, LengthCrossings),
+    maplist({LoopGraph}/[V-Edges, Degree-(V-Edges)]>>
+                ( neighbours(V, LoopGraph, Neighbours),
+                  length(Neighbours, Degree) ),
+            Crossings, LengthCrossings),
     % group by module & sum now?
     findall(mod_preds_degree(Mod, Preds, TotalDegree),
             aggregate(r(sum(Degree), set(Pred)),
