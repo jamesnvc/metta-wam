@@ -545,7 +545,57 @@ zzz_look_at_min_cuts :-
             ModPredsDegrees),
     sort(3, @=<, ModPredsDegrees, SortedModPredsDegree),
     forall(member(mod_preds_degree(Mod, Preds, TotalDegree), SortedModPredsDegree),
-           format(" ~w: ~q -> ~q~n", [TotalDegree, Mod, Preds])).
+           ( length(Preds, NPreds), format(" ~w: ~q -> ~q~n", [TotalDegree, Mod, NPreds]),
+             forall(member(Pred, Preds),
+                    ( neighbors(Mod:Pred, LoopGraph, Neighbours),
+                      format("     ~q -> ~q~n", [Pred, Neighbours]) ))
+           )).
+
+cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
+    % so we have the graph, degree of the edges
+    % now what?
+    % we can find the module that has the lowest total degree
+    % extract the edges that are in the graph, since those are the ones that are in question?
+    % that is, the vertices that either connect to another module or are in the transitive closure of those
+    %  do we want to only get the edges that go to a specific other module? I guess so, just those that are in the cycle?
+    %  or any cycle, I guess? Hm.
+    % above we're considering loops seperately. I guess we need to merge loops? maybe?
+    write([LoopGraph, ModuleToCut, NewModuleName]).
+
+move_predicates_to_new_module(OldModuleFile, PredIndicators, NewModulePath) :-
+    find_in_source(
+        OldModuleFile,
+        {PredIndicators}/[Term, Info, term_info(Term, Info)]>>
+            ( Term = (Head :- _),
+              head_pred(Head, Pred),
+              memberchk(Pred, PredIndicators) ),
+        Found),
+    maplist([term_info(_, Info), Pos]>>
+            ( get_dict(subterm_positions, Info, Pos),
+              arg(2, Pos, End0), End is End0 + 1,
+              nb_setarg(2, Pos, End) ),
+            Found, PositionsToExcise),
+    read_file_to_string(OldModuleFile, OldFileContent, []),
+    % imports?
+    file_module(NewModulePath, NewModule),
+    setup_call_cleanup(
+        open(NewModulePath, write, S),
+        ( formatted_module(NewModule, PredIndicators, ModuleStr),
+          format(S, "~s.~n~n", [ModuleStr]),
+          % TODO imports
+          forall(member(term_info(_, Info), Found),
+                 ( get_dict(subterm_positions, Info, SubPos),
+                   arg(1, SubPos, TermStart),
+                   arg(2, SubPos, TermEnd0),
+                   TermEnd is TermEnd0 + 1, % for full-stop
+                   Len is TermEnd - TermStart,
+                   sub_string(OldFileContent, TermStart, Len, _, Extracted),
+                   write(S, Extracted) ))
+        ),
+        close(S)),
+    %
+    splice_out_terms_in_file(OldModuleFile, PositionsToExcise),
+    true.
 
 zzz_make_graphs :-
     xxy_build_deps(Graph),
