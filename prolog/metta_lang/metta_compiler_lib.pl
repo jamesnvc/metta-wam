@@ -1,10 +1,83 @@
+:- module(metta_compiler_lib, [ 'mc__1_1_car-atom'/2,
+                                'mc__1_1_cdr-atom'/2,
+                                mc__1_1_collapse/2,
+                                mc__1_1_eval/2,
+                                'mc__1_1_get-metatype'/2,
+                                'mc__1_1_println!'/2,
+                                'mc__1_2_=='/3,
+                                'mc__1_2_add-atom'/3,
+                                'mc__1_2_cons-atom'/3,
+                                'mc__1_2_set-random-seed'/3,
+                                'mc__1_3_random-int'/4,
+                                mc__1_4_unify/5,
+                                'mc_n_1__call-fn!'/3,
+                                metta_to_metta_body_macro_recurse/3,
+                                transpiler_predicate_store/7 ]).
 :- dynamic(transpiler_predicate_store/7).
 :- discontiguous(transpiler_predicate_store/7).
 :- dynamic(transpiler_predicate_nary_store/9).
 :- discontiguous(transpiler_predicate_nary_store/9).
 :- multifile(compile_flow_control/8).
 :- discontiguous(compile_flow_control/8).
-:- ensure_loaded(metta_compiler).
+
+:- use_module(metta_compiler, [ assign_or_direct_var_only/4,
+                                f2p/8,
+                                f2p_do_group/6,
+                                format_e/2,
+                                lazy_impedance_match/8,
+                                trace_break/1,
+                                op(700,xfx,=~),
+                                op(700,xfx,@..),
+                                op(700,xfx,~..) ]).
+:- use_module(metta_compiler_douglas, [ transpile_impl_prefix/3,
+                                        op(700,xfx,=~) ]).
+:- use_module(metta_compiler_roy, [ arg_properties_widen/3,
+                                    as_p1_exec/2,
+                                    fullvar/1,
+                                    get_operator_typedef_props/5,
+                                    must_det_lls/1,
+                                    transpile_eval/2,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_debug, [ debug_info/2 ]).
+:- use_module(metta_eval, [ as_tf/2,
+                            'get-metatype'/2,
+                            is_make_new_kb/3,
+                            loonit_assert_source_tf_empty/6,
+                            nb_bind/2,
+                            nb_bound/2,
+                            println_impl/1,
+                            specialize_res/3,
+                            with_output_to_str/2 ]).
+:- use_module(metta_improve, [ eval_in_only/3 ]).
+:- use_module(metta_interp, [ current_self/1,
+                              eval_string/2,
+                              is_metta_space/1,
+                              metta_atom/2,
+                              metta_atom_asserted/2,
+                              on_metta_setup/1,
+                              user_io/1,
+                              wtime_eval/1 ]).
+:- use_module(metta_python, [ make_py_dot/3,
+                              py_atom/2,
+                              py_call_method_and_args_sig/5 ]).
+:- use_module(metta_types, [ get_type/4,
+                             into_typed_arg/5 ]).
+:- use_module(metta_utils, [ maplist/7 ]).
+:- use_module(swi_support, [ if_t/2,
+                             option_value/2 ]).
+:- use_module(metta_self, [ current_self/1 ]).
+
+
+
+
+
+
+
+
+
+
+
+
 
 from_prolog_args(_,X,X).
 :-dynamic(pred_uses_fallback/2).
@@ -552,7 +625,11 @@ random_float_between(Min, Max, R_):-
 %
 %     keep RNGId changes local to the term being passed about.
 %
+
+:- meta_predicate with_random_generator(?,0).
 with_random_generator('&rng', Call):- !, call(Call).
+
+:- meta_predicate with_random_generator(?,0).
 with_random_generator(RNGId, Call):-
     Setup = (getrand(OLD),
              into_rng(RNGId, Current),
@@ -688,6 +765,8 @@ metta_body_macro(HeadIs, AsBodyFn, AsBodyFnOut):-
      metta_body_macro(HeadIs, AsBodyFnMid, AsBodyFnOut)),
     nop((ss_unfreeze_vars(Vars,Copy))))).
 
+
+:- meta_predicate with_ss_unify(?,0).
 with_ss_unify(Inp,Goal):-
     term_variables(Inp,Vars),copy_term(Inp+Vars,InpC+Copy),ss_freeze_vars(Vars,Copy),
     call(Goal),Inp=@=InpC,

@@ -1,3 +1,6 @@
+:- module(metta_convert, [ op(700,xfx,=~),
+                           p2m/2,
+                           sexpr_s2p/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpeter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -37,12 +40,12 @@
 
 
 % Defines a custom operator =~ with precedence 700 and xfx type, meaning it is a non-associative infix operator.
-% This operator could be used for a specialized equality or pattern-matching operation in the program.
-:- op(700,xfx,'=~').
+% This operator could be used for a specialized equality operation in the program.
+
 
 % When the the `metta_interp` library is loaded, it makes sure the rest of the files are intially loaded in
 % the correct order independent of which file is loaded first the needed predicates and ops are defined.
-:- ensure_loaded(metta_interp).
+
 
 % ===============================
 %    TESTING
@@ -1718,25 +1721,57 @@ write_pl_metta_0(STerm):-
     write_src(STerm).
 
 % Ensure that the MeTTa compiler module is loaded.
-:- ensure_loaded(metta_compiler).
+
 
 % Ensure that the MeTTa conversion utilities are loaded.
-:- ensure_loaded(metta_convert).
+
 
 % Ensure that the MeTTa types system module is loaded.
-:- ensure_loaded(metta_types).
+
 
 % Ensure that the MeTTa space handling module is loaded.
-:- ensure_loaded(metta_space).
+
 
 % Ensure that the MeTTa testing utilities are loaded.
-:- ensure_loaded(metta_testing).
+
 
 % Ensure that the MeTTa utility functions are loaded.
-:- ensure_loaded(metta_utils).
+
 
 % Ensure that the MeTTa printer module is loaded.
-:- ensure_loaded(metta_printer).
+
+:- use_module(metta_compiler_douglas, [ is_compiled_and/1,
+                                        op(700,xfx,=~) ]).
+:- use_module(metta_compiler_roy, [ =~ / 2,
+                                    combine_code/3,
+                                    compile_for_assert/3,
+                                    functs_to_preds/2,
+                                    iz_conz/1,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_eval, [ get_type/2 ]).
+:- use_module(metta_interp, [ user_io/1 ]).
+:- use_module(metta_parser, [ svar/2 ]).
+:- use_module(metta_printer, [ into_hyphens/2,
+                               pp_metta/1,
+                               ppc/2,
+                               write_src/1 ]).
+:- use_module(metta_types, [ get_operator_typedef/4,
+                             is_syspred/3,
+                             try_adjust_arg_types/7 ]).
+:- use_module(swi_support, [ atom_contains/2,
+                             if_t/2,
+                             must_det_ll/1,
+                             symbol_contains/2,
+                             symbolic_list_concat/2,
+                             symbolic_list_concat/3 ]).
+
+
+
+
+
+
+
+
 
 % Ensure that the MeTTa evaluation logic is loaded.
 %:- ensure_loaded(metta_eval).

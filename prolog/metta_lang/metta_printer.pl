@@ -1,3 +1,18 @@
+:- module(metta_printer, [ into_hyphens/2,
+                           once_writeq_nl_now/2,
+                           paren_pair_functor/3,
+                           pp_metta/1,
+                           ppc/2,
+                           print_pl_source/1,
+                           prolog_term_start/1,
+                           py_is_enabled/0,
+                           w_color/2,
+                           with_concepts/2,
+                           with_indents/2,
+                           write_dvar/1,
+                           write_src/1,
+                           write_src_nl/1,
+                           write_src_woi/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -62,7 +77,54 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_compiler_roy, [ compound_name_list/3,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_convert, [ p2m/2,
+                               op(700,xfx,=~) ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ ppt/1,
+                             sub_term_safely/2,
+                             woc/1 ]).
+:- use_module(metta_eval, [ as_tf/2 ]).
+:- use_module(metta_interp, [ descend_and_transform/3,
+                              is_compatio/0 ]).
+:- use_module(metta_loader, [ mlog_sym/1,
+                              silent_loading/0 ]).
+:- use_module(metta_parser, [ parse_sexpr/2 ]).
+:- use_module(metta_python, [ py_is_py/1,
+                              py_ppp/1 ]).
+:- use_module(metta_repl, [ cls/0 ]).
+:- use_module(metta_space, [ has_type/2,
+                             is_an_arg_type/2 ]).
+:- use_module(metta_utils, [ subst001/4,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             must_det_ll/1,
+                             option_else/3,
+                             symbol/1,
+                             symbol_chars/2,
+                             symbol_concat/3,
+                             symbol_contains/2,
+                             symbol_length/2,
+                             symbol_number/2,
+                             symbol_string/2,
+                             symbolic_list_concat/3,
+                             with_option/2,
+                             with_option/3 ]).
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 % ===============================
 %       PRINTERS
@@ -244,6 +306,8 @@ print_pl_source(P) :-
     run_pl_source(print_pl_source0(P)).
 
 %pnotrace(G):- !, call(G).
+
+:- meta_predicate pnotrace(0).
 pnotrace(G):- notrace(G).
 %pnotrace(G):- quietly(G).
 
@@ -257,6 +321,8 @@ pnotrace(G):- notrace(G).
 %
 %   @arg G The goal to be executed.
 %
+
+:- meta_predicate run_pl_source(0).
 run_pl_source(G) :-
     % Fail silently on error.
     catch(G, E, (
@@ -405,6 +471,8 @@ pp_fb1_e(P) :-
 %     % Apply the available formatting function to the term.
 %     ?- pp_fb2(print, example_term).
 %
+
+:- meta_predicate pp_fb2(1,?).
 pp_fb2(F, P) :-
     % Ensure F is an atom and a defined predicate.
     atom(F), current_predicate(F / 1),
@@ -1390,6 +1458,8 @@ indent_len(Need) :-
 %     % Run a goal with 4 spaces of indentation.
 %     ?- w_proper_indent(4, writeln('Indented line')).
 %
+
+:- meta_predicate w_proper_indent(?,0).
 w_proper_indent(N, G) :-
     % Calculate indentation based on the `w_in_p` flag.
     flag(w_in_p, X, X),
@@ -1410,6 +1480,8 @@ w_proper_indent(N, G) :-
 %     % Run a goal with one level of increased indentation.
 %     ?- w_in_p(writeln('Indented by level')).
 %
+
+:- meta_predicate w_in_p(0).
 w_in_p(G) :-
     % Increment indentation flag, execute `G`, then reset flag.
     setup_call_cleanup(flag(w_in_p, X, X + 1), G, flag(w_in_p, _, X)).

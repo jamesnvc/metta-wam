@@ -1,3 +1,49 @@
+:- module(metta_eval, [ as_tf/2,
+                        call_ndet/2,
+                        catch_warn/1,
+                        'change-state!'/5,
+                        coerce/3,
+                        deepen/2,
+                        do_expander/4,
+                        eval_09/6,
+                        eval_10/6,
+                        eval_20/6,
+                        eval_21/6,
+                        eval_args/2,
+                        eval_args/4,
+                        eval_args/6,
+                        eval_call/2,
+                        eval_selfless/6,
+                        'get-metatype'/2,
+                        'get-state'/2,
+                        get_type/2,
+                        is_True/1,
+                        is_and/1,
+                        is_host_function/3,
+                        is_host_predicate/3,
+                        is_make_new_kb/3,
+                        is_returned/1,
+                        is_system_pred/1,
+                        is_valid_nb_state/1,
+                        last_element/2,
+                        len_or_unbound/2,
+                        loonit_assert_source_tf_empty/6,
+                        metta_atom_iter/5,
+                        nb_bind/2,
+                        nb_bound/2,
+                        'new-state'/4,
+                        overflow_depth/1,
+                        peek_scope/4,
+                        println_impl/1,
+                        py_metta_return_value/3,
+                        same_len_copy/2,
+                        self_eval/1,
+                        specialize_res/3,
+                        typed_list/3,
+                        unify_enough/2,
+                        using_all_spaces/0,
+                        with_output_to_str/2,
+                        with_scope/5 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -53,7 +99,166 @@
 
 % When the the `metta_interp` library is loaded, it makes sure the rest of the files are intially loaded in
 % the correct order independent of which file is loaded first the needed predicates and ops are defined.
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_compiler, [ eval_at/2,
+                                non_arg_violation/3,
+                                transpiler_predicate_nary_store/9,
+                                op(700,xfx,=~),
+                                op(700,xfx,@..),
+                                op(700,xfx,~..) ]).
+:- use_module(metta_compiler_lib, [ 'mc__1_2_set-random-seed'/3,
+                                    'mc__1_3_random-int'/4,
+                                    metta_to_metta_body_macro_recurse/3,
+                                    transpiler_predicate_store/7 ]).
+:- use_module(metta_compiler_roy, [ cl_list_to_set/2,
+                                    compile_for_assert/3,
+                                    into_list_args/2,
+                                    iz_conz/1,
+                                    must_det_lls/1,
+                                    transpiler_clause_store/9,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_corelib, [ nop/1,
+                               oo_new/3,
+                               oo_set_attibutes/3 ]).
+:- use_module(metta_debug, [ check_trace/1,
+                             debug_info/2,
+                             efbug/2,
+                             if_trace/2,
+                             if_tracemsg/2,
+                             indentq_d/3,
+                             is_debugging/1,
+                             maybe_trace/1,
+                             ppt/1,
+                             reset_eval_num/0,
+                             sub_term_safely/2,
+                             sub_var_safely/2,
+                             trace_eval/6,
+                             trace_if_debug/2,
+                             with_debug/2,
+                             woc/1,
+                             woce/1,
+                             woct/1 ]).
+:- use_module(metta_improve, [ eval_in_only/2,
+                               eval_use_right_thing/6 ]).
+:- use_module(metta_interp, [ catch_err/3,
+                              ctime_eval/2,
+                              current_self/1,
+                              dcall0000000000/1,
+                              do_metta/5,
+                              eval_H/2,
+                              eval_h/2,
+                              fake_notrace/1,
+                              false_flag/0,
+                              fbug/1,
+                              find_missing_cuts/0,
+                              function_arity/3,
+                              get_metta_atom_from/2,
+                              if_or_else/2,
+                              into_space/4,
+                              is_False/1,
+                              is_false/1,
+                              is_flag/1,
+                              is_metta_data_functor/1,
+                              is_metta_space/1,
+                              is_testing/0,
+                              load_ontology/0,
+                              make_empty/2,
+                              make_empty/3,
+                              make_nop/2,
+                              make_nop/3,
+                              metta_atom/2,
+                              metta_atom_asserted/2,
+                              metta_compiled_predicate/3,
+                              metta_defn/3,
+                              metta_type/3,
+                              nocut/0,
+                              on_metta_setup/1,
+                              pfcAdd_Now/1,
+                              pfcadd_now/1,
+                              rtrace_on_error/1,
+                              rtrace_on_failure/1,
+                              s2p/2,
+                              time_eval/2,
+                              trace_on_fail/0,
+                              trace_on_pass/0,
+                              true_flag/0,
+                              user_io/1,
+                              wtime_eval/2,
+                              wtimed_call/2 ]).
+:- use_module(metta_loader, [ import_metta/2,
+                              include_metta/2,
+                              load_metta/2,
+                              no_cons_reduce/0,
+                              register_module/2,
+                              register_module/3 ]).
+:- use_module(metta_parser, [ read_metta/2,
+                              svar_fixvarname/2 ]).
+:- use_module(metta_printer, [ write_src/1,
+                               write_src_woi/1 ]).
+:- use_module(metta_python, [ 'extend-py!'/2,
+                              is_rust_operation/1,
+                              make_py_dot/4,
+                              py_call_method_and_args_sig/5,
+                              py_is_callable/1,
+                              py_is_py/1,
+                              py_pp_str/2,
+                              rust_metta_run/2 ]).
+:- use_module(metta_repl, [ eval/2,
+                            repl/0 ]).
+:- use_module(metta_server, [ metta_concurrent_maplist/3,
+                              metta_concurrent_maplist/5,
+                              metta_concurrent_maplist/6,
+                              metta_concurrent_maplist/7,
+                              metta_hyperpose/6 ]).
+:- use_module(metta_space, [ 'atom-count'/2,
+                             'save-space!'/2 ]).
+:- use_module(metta_subst, [ is_space_op/1,
+                             subst_args/6 ]).
+:- use_module(metta_testing, [ color_g_mesg/2,
+                               loonit_asserts/3,
+                               tst_call_limited/1 ]).
+:- use_module(metta_typed_functions, [ arrow_type/3,
+                                       assignable_to/2,
+                                       freeist/3,
+                                       function_declaration/9,
+                                       get_ftype/6,
+                                       op(700,xfx,haz_value) ]).
+:- use_module(metta_types, [ adjust_args_9/9,
+                             can_assign/2,
+                             dont_put_attr/3,
+                             get_operator_typedef/5,
+                             get_operator_typedef_r/5,
+                             get_type/4,
+                             get_type_each/4,
+                             get_types/4,
+                             get_value_type/4,
+                             into_typed_arg/5,
+                             is_pro_eval_kind/1,
+                             is_syspred/3,
+                             is_type/1,
+                             is_user_defined_head/2,
+                             is_user_defined_head/3,
+                             is_user_defined_head_f/2,
+                             narrow_types/3,
+                             throw_metta_return/1,
+                             thrown_metta_return/1,
+                             type_conform/2,
+                             type_violation/2 ]).
+:- use_module(metta_utils, [ always_rethrow/1,
+                             maplist/6,
+                             maplist/7,
+                             subst001/4,
+                             subst0011a/4,
+                             super_safety_checks/1,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ fbug/1,
+                             if_t/2,
+                             must_det_ll/1,
+                             option_else/3,
+                             option_value/2,
+                             symbol/1,
+                             symbol_concat/3 ]).
+
 
 % post match modew
 %:- style_check(-singleton).
@@ -98,8 +303,14 @@ nb_bound(Name,X):- atom(Name), % atom_concat('&', _, Name),
 nb_bound(Name,X):- atom(Name), % atom_concat('&', _, Name),
   call_in_shared_space(nb_current(Name, X)),!.  % spaces and states are stored as compounds
 
+
+:- meta_predicate call_in_shared_space(0).
 call_in_shared_space(G):- call_in_shared_thread(main,G).
+
+:- meta_predicate call_in_shared_thread(?,0).
 call_in_shared_thread(Thread,Goal):- thread_self(Self),Thread==Self,!,call(Goal).
+
+:- meta_predicate call_in_shared_thread(?,0).
 call_in_shared_thread(_Thread,Goal):- call(Goal). % should use call_in_thread/2 (but it blocks lazy calls)
 
 nb_bind(Name,Value):- nb_current(Name,Was),same_term(Value,Was),!.
@@ -173,7 +384,7 @@ hyde(F/A):- functor(P,F,A), redefine_system_predicate(P),'$hide'(F/A), '$iso'(F/
 :- 'hyde'(nonvar/1).
 :- 'hyde'(quietly/1).
 %:- 'hyde'(option_value/2).
-:- ensure_loaded(metta_improve).
+
 
 
 is_metta_declaration([F|_]):- F == '->',!.
@@ -199,6 +410,8 @@ get_type(Arg,Type):- eval_H(['get-type',Arg],Type).
 
 call_as_t(F2,A,B,TF):- unnegate_f2(F2,P2),!, as_tf( \+ call_as_p2(P2,A,B), TF).
 call_as_t(P2,A,B,TF):- current_predicate(P2/2),!,as_tf( \+ call_as_p2(P2,A,B), TF).
+
+:- meta_predicate call_as_t(3,?,?,?).
 call_as_t(P2,A,B,TF):- current_predicate(P2/3),!,call(P2,A,B,RetVal),
    as_tf(f2_success(RetVal,A,B),TF).
 
@@ -210,6 +423,8 @@ call_as_t(P2,A,B,TF):- current_predicate(P2/3),!,call(P2,A,B,RetVal),
 eval_true(X):- var(X), !, trace, X = 'True'.
 eval_true(X):- symbol(X),!, X=='True',!. % eval_true(X):- symbol(X),!,fail. %eval_true(X):- X=='False',!,fail.
 eval_true([F,X,Y]):- symbol(F),!,call_as_t(F,X,Y,TF),!,TF=='True'.
+
+:- meta_predicate eval_true(0).
 eval_true(X):- trace, \+ iz_conz(X), callable(X),!, call(X).
 eval_true(X):- eval_args(X,Y),!, is_True(Y) , !.
 
@@ -270,6 +485,8 @@ eval_40(Depth,Self,X,Y):- eval_40('=',_RetType,Depth,Self,X,Y).
 %! eval_to(+X,+Y) is semidet.
 % checks if X evals to Y
 evals_to(XX,Y):- Y=@=XX,!.
+
+:- meta_predicate evals_to(0,?).
 evals_to(XX,Y):- Y=='True',!, is_True(XX),!.
 
 eval_args(_Eq,_RetType,_Dpth,_Slf,X,Y):- var(X),nonvar(Y),!,X=Y.
@@ -308,6 +525,8 @@ eval_args(Eq,RetType,Depth,Self,X,Y):-
 eval_ret(Eq,RetType,Depth,Self,X,Y):-
     eval_00(Eq,RetType,Depth,Self,X,Y), is_returned(Y).
 
+
+:- meta_predicate catch_metta_return(0,?).
 catch_metta_return(G,Y):-
  catch(G,metta_return(Y),ignore(retract(thrown_metta_return(Y)))),Y\=='Empty'.
 
@@ -357,6 +576,8 @@ eval_02(Eq,RetType,Depth2,Self,Y,YO):-  %Y\==[empty], % speed up n-queens x60  b
 % TODO constrain Y
 var_pass(_Eq,_RetType,_Depth,_Self,_Y):-!.
 
+
+:- meta_predicate subst_once(0).
 subst_once(G):- call(G).
 
 % subst_args_here(Eq,RetType,Depth2,Self,Y,YO):-
@@ -426,6 +647,8 @@ need_subst_f('*'). need_subst_f('+').
 need_subst_f('-'). need_subst_f('/').
 need_subst_f('<'). need_subst_f('=<').
 
+
+:- meta_predicate if_t_else(0,0,0).
 if_t_else(If,Then,Else):- If -> Then ; Else.
 
 finish_eval_here(Eq,RetType,Depth2,Self,Y,YO):-
@@ -489,6 +712,8 @@ eval_09(Eq,RetType,Depth,Self,X,Y):- hybrid_interp, !,
 eval_09(Eq,RetType,Depth,Self,X,Y):- woc(eval_10(Eq,RetType,Depth,Self,X,Y)).
 
 %eval_09(Eq,RetType,Depth,Self,X,Y):- !, no_repeats(X+Y,eval_10(Eq,RetType,Depth,Self,X,Y)).
+
+:- meta_predicate eval_09_hide(6,?,?,?,?,?).
 eval_09_hide(Eq,RetType,Depth,Self,X,Y):- !,
      no_repeats_var(YY),
      eval_to_name(X,XX),!,
@@ -529,6 +754,8 @@ eval_10(_Eq,_RetType,_Dpth,_Self,X,YO):- self_eval(X),!,YO=X.
 eval_10(_Eq,_RetType,_Dpth,_Self,X,_YO):- X==[empty],!,fail.
 eval_10(_Eq,_RetType,_Dpth,_Self,X,_YO):- X==['Empty'],!,fail.
 eval_10(_Eq,_RetType,Depth,_Self,X,YO):- overflow_depth(Depth),bt,trace,!,X=YO.
+
+:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):- var(X), !, % sanity_check_eval(eval_10_var,X),
   eval_20(Eq,RetType,Depth,Self,X,Y).
 
@@ -548,14 +775,20 @@ eval_20(Eq,RetType,Depth,Self,X,Y):- var(X), !, % sanity_check_eval(eval_20_var,
 
 %eval_20(Eq,RetType,Depth,Self,X,Y):- \+ sanity_check_eval(eval_20_in,X),X=Y,!,var_pass(Eq,RetType,Depth,Self,Y).
 
+
+:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):-  \+ compound(X), !,
     as_prolog_x(Depth,Self,X,XX),
     eval_20(Eq,RetType,Depth,Self,XX,Y),sanity_check_eval(eval_20_not_compound,Y).
 
+
+:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):-  \+ is_list(X), !,
   as_prolog_x(Depth,Self,X,XX),
   eval_20(Eq,RetType,Depth,Self,XX,Y),sanity_check_eval(eval_20_not_list,Y).
 
+
+:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,[Sym|Args],Y):- \+ atom(Sym), !,
   maplist(as_prolog_x(Depth,Self), [Sym|Args] , [ASym|Adjusted]),
   eval_20(Eq,RetType,Depth,Self, [ASym|Adjusted], Y),sanity_check_eval(eval_20_not_atom,Y).
@@ -714,6 +947,8 @@ eval_20(Eq,RetType,_Dpth,_Slf,[X|T],Y):- T==[], \+ callable(X),!, do_expander(Eq
 %   \+ is_user_defined_head_f(Self,X),
 %   do_expander(Eq,RetType,X,YY),!,Y=[YY].
 
+
+:- meta_predicate eval_20(6,?,?,?,?,?).
 eval_20(Eq,RetType,Depth,Self,X,Y):- atom(Eq),  ( Eq \== ('=')) ,!,
    call(Eq,'=',RetType,Depth,Self,X,Y).
 
@@ -775,6 +1010,8 @@ eval_20(_,_,_,_,['echo',Value],Value):- !.
 eval_20(_Eq,RetType,Depth,Self,['py-atom-call!',[Sym|Specialize]|Args],Res):- is_list(Args), !,
     maplist(as_prolog_x(Depth,Self), Args , Adjusted),!,
     py_call_method_and_args_sig(RetType,[],Sym,Adjusted,Res).
+
+:- meta_predicate eval_40(6,?,?,?,?,?).
 eval_40(Eq,RetType,Depth,Self,['py-atom-call',Sym|Args],Res):-
     eval_20(Eq,RetType,Depth,Self,['py-atom-call!',Sym|Args],Res).
 
@@ -782,6 +1019,8 @@ eval_20(_Eq,RetType,Depth,Self,['py-dot-call!',[Arg1,Arg2|Specialize]|Args],Res)
     maplist(as_prolog_x(Depth,Self), Args , Adjusted),!,
     make_py_dot(Arg1,Arg2,Specialize,SymRes),
     py_call_method_and_args_sig(RetType,Specialize,SymRes,Adjusted,Res).
+
+:- meta_predicate eval_40(6,?,?,?,?,?).
 eval_40(Eq,RetType,Depth,Self,['py-dot-call',Sym|Args],Res):-
     eval_20(Eq,RetType,Depth,Self,['py-dot-call!',Sym|Args],Res).
 
@@ -1053,6 +1292,8 @@ eval_until_eq_soon(_Flags,Eq,XType,YType,Depth,Self,EX,EY):-
    NewX=NewY.
 */
 
+
+:- meta_predicate eval_1change(6,?,?,?,?,?).
 eval_1change(Eq,XType,Depth,Self,EX,EXX):- eval_10(Eq,XType,Depth,Self,EX,EXX),  EX \=@= EXX.
 eval_complete_change(Eq,XType,YType,Depth,Self,EX,EXX):- eval_args(Eq,XType,YType,Depth,Self,EX,EXX),  EX \=@= EXX.
 
@@ -1060,6 +1301,8 @@ eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,X,XX):-!, fail,X=XX.
 
 eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,EX,Y):- \+ is_list(EX),!,Y=EX.
 %eval_in_steps_some_change(_Eq,_XType,_Dpth,_Slf,EX,_):- \+ is_list(EX),!,fail.
+
+:- meta_predicate eval_in_steps_some_change(6,?,?,?,?,?).
 eval_in_steps_some_change(Eq,XType,Depth,Self,EX,EXXO):-
    eval_1change(Eq,XType,Depth,Self,EX,EXX),!,
    (eval_in_steps_some_change(Eq,XType,Depth,Self,EXX,EXXO);EXXO=EXX).
@@ -1069,6 +1312,8 @@ eval_in_steps_some_change(Eq,XType,Depth,Self,X,Y):-
   append(L,[EXX|R],XX),
   eval_in_steps_or_same(Eq,XType,Depth,Self,XX,Y).
 
+
+:- meta_predicate eval_in_steps_or_same(6,?,?,?,?,?).
 eval_in_steps_or_same(Eq,XType,Depth,Self,X,Y):-eval_in_steps_some_change(Eq,XType,Depth,Self,X,Y).
 eval_in_steps_or_same(Eq,XType,_Dpth,_Slf,X,Y):- X=Y,check_returnval(Eq,XType,Y).
 
@@ -1369,8 +1614,12 @@ equal_enough_for_test_renumbered_l(P2,X0,Y0):- maplist(equal_enough_for_test_ren
 equal_enough_for_test_l(P2,X,Y):-            must_be(proper_list,X), must_be(proper_list,Y), sort(X,X0),sort(Y,Y0),
     maplist(equal_enough_for_test(P2),X0,Y0).
 
+
+:- meta_predicate equal_enough_for_test_renumbered(2,?,?).
 equal_enough_for_test_renumbered(P2,X0,Y0):- equal_renumbered(X0,Y0,XX,YY), equal_enough_for_test(P2, XX,YY).
 
+
+:- meta_predicate equal_enough_for_test(2,?,?).
 equal_enough_for_test(P2,X,Y):- equal_enough(P2,X,Y),!.
 
 /*
@@ -1393,27 +1642,45 @@ equal_enough(P2,R,V):- is_list(R),is_list(V),sort_univ(R,RR),sort_univ(V,VV),!,e
 */
 
 
+
+:- meta_predicate equal_enough(2,?,?).
 equal_enough(P2,R,V):- copy_term(R+V,RR+VV),equal_enouf(P2,R,V),!,ignore(R=@=RR),ignore(V=@=VV). % has not altered the returned term
 
 
 equal_enouf(_,_,V):- V=='...',!.
+
+:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,R,V):- call(P2,R,V), !.
 equal_enouf(_2,R,V):- (var(R);var(V)),!,fail.
+
+:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,R,V):- is_ftVar(R), is_ftVar(V), call(P2,R,V), !.
 equal_enouf(_,X,Y):- is_blank(X),!,is_blank(Y).
 equal_enouf(_TODO,R,V):- py_is_py(R),py_is_py(V),py_pp_str(R,RR),py_pp_str(V,VV),!,RR=VV.
 equal_enouf(_,X,Y):- symbol(X),symbol(Y),atom_concat('space_',_,X),atom_concat('Grounding',_,Y),!.
 equal_enouf(_,X,Y):- symbol(X),symbol(Y),atom_concat('&',_,X),atom_concat('Grounding',_,Y).
 equal_enouf(_2,R,V):- number(R),number(V),!, RV is abs(R-V), RV < 0.03 .
+
+:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,C,L):- \+ compound(C),!,call(P2,L,C).
+
+:- meta_predicate equal_enouf(2,?,?).
 equal_enouf(P2,L,C):- \+ compound(C),!,call(P2,L,C).
 equal_enouf(P2,L,C):- into_list_args(L,LL),into_list_args(C,CC),!,equal_enouf_la(P2,LL,CC).
 
+
+:- meta_predicate equal_enouf_la(2,?,?).
 equal_enouf_la(P2,[S1,V1|_],[S2,V2|_]):- S1 == 'State', !, S2 == 'State',!, equal_enouf(P2,V1,V2).
 equal_enouf_la(_2,[ErrorX|_],[ErrorY|_]):- ErrorX=='Error', !, ErrorY == ErrorX,!.
+
+:- meta_predicate equal_enouf_la(2,?,?).
 equal_enouf_la(P2,C,L):- equal_enouf_l(P2,C,L).
 
+
+:- meta_predicate equal_enouf_l(2,?,?).
 equal_enouf_l(P2,C,L):- \+ compound(C),!,call(P2,L,C).
+
+:- meta_predicate equal_enouf_l(2,?,?).
 equal_enouf_l(P2,L,C):- \+ compound(C),!,call(P2,L,C).
 equal_enouf_l(P2,[C|CC],[L|LL]):- !, equal_enouf(P2,L,C),!,equal_enouf_l(P2,CC,LL).
 
@@ -1802,6 +2069,8 @@ eval_10(Eq,RetType,Depth,Self,I,Res):- fail,
   once(metta_to_metta_body_macro_recurse(eval10,I,O)),I\=@=O,!,
   eval_10(Eq,RetType,Depth,Self,O,Res).
 
+
+:- meta_predicate eval_10_disabled(6,?,?,?,?,?).
 eval_10_disabled(Eq,RetType,Depth,Self,[P,X|More],YY):- fail, is_list(X),X=[_,_,_],simple_math(X),
    eval_selfless_2(X,XX),X\=@=XX,!, eval_20(Eq,RetType,Depth,Self,[P,XX|More],YY).
 % if there is only a void then always return nothing for each Case
@@ -1884,6 +2153,8 @@ eval_case(Eq,CaseRetType,Depth,Self,A,KVs,Res):-
 eval_10(Eq,RetType,Depth,Self,['collapse-bind',List],Res):-!,
  maplist_ok_fails(eval_ne(Eq,RetType,Depth,Self),List,Res).
 
+
+:- meta_predicate maplist_ok_fails(2,?,?).
 maplist_ok_fails(Pred2,[A|AA],BBB):- !,
  (call(Pred2,A,B) -> (BBB=[B|BB], maplist_ok_fails(Pred2,AA,BB))
    ; maplist_ok_fails(Pred2,AA,BBB)).
@@ -2043,6 +2314,8 @@ eval_20(_Eq,_RetType,_Depth,_Self,['cons-atom'|TwoArgs],[H|T]):-!, must_unify(Tw
 eval_20(_Eq,_RetType,_Depth,_Self,['decons',OneArg],[H,T]):- fail, !, must_unify(OneArg,[H|T]).
 eval_20(_Eq,_RetType,_Depth,_Self,['cons'|TwoArgs],[H|T]):- fail, !, must_unify(TwoArgs,[H,T]).
 
+
+:- meta_predicate should_be(1,?).
 should_be(P1,Term):- call(P1,Term)-> true ; (debug_info(porting,hyperon_throws_error(should_be(P1,Term))),fail).
 
 %eval_20(Eq,RetType,Depth,Self,['get-doc'|Args],Res):- !,with_all_spaces(eval_args(Eq,RetType,Depth,Self,['metta-get-doc'|Args],Res)),!.
@@ -2134,6 +2407,8 @@ eval_10_disabled(Eq,RetType,Depth,Self,['if',Cond,Then],Res):- !, %var(Cond),  !
 %eval_10(Eq,RetType,Depth,Self,['If',Cond,Then|Else],Res):- !,
 %   eval_10(Eq,RetType,Depth,Self,['if',Cond,Then|Else],Res).
 
+
+:- meta_predicate eval_20_failed(6,?,?,?,?,?).
 eval_20_failed(Eq,RetType,Depth,Self,[X|Args],Res):-
   quietly((findall(metta_defn(Self,[Y|Args],Body),(metta_defn(Self,[Y|Args],Body),X==Y),L))),
   L = [metta_defn(Self,[Y|Args],Body)], X==Y, !,
@@ -2559,6 +2834,8 @@ eval_10(Eq,RetType,Depth,Self,['bind!',Other,Expression],RetVal):- !,
     check_returnval(Eq,RetType,RetVal).
 
 
+
+:- meta_predicate with_scope(?,?,?,?,0).
 with_scope(Eq,RetType,Depth,Self,Goal):-
    %grab_scope([eq=WEq,retType=WRetType,depth=WDepth,self=WSelf]),
    setup_call_cleanup(push_scope([eq = Eq,retType=RetType,depth=Depth,self=Self]),
@@ -2587,7 +2864,11 @@ first_of(Nil,V):- var(Nil),!,V=Nil.
 first_of([V|_],V):-!.
 first_of(V,V).
 
+
+:- meta_predicate must_det_lls_cf(0).
 must_det_lls_cf(G):- call(G),!.
+
+:- meta_predicate must_det_lls_cf(0).
 must_det_lls_cf(G):- trace,call(G),!.
 push_scope(Eq,RetType,Depth,Self):- push_scope([eq = Eq,retType=RetType,depth=Depth,self=Self]).
 push_scope([]). push_scope([H|T]):- ignore((push_scope_item(H),push_scope(T))).
@@ -2630,6 +2911,8 @@ nd_ignore(Goal):- call(Goal)*->true;true.
 
 is_True(T):- atomic(T),!,(T=='True';T==1),!.
 is_True(T):- var(T),!,fbug(is_True(T)),!,fail.
+
+:- meta_predicate is_True(0).
 is_True(T):- debug(metta(todo),'TODO: CALLING(~q)',[is_True(T)]),eval_true(T).
 
 is_and(S):- \+ atom(S),!,fail.
@@ -2740,6 +3023,8 @@ eval_20(Eq,RetType,Depth,Self,[Excl|Rest],Res):-
 
 
 %sig_atomic_no_cut(Goal):- sig_atomic(Goal).
+
+:- meta_predicate sig_atomic_no_cut(0).
 sig_atomic_no_cut(Goal):- call(Goal).
 
 % =================================================================
@@ -3010,6 +3295,8 @@ eval_20_disabled(Eq,_ListOfRetType,Depth,Self,['TupleConcat',A,B],OO):- fail, !,
     append(AA,BB,OO).
 
 % Temporarily in this file
+
+:- meta_predicate eval_20_disabled(6,?,?,?,?,?).
 eval_20_disabled(Eq,OuterRetType,Depth,Self,['range',A,B],OO):- fail, (is_list(A);is_list(B)),
   ((eval_args(Eq,RetType,Depth,Self,A,AA),
     eval_args(Eq,RetType,Depth,Self,B,BB))),
@@ -3084,7 +3371,7 @@ eval_20(Eq,RetType,Depth,Self,['unique',Eval],RetVal):- !,
 no_repeat_variant_var(Var):- no_repeats_var(Var).
 %no_repeat_variant_var(Var):- no_repeats_var(variant_by_type,Var).
 
-eval_30(=,_RetType,_,_,[Var|Types],_):- var(Var), !, 
+eval_30(=,_RetType,_,_,[Var|Types],_):- var(Var), !,
    throw(var_eval_30([Var|Types])).
 
 eval_30(_Eq,_RetType,_Depth,_Self,[Space|More],[Space|More]):-
@@ -3099,6 +3386,8 @@ unique_elements_by_xform(P2, [H|T], R) :-
     unique_elements_by_xform(P2, NewT, RT),
     R = [H|RT].
 
+
+:- meta_predicate different_key(2,?,?).
 different_key(P2, Key, Elem) :-
     call(P2, Elem, OtherKey),
     Key \= OtherKey.
@@ -3132,7 +3421,11 @@ must_use_eval(_,2):- !.
 %must_use_eval(_,2):- fail.
 
 call_as_p2a(F2,A,B):- unnegate_f2(F2,P2),!, \+ call_as_p2(P2,A,B).
+
+:- meta_predicate call_as_p2a(2,?,?).
 call_as_p2a(P2,A,B):- current_predicate(P2/2),!,call(P2,A,B).
+
+:- meta_predicate call_as_p2a(3,?,?).
 call_as_p2a(P2,A,B):- current_predicate(P2/3),!,call(P2,A,B,RetVal),f2_success(RetVal,A,B).
 call_as_p2a(F,X,Y):- must_use_eval(F,2), !,
    once(eval([F,X,Y],RetVal)),
@@ -3143,6 +3436,8 @@ call_as_p2a(F2,A,B):- eval_as_f2(F2,A,B,RetVal),f2_success(RetVal,A,B).
 
 f2_success(RetVal,A,B):- once(RetVal=='True';RetVal==A;RetVal==B).
 
+
+:- meta_predicate eval_as_f2(3,?,?,?).
 eval_as_f2(F2,A,B,RetVal):- current_predicate(F2/3),!,call(F2,A,B,RetVal),!.
 eval_as_f2(F2,A,B,RetVal):- f2_to_p3(F2,P3),!,call(P3,A,B,RetVal).
 eval_as_f2(F2,A,B,RetVal):- once(eval([F2,A,B],TF)),
@@ -3229,6 +3524,8 @@ eval_20(Eq,RetType,Depth,Self,['intersection-by',P2,Eval1,Eval2],RetVal):- !,
 %  - E1^Call1: The first goal (Call1) generating elements (E1).
 %  - E2^Call2: The second goal (Call2) generating elements (E2).
 %  - E: The resulting element after subtracting elements of the second set from the first set.
+
+:- meta_predicate lazy_intersection(2,?,?,?).
 lazy_intersection(P2, E1^Call1, E2^Call2, E1) :-
     % Step 1: Evaluate Call1 to generate E1
     call(Call1),
@@ -3435,7 +3732,7 @@ same_terms(X,Y):- \+ compound(X), X==Y.
 transpiler_peek(Sym,Len,TypeL,Fn, Min, SpreadArgs):-
   is_list(TypeL), !, member(Type,TypeL),
   transpiler_peek(Sym,Len,Type,Fn, Min, SpreadArgs).
-  
+
 transpiler_peek(Sym,Len,Type,Fn, Min, exactArgs):-  Len=Min,
   if_t((var(Sym)),ignore(transpiler_predicate_store(_, Sym,_  , _, _, _, _))),
   nonvar(Sym),
@@ -3512,7 +3809,7 @@ eval_40(Eq,RetType,Depth,Self,[Sym|Args],Res):- symbol(Sym), is_list(Args),
     jiggle_args(Args,Res,Len,Min,AsList,PArgs), ! ,
     with_metta_ctx(Eq,RetType,Depth,Self,[Sym|Args],apply(Fn,PArgs)).
 
-eval_30(Eq, RetType, Depth, Self, [Sym | Args], Res) :- 
+eval_30(Eq, RetType, Depth, Self, [Sym | Args], Res) :-
   fail,
   \+ eval_at(Sym,interp), symbol(Sym), is_list(Args),
    len_or_unbound(Args, Len),
@@ -3522,9 +3819,13 @@ eval_30(Eq, RetType, Depth, Self, [Sym | Args], Res) :-
 
 
 with_metta_ctx(_Eq,_RetType,_Depth,_Self,_MeTTaSrc,apply(Fn,PArgs)):- !, apply(Fn,PArgs).
+
+:- meta_predicate with_metta_ctx(?,?,?,?,?,0).
 with_metta_ctx(_Eq,_RetType,_Depth,_Self,_MeTTaSrc,Goal):-  Goal.
 
 :- dynamic memoized_result/3.
+
+:- meta_predicate memoize_tf(0).
 memoize_tf(Goal) :-
     term_variables(Goal, Vars),
     copy_term(Goal, CopyGoal),numbervars(CopyGoal,0,_,[attvar(bind)]),
@@ -3702,6 +4003,8 @@ eval_40(Eq,RetType,Depth,Self,[AE|More],TF):- allow_host_functions,
   with_metta_ctx(Eq,RetType,Depth,Self,[AE|More],catch_warn(efbug(show_call,eval_call(apply(Pred,Adjusted),TF)))),
   check_returnval(Eq,RetType,TF).
 
+
+:- meta_predicate show_ndet(0).
 show_ndet(G):- call(G).
 %show_ndet(G):- call_ndet(G,DET),(DET==true -> ! ; fbug(show_ndet(G))).
 
@@ -3800,6 +4103,8 @@ last_element(T,E):- compound_name_arguments(T,_,List),last_element(List,E),!.
 
 %catch_err(G,E,C):- catch(G,E,(always_rethrow(E)->(throw(E));C)).
 catch_warn(G):- (catch_err(G,E,(fbug(catch_warn(G)-->E),fail))).
+
+:- meta_predicate catch_nowarn(0).
 catch_nowarn(G):- catch(G,E,(always_rethrow(E)->(throw(E)),fail)).
 
 
@@ -3859,6 +4164,8 @@ eval_selfless3(Lib,FArgs,TF):- maplist(s2ps,FArgs,Next),!,
    compare_selfless0(Lib,Next,TF).
 
 :- use_module(library(clpfd)).
+:- use_module(metta_self, [ current_self/1 ]).
+
 :- clpq:use_module(library(clpq)).
 :- clpr:use_module(library(clpr)).
 
@@ -3897,6 +4204,8 @@ get_attrlib(XX,clpr):- sub_var_safely(clpr,XX),!.
 % =================================================================
 % =================================================================
 
+
+:- meta_predicate call_ndet(0,?).
 call_ndet(Goal,DET):- call(Goal),deterministic(DET),(DET==true->!;true).
 
 
@@ -3994,9 +4303,13 @@ eval_defn_bodies_guarded(Eq,RetType,Depth,Self,X,Y,XXB0L):-
             eval_defn_failure_guarded(Eq,RetType,Depth,Self,ParamTypes,X,Y)).
 
 
+
+:- meta_predicate must_or_die(0).
 must_or_die(G):- call(G).
 %must_or_die(G):- call(G)*->true;(trace,must(G)).
 
+
+:- meta_predicate true_or_log_fail(?,0,?).
 true_or_log_fail(Depth,Goal,LogFail):- (call(Goal)
           -> true ; ((if_trace(e,color_g_mesg('#713700',indentq2(Depth,failure(LogFail)))),!),!,fail)).
 
@@ -4081,6 +4394,8 @@ eval_defn_failure(_Eq,_RetType,Depth,_Self,X,Res):- % trace,
   !, \+ fail_missed_defn, X=Res.
 
 
+
+:- meta_predicate pl_clause_num(0,?,?,?).
 pl_clause_num(Head,Body,Ref,Index):-
     clause(Head,Body,Ref),
     nth_clause(Head,Index,Ref).
@@ -4169,10 +4484,14 @@ cwtl(Time, Goal) :-
                        cwtl_goal(Id, Goal),
                        time:remove_alarm_notrace(Id)).
 
+
+:- meta_predicate cwtl_goal(?,0).
 cwtl_goal(AlarmID, Goal) :-
     install_alarm(AlarmID),
     call(Goal).
 
+
+:- meta_predicate eval_10(6,?,?,?,?,?).
 eval_10(Eq,RetType,Depth,Self,X,Y):-
     as_prolog_x(Depth,Self,X,XX),
     eval_20(Eq,RetType,Depth,Self,XX,Y),
@@ -4249,72 +4568,91 @@ is_empty(E):- E=='Empty'.
 %is_empty(E):- notrace(( nonvar(E), sub_var_safely('Empty',E))),!.
 
 
-:- ensure_loaded(metta_subst).
-
-solve_quadratic(A, B, I, J, K) :-
-    %X in -1000..1000,  % Define a domain for X
-     (X + A) * (X + B) #= I*X*X + J*X + K.  % Define the quadratic equation
-    %label([X]).  % Find solutions for X
 
 
-as_type(B,_Type,B):- var(B),!.
-as_type(B,_Type,B):- \+ compound(B),!.
 
-as_type([OP|B],Type,Res):- var(Type),
-   len_or_unbound(B,Len),
-   get_operator_typedef(_Self,OP,Len,_ParamTypes,RetType),
-   Type=RetType,
-   eval_for(RetType,[OP|B],Res),!.
 
-as_type(B,RetType,Res):- is_pro_eval_kind(RetType),!,
-   eval_for(RetType,B,Res).
 
-as_type(B,_Type,B).
 
-same_types(A,C,_Type,A1,C1):-
-  A1=A,C1=C,!.
-same_types(A,C,Type,A1,C1):-
-  freeze(A,guess_type(A,Type)),
-  freeze(C,guess_type(C,Type)),
-  A1=A,C1=C.
 
-guess_type(A,Type):-
-   current_self(Self),
-   get_type_or_guess(0,Self,A,Was),
-   can_assign(Was,Type).
 
-eval_for(RetType,X,Y):-
-  current_self(Self),
-  eval_args('=',RetType,0,Self,X,Y).
 
-%if_debugging(G):- ignore(call(G)).
+
+
+
+
+
+
+
+
+
+
+
+
+solve_quadratic(a, b, i, j, k) :-
+    %x in -1000..1000,  % define a domain for x
+     (x + a) * (x + b) #= i*x*x + j*x + k.  % define the quadratic equation
+    %label([x]).  % find solutions for x
+
+
+as_type(b,_type,b):- var(b),!.
+as_type(b,_type,b):- \+ compound(b),!.
+
+as_type([op|b],type,res):- var(type),
+   len_or_unbound(b,len),
+   get_operator_typedef(_self,op,len,_paramtypes,rettype),
+   type=rettype,
+   eval_for(rettype,[op|b],res),!.
+
+as_type(b,rettype,res):- is_pro_eval_kind(rettype),!,
+   eval_for(rettype,b,res).
+
+as_type(b,_type,b).
+
+same_types(a,c,_type,a1,c1):-
+  a1=a,c1=c,!.
+same_types(a,c,type,a1,c1):-
+  freeze(a,guess_type(a,type)),
+  freeze(c,guess_type(c,type)),
+  a1=a,c1=c.
+
+guess_type(a,type):-
+   current_self(self),
+   get_type_or_guess(0,self,a,was),
+   can_assign(was,type).
+
+eval_for(rettype,x,y):-
+  current_self(self),
+  eval_args('=',rettype,0,self,x,y).
+
+%if_debugging(g):- ignore(call(g)).
 if_debugging(_).
 bcc:- maybe_trace(unknown),
-  bc_fn([:,Prf,[in_tad_with,[sequence_variant,rs15],[gene,d]]],
-     ['S',['S',['S',['S','Z']]]],
-     OUT),
-    write_src(prf=Prf), write_src(OUT).
+  bc_fn([:,prf,[in_tad_with,[sequence_variant,rs15],[gene,d]]],
+     ['s',['s',['s',['s','z']]]],
+     out),
+    write_src(prf=prf), write_src(out).
 
 
 bci:- maybe_trace(unknown),
-  bc_impl([:,Prf,[in_tad_with,[sequence_variant,rs15],[gene,d]]],
-     ['S',['S',['S',['S','Z']]]],
-     OUT),
-    write_src(prf=Prf), write_src(OUT).
+  bc_impl([:,prf,[in_tad_with,[sequence_variant,rs15],[gene,d]]],
+     ['s',['s',['s',['s','z']]]],
+     out),
+    write_src(prf=prf), write_src(out).
 
 
 
 bcm:- % maybe_trace(unknown),
-  bc_impl([:,Prf,[member,_A,_B,_C]],
-     ['S',['S',['S','Z']]],
-     OUT),
-    write_src(prf=Prf), write_src(OUT).
+  bc_impl([:,prf,[member,_a,_b,_c]],
+     ['s',['s',['s','z']]],
+     out),
+    write_src(prf=prf), write_src(out).
 
 
-bc_fn(A,B,C):- %maybe_trace(unknown),
-  same_types(A,C,_,A1,C1),
-  as_type(B,'Nat',B1),
-  bc_impl(A1,B1,C1).
+bc_fn(a,b,c):- %maybe_trace(unknown),
+  same_types(a,c,_,a1,c1),
+  as_type(b,'nat',b1),
+  bc_impl(a1,b1,c1).
 
 bc_impl([:, _prf, _ccln], _, [:, _prf, _ccln]) :-
     if_debugging(println_impl(['bc-base', [:, _prf, _ccln]])),
@@ -4322,8 +4660,8 @@ bc_impl([:, _prf, _ccln], _, [:, _prf, _ccln]) :-
     if_debugging(println_impl(['bc-base-ground', [:, _prf, _ccln]])),
     nocut.
 
-bc_impl([:, [_prfabs, _prfarg], _ccln], ['S', _k], [:, [_prfabs, _prfarg], _ccln]) :-
-    if_debugging(println_impl(['bc-rec', [:, [_prfabs, _prfarg], _ccln], ['S', _k]])),
+bc_impl([:, [_prfabs, _prfarg], _ccln], ['s', _k], [:, [_prfabs, _prfarg], _ccln]) :-
+    if_debugging(println_impl(['bc-rec', [:, [_prfabs, _prfarg], _ccln], ['s', _k]])),
     bc_impl([:, _prfabs, ['->', _prms, _ccln]], _k, [:, _prfabs, [->, _prms, _ccln]]),
     bc_impl([:, _prfarg, _prms], _k, [:, _prfarg, _prms]).
 
@@ -4333,171 +4671,171 @@ bc_impl([:, [_prfabs, _prfarg], _ccln], ['S', _k], [:, [_prfabs, _prfarg], _ccln
 
 
 
-% Unification hook for peer_objects (NewParamType should get our peer_objects)
-peer_objects:attr_unify_hook(ObjList, NewParamType) :-
- if_t(var(NewParamType),
-   ((get_attr(NewParamType, peer_objects, NewParamTypeObjList) -> true ; NewParamTypeObjList = []),
-    maplist(not_violate_type_simularity(_Space, NewParamType, NewParamTypeObjList), ObjList))).
+% unification hook for peer_objects (newparamtype should get our peer_objects)
+peer_objects:attr_unify_hook(objlist, newparamtype) :-
+ if_t(var(newparamtype),
+   ((get_attr(newparamtype, peer_objects, newparamtypeobjlist) -> true ; newparamtypeobjlist = []),
+    maplist(not_violate_type_simularity(_space, newparamtype, newparamtypeobjlist), objlist))).
 
-% Unification hook for peer_interfaces (NewParamType should get our peer_interfaces)
-peer_interfaces:attr_unify_hook(CachedInterfaces, NewParamType) :-
- if_t(var(NewParamType),
-    update_peer(peer_interfaces,NewParamType, CachedInterfaces)).
+% unification hook for peer_interfaces (newparamtype should get our peer_interfaces)
+peer_interfaces:attr_unify_hook(cachedinterfaces, newparamtype) :-
+ if_t(var(newparamtype),
+    update_peer(peer_interfaces,newparamtype, cachedinterfaces)).
 
-% Update ParamType with new interfaces (NewParamType should get our Attribute(s))
-update_peer(Attribute, ParamType, NewInterfaces) :-
-    (get_attr(ParamType, Attribute, CachedInterfaces) -> true ; CachedInterfaces = []),
-    ord_union(CachedInterfaces, NewInterfaces, UpdatedInterfaces),
-    put_attr(ParamType, Attribute, UpdatedInterfaces).
+% update paramtype with new interfaces (newparamtype should get our attribute(s))
+update_peer(attribute, paramtype, newinterfaces) :-
+    (get_attr(paramtype, attribute, cachedinterfaces) -> true ; cachedinterfaces = []),
+    ord_union(cachedinterfaces, newinterfaces, updatedinterfaces),
+    put_attr(paramtype, attribute, updatedinterfaces).
 
-% Handling type similarity checks for peer_objects
-not_violate_type_simularity(Space, ParamType, ObjList, NewObj) :-
-    ObjList == [], !,
-    get_dtypes(Space, NewObj, NewInterfaces),
-    dont_put_attr(ParamType, peer_objects, [NewObj-NewInterfaces]),
-    update_peer(peer_interfaces, ParamType, NewInterfaces).
+% handling type similarity checks for peer_objects
+not_violate_type_simularity(space, paramtype, objlist, newobj) :-
+    objlist == [], !,
+    get_dtypes(space, newobj, newinterfaces),
+    dont_put_attr(paramtype, peer_objects, [newobj-newinterfaces]),
+    update_peer(peer_interfaces, paramtype, newinterfaces).
 
-not_violate_type_simularity(_Space,_ParamType, ObjList, NewObj) :-
-    member(PrevObj-_, ObjList),
-    (PrevObj =@= NewObj ; PrevObj == NewObj), !.
+not_violate_type_simularity(_space,_paramtype, objlist, newobj) :-
+    member(prevobj-_, objlist),
+    (prevobj =@= newobj ; prevobj == newobj), !.
 
-not_violate_type_simularity(Space, ParamType, ObjList, NewObj) :-
-    get_dtypes(Space, NewObj, NewInterfaces),
-    member(PrevObj-PrevInterfaces, ObjList),
-    nonvar(PrevObj),
+not_violate_type_simularity(space, paramtype, objlist, newobj) :-
+    get_dtypes(space, newobj, newinterfaces),
+    member(prevobj-previnterfaces, objlist),
+    nonvar(prevobj),
     once((
-        can_be_same_types(PrevInterfaces, NewInterfaces)
+        can_be_same_types(previnterfaces, newinterfaces)
     )), !,
-    dont_put_attr(ParamType, peer_objects, [NewObj-NewInterfaces | ObjList]),
-    update_peer(peer_interfaces, ParamType, NewInterfaces).
+    dont_put_attr(paramtype, peer_objects, [newobj-newinterfaces | objlist]),
+    update_peer(peer_interfaces, paramtype, newinterfaces).
 
-% Check type compatibility
-can_be_same_types(PrevInterfaces, NewInterfaces) :-
-    member(PrevType, PrevInterfaces), member(NewType, NewInterfaces), some_overlap(NewType,PrevType), !.
+% check type compatibility
+can_be_same_types(previnterfaces, newinterfaces) :-
+    member(prevtype, previnterfaces), member(newtype, newinterfaces), some_overlap(newtype,prevtype), !.
 
-some_overlap(NewType,PrevType):- NewType =@= PrevType.
+some_overlap(newtype,prevtype):- newtype =@= prevtype.
 
-actual_violation(ParamType, List):- member(ActualType,List),
-    (assignable_to_param_type(_Arg, ActualType, ParamType);assignable_to_param_type(_Arg, ParamType, ActualType)),!,fail.
-actual_violation(ParamType, List):- member(ActualType,List), type_violation(ParamType,ActualType),!.
-actual_violation(_ParamType,_List):- ! , fail.
+actual_violation(paramtype, list):- member(actualtype,list),
+    (assignable_to_param_type(_arg, actualtype, paramtype);assignable_to_param_type(_arg, paramtype, actualtype)),!,fail.
+actual_violation(paramtype, list):- member(actualtype,list), type_violation(paramtype,actualtype),!.
+actual_violation(_paramtype,_list):- ! , fail.
 
-% Handling parameter type compatibility
-non_arg_violation_each(_Space,ParamType, Arg):- ParamType=='Atom', !, Arg\=='Empty'.
-non_arg_violation_each(_Space,ParamType, Arg):- ParamType=='Any', !, Arg\=='Empty'.
-non_arg_violation_each(_Space,ParamType,_Arg):- ParamType=='AnyRet', !.
-%non_arg_violation_each(_Space,ParamType,_Arg):- ParamType=='%Undefined%',!.
-non_arg_violation_each(Space, ParamType, Arg) :-
-    (check_non_arg_violation(Space, ParamType, Arg)
-     -> nop((writeq(good(ParamType, Arg)), nl))
-     ;  (nop((writeq(bad(ParamType, Arg)), nl)), !, fail)).
+% handling parameter type compatibility
+non_arg_violation_each(_space,paramtype, arg):- paramtype=='atom', !, arg\=='empty'.
+non_arg_violation_each(_space,paramtype, arg):- paramtype=='any', !, arg\=='empty'.
+non_arg_violation_each(_space,paramtype,_arg):- paramtype=='anyret', !.
+%non_arg_violation_each(_space,paramtype,_arg):- paramtype=='%undefined%',!.
+non_arg_violation_each(space, paramtype, arg) :-
+    (check_non_arg_violation(space, paramtype, arg)
+     -> nop((writeq(good(paramtype, arg)), nl))
+     ;  (nop((writeq(bad(paramtype, arg)), nl)), !, fail)).
 
 
 % if was set to a variable should we continue to enforce the fact it is a variable?
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Variable',!,is_ftVar(Arg).
-% Ensure non-argument violations are checked on Vars
-check_non_arg_violation(_Space,ParamType,Arg):-  attvar(Arg), get_attr(Arg, cns, S = [L|IST] ), is_list(IST),
-  ((member(ActualType,[L|IST]), ActualType == ParamType) -> true ;
-  (actual_violation(ParamType,[L|IST])-> (!,fail);
-   dont_put_attr(Arg, cns, S = [ParamType,L|IST] ))),!.
-check_non_arg_violation(Space,ParamType,Arg):-  var(Arg), dont_put_attr(Arg, cns, Space = [ParamType]),!.
-%check_non_arg_violation(Space, ParamType, Var) :- var(Var), !, freeze(Var, non_arg_violation_each(Space, ParamType, Var)).
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'variable',!,is_ftvar(arg).
+% ensure non-argument violations are checked on vars
+check_non_arg_violation(_space,paramtype,arg):-  attvar(arg), get_attr(arg, cns, s = [l|ist] ), is_list(ist),
+  ((member(actualtype,[l|ist]), actualtype == paramtype) -> true ;
+  (actual_violation(paramtype,[l|ist])-> (!,fail);
+   dont_put_attr(arg, cns, s = [paramtype,l|ist] ))),!.
+check_non_arg_violation(space,paramtype,arg):-  var(arg), dont_put_attr(arg, cns, space = [paramtype]),!.
+%check_non_arg_violation(space, paramtype, var) :- var(var), !, freeze(var, non_arg_violation_each(space, paramtype, var)).
 
-% Ensure non-argument violations are checked
-check_non_arg_violation(Space, ParamType, NewObj) :- var(ParamType), !,
-    (get_attr(ParamType, peer_objects, ObjList) -> true ; ObjList = []), !,
-    not_violate_type_simularity(Space, ParamType, ObjList, NewObj).
+% ensure non-argument violations are checked
+check_non_arg_violation(space, paramtype, newobj) :- var(paramtype), !,
+    (get_attr(paramtype, peer_objects, objlist) -> true ; objlist = []), !,
+    not_violate_type_simularity(space, paramtype, objlist, newobj).
 
-%check_non_arg_violation(_Space,['TypeOf',Target], Arg):- Arg=Target.
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Empty',!,Arg==ParamType.
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'EmptyType',!,Arg=='Empty'.
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Grounded','get-metatype'(Arg,Type),!,Type==ParamType.
-%check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'ErrorType',!,Arg=='Empty'.
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Expression',!, is_list(Arg).
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Symbol',!,symbol(Arg).
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'String',!,string(Arg).
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Type', is_type(Arg),!.
-check_non_arg_violation(_Space,ParamType,Arg):- ParamType == 'Type', is_type(Arg),!.
+%check_non_arg_violation(_space,['typeof',target], arg):- arg=target.
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'empty',!,arg==paramtype.
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'emptytype',!,arg=='empty'.
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'grounded','get-metatype'(arg,type),!,type==paramtype.
+%check_non_arg_violation(_space,paramtype,arg):- paramtype == 'errortype',!,arg=='empty'.
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'expression',!, is_list(arg).
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'symbol',!,symbol(arg).
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'string',!,string(arg).
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'type', is_type(arg),!.
+check_non_arg_violation(_space,paramtype,arg):- paramtype == 'type', is_type(arg),!.
 
-check_non_arg_violation(Space,ParamType,Arg):- ParamType == 'Undeclared',!,get_type_or_guess(30,Space,Arg,ActualType),ActualType=='%Undefined%',!.
-check_non_arg_violation(Space,ParamType,Arg):- ParamType = [Ar|ParamTypes],Ar=='->', !,
-    get_type_or_guess(30,Space,Arg,ActualType),
-    ActualType=[Ar2|ActualParamTypes],Ar2==Ar,
-    maplist(assignable_to_param_type(_),ActualParamTypes,ParamTypes),!.
+check_non_arg_violation(space,paramtype,arg):- paramtype == 'undeclared',!,get_type_or_guess(30,space,arg,actualtype),actualtype=='%undefined%',!.
+check_non_arg_violation(space,paramtype,arg):- paramtype = [ar|paramtypes],ar=='->', !,
+    get_type_or_guess(30,space,arg,actualtype),
+    actualtype=[ar2|actualparamtypes],ar2==ar,
+    maplist(assignable_to_param_type(_),actualparamtypes,paramtypes),!.
 
-%check_non_arg_violation(_Space,ParamType,_Arg):- nonvar(ParamType), is_nonspecific_type(ParamType),!.
-check_non_arg_violation(Space,ParamType,Arg):-
-  get_type_or_guess(30,Space,Arg,ActualType),
-  assignable_to_param_type(Arg, ActualType, ParamType).
+%check_non_arg_violation(_space,paramtype,_arg):- nonvar(paramtype), is_nonspecific_type(paramtype),!.
+check_non_arg_violation(space,paramtype,arg):-
+  get_type_or_guess(30,space,arg,actualtype),
+  assignable_to_param_type(arg, actualtype, paramtype).
 
 
-get_type_or_guess(Depth,Space,Arg,ActualType):-
-  no_repeats(ActualType,get_type_or_guess1(Depth,Space,Arg,ActualType)).
+get_type_or_guess(depth,space,arg,actualtype):-
+  no_repeats(actualtype,get_type_or_guess1(depth,space,arg,actualtype)).
 
-get_type_or_guess1(Depth,Space,Arg,ActualType):-
-  get_type(Depth,Space,Arg,ActualType), nocut.
-get_type_or_guess1(_Dpth,_Spce,Arg,ActualType):-
-  get_type(Arg,ActualType).
+get_type_or_guess1(depth,space,arg,actualtype):-
+  get_type(depth,space,arg,actualtype), nocut.
+get_type_or_guess1(_dpth,_spce,arg,actualtype):-
+  get_type(arg,actualtype).
 
-ok_when_undefined(Arg,_ParamType):- var(Arg),!.
-ok_when_undefined(_Arg,'String'):-!.
+ok_when_undefined(arg,_paramtype):- var(arg),!.
+ok_when_undefined(_arg,'string'):-!.
 
-maybe_type_check(_Eq,RetType,_ResIn,_ResOut,_Depth,Self,AE,More,Adjusted):-
+maybe_type_check(_eq,rettype,_resin,_resout,_depth,self,ae,more,adjusted):-
    ignore((
-   if_t(is_list(Adjusted),length(Adjusted,LenX)),
-   if_t(var(LenX),if_t(is_list(More),length(More,LenX))),
-   type_checks_out(Self,AE,LenX,Adjusted,RetType))).
+   if_t(is_list(adjusted),length(adjusted,lenx)),
+   if_t(var(lenx),if_t(is_list(more),length(more,lenx))),
+   type_checks_out(self,ae,lenx,adjusted,rettype))).
 
-return_type_compat(_RetType,_XType).
+return_type_compat(_rettype,_xtype).
 
-type_checks_out(Self,AE,LenX,Adjusted,RetType):-
-   get_operator_typedef_R(Self,AE,LenX,XParamTypes,XType),
-   return_type_compat(RetType,XType),
-   trace_if_debug(AE,LenX),
-   maplist(non_arg_violation_each(Self),XParamTypes,Adjusted),!.
-type_checks_out(Self,AE,LenX,Adjusted,RetType):-
-  get_operator_typedef_R(Self,AE,LenX,XParamTypes,XType),
-  return_type_compat(RetType,XType),
-  trace_if_debug(AE,LenX),
-  maplist(throw_violation_each(Self),XParamTypes,Adjusted),!.
-type_checks_out(Self,AE,LenX,Adjusted,RetType):-
-  nop(type_checks_out(Self,AE,LenX,Adjusted,RetType)),!.
-throw_violation_each(Self,ParamType,Arg):-
-  (non_arg_violation_each(Self,ParamType,Arg)-> true ; throw_type_error(Arg,ParamType)).
+type_checks_out(self,ae,lenx,adjusted,rettype):-
+   get_operator_typedef_r(self,ae,lenx,xparamtypes,xtype),
+   return_type_compat(rettype,xtype),
+   trace_if_debug(ae,lenx),
+   maplist(non_arg_violation_each(self),xparamtypes,adjusted),!.
+type_checks_out(self,ae,lenx,adjusted,rettype):-
+  get_operator_typedef_r(self,ae,lenx,xparamtypes,xtype),
+  return_type_compat(rettype,xtype),
+  trace_if_debug(ae,lenx),
+  maplist(throw_violation_each(self),xparamtypes,adjusted),!.
+type_checks_out(self,ae,lenx,adjusted,rettype):-
+  nop(type_checks_out(self,ae,lenx,adjusted,rettype)),!.
+throw_violation_each(self,paramtype,arg):-
+  (non_arg_violation_each(self,paramtype,arg)-> true ; throw_type_error(arg,paramtype)).
 
-throw_type_error(Arg,ParamType):-
-   if_tracemsg(unknown,throw_type_error(Arg,ParamType)),
-   maybe_trace(unknown),throw_metta_error(['Error',Arg,'BadType']).
+throw_type_error(arg,paramtype):-
+   if_tracemsg(unknown,throw_type_error(arg,paramtype)),
+   maybe_trace(unknown),throw_metta_error(['error',arg,'badtype']).
 
-assignable_to_param_type(_Arg, ActualType, ParamType):- ActualType==ParamType,!.
-assignable_to_param_type(Arg, ActualType, ParamType):- assignable_to_param_type1(Arg, ActualType, ParamType).
-assignable_to_param_type1(_Arg, ActualType, ParamType):- ActualType=ParamType,!.
-assignable_to_param_type1(_Arg, ActualType, ParamType):- paramtype_assignable_to(ActualType, ParamType),!.
+assignable_to_param_type(_arg, actualtype, paramtype):- actualtype==paramtype,!.
+assignable_to_param_type(arg, actualtype, paramtype):- assignable_to_param_type1(arg, actualtype, paramtype).
+assignable_to_param_type1(_arg, actualtype, paramtype):- actualtype=paramtype,!.
+assignable_to_param_type1(_arg, actualtype, paramtype):- paramtype_assignable_to(actualtype, paramtype),!.
 
-% Check the argument type and verify it conforms to the expected type.
-paramtype_assignable_to(ActualType,_ParamType):- ActualType = '%Undefined%',!.
-paramtype_assignable_to(ActualType, ParamType):- assignable_to(ActualType, ParamType),!.
+% check the argument type and verify it conforms to the expected type.
+paramtype_assignable_to(actualtype,_paramtype):- actualtype = '%undefined%',!.
+paramtype_assignable_to(actualtype, paramtype):- assignable_to(actualtype, paramtype),!.
 
 
-'mx__1_0+_make-var'(Types, Var):-
-   %freeze(Var, non_arg_violation_each(_, Type, Var)),
-   put_attr(Var,cns, _ = Types),
+'mx__1_0+_make-var'(types, var):-
+   %freeze(var, non_arg_violation_each(_, type, var)),
+   put_attr(var,cns, _ = types),
    % name it something recognisable/debuggable
-   push_typename(Var,Types).
+   push_typename(var,types).
 
-'mx__1_1+_bless-var'(Var, Types, Var):-
-   %freeze(Var, non_arg_violation_each(_, Type, Var)),
-   maplist(prevent_type_violations(Var),Types),
+'mx__1_1+_bless-var'(var, types, var):-
+   %freeze(var, non_arg_violation_each(_, type, var)),
+   maplist(prevent_type_violations(var),types),
    % _maybe_ name it something recognisable/debuggable
-   if_t( \+ get_attr(Var,vn,_), push_typename(Var,Types)).
+   if_t( \+ get_attr(var,vn,_), push_typename(var,types)).
 
-push_typename(Var,Types):-
-   nameify(Types,SVar), atomic_list_concat(['_typed_var_',SVar,'_'],'',SymG),
-   gensym(SymG,SymVar), put_attr(Var,vn,SymVar).
+push_typename(var,types):-
+   nameify(types,svar), atomic_list_concat(['_typed_var_',svar,'_'],'',symg),
+   gensym(symg,symvar), put_attr(var,vn,symvar).
 
-nameify(Type, SVar):- attvar(Type),get_attr(Type,vn,SVar),!.
-nameify(Types,SVar):- is_list(Types),!,maplist(nameify,Types,STypes),atomic_list_concat(STypes,SVar).
-nameify(Type, SVar):- sformat(TypeStr,'~w',[Type]), svar_fixvarname(TypeStr,SVar).
+nameify(type, svar):- attvar(type),get_attr(type,vn,svar),!.
+nameify(types,svar):- is_list(types),!,maplist(nameify,types,stypes),atomic_list_concat(stypes,svar).
+nameify(type, svar):- sformat(typestr,'~w',[type]), svar_fixvarname(typestr,svar).
 
 
 
@@ -4511,89 +4849,89 @@ end_of_file.
 
 
 
-        eval_20(Eq,RetType,Depth,Self,X,Y):- fail,
-          once(type_fit_childs(Eq,Depth,Self,RetType,X,XX)),
-            X\=@=XX, fbug(type_fit_childs(X,XX)),fail,
-          eval_evals(Eq,RetType,Depth,Self,XX,Y).
+        eval_20(eq,rettype,depth,self,x,y):- fail,
+          once(type_fit_childs(eq,depth,self,rettype,x,xx)),
+            x\=@=xx, fbug(type_fit_childs(x,xx)),fail,
+          eval_evals(eq,rettype,depth,self,xx,y).
 
 
         into_arg_code([],true):-!.
-        into_arg_code(H,TT):- \+ iz_conz(H), TT = H.
-        into_arg_code([H,T],TT):- H==true,!,into_arg_code(T,TT).
-        into_arg_code([T,H],TT):- H==true,!,into_arg_code(T,TT).
-        into_arg_code([H,T],','(HH,TT)):- !, into_arg_code(H,HH),into_arg_code(T,TT).
-        into_arg_code([H|T],TT):- H==true,!,into_arg_code(T,TT).
-        into_arg_code([H|T],','(HH,TT)):- !, into_arg_code(H,HH),into_arg_code(T,TT).
-        into_arg_code(TT,TT).
-        into_arg_code([H|T],next(H,TT)):- into_arg_code(T,TT).
+        into_arg_code(h,tt):- \+ iz_conz(h), tt = h.
+        into_arg_code([h,t],tt):- h==true,!,into_arg_code(t,tt).
+        into_arg_code([t,h],tt):- h==true,!,into_arg_code(t,tt).
+        into_arg_code([h,t],','(hh,tt)):- !, into_arg_code(h,hh),into_arg_code(t,tt).
+        into_arg_code([h|t],tt):- h==true,!,into_arg_code(t,tt).
+        into_arg_code([h|t],','(hh,tt)):- !, into_arg_code(h,hh),into_arg_code(t,tt).
+        into_arg_code(tt,tt).
+        into_arg_code([h|t],next(h,tt)):- into_arg_code(t,tt).
 
 
         % reduce args to match types even inside atoms
-        type_fit_childs(_Eq,_Depth,_Self,_RetType,true,X,Y):- is_ftVar(X),!,Y=X.
-        type_fit_childs(_Eq,_Depth,_Self,_RetType,true,X,Y):- symbolic(X),!,Y=X.
-        type_fit_childs(Eq,Depth,Self,RetType,CodeForArg,X,Y):- compound_non_cons(X),!,
-           into_list_args(X,XX),!,type_fit_childs(Eq,Depth,Self,RetType,CodeForArg,XX,Y).
-        type_fit_childs(_Eq,_Depth,_Self,_RetType,true,X,Y):- \+ is_list(X),iz_conz(X), maybe_trace(unknown), !,Y=X.
-        type_fit_childs(_Eq,_Depth,_Self,_RetType,true,X,Y):- self_eval(X),!,Y=X.
+        type_fit_childs(_eq,_depth,_self,_rettype,true,x,y):- is_ftvar(x),!,y=x.
+        type_fit_childs(_eq,_depth,_self,_rettype,true,x,y):- symbolic(x),!,y=x.
+        type_fit_childs(eq,depth,self,rettype,codeforarg,x,y):- compound_non_cons(x),!,
+           into_list_args(x,xx),!,type_fit_childs(eq,depth,self,rettype,codeforarg,xx,y).
+        type_fit_childs(_eq,_depth,_self,_rettype,true,x,y):- \+ is_list(x),iz_conz(x), maybe_trace(unknown), !,y=x.
+        type_fit_childs(_eq,_depth,_self,_rettype,true,x,y):- self_eval(x),!,y=x.
 
-        type_fit_childs(_Eq,_Depth,_Self,_RetType,true,[H|Args],[H|Args]):- (H=='eval_args';H=='eval_args-for'),!.
+        type_fit_childs(_eq,_depth,_self,_rettype,true,[h|args],[h|args]):- (h=='eval_args';h=='eval_args-for'),!.
 
-        type_fit_childs(Eq,Depth,Self,RetType,CodeForArg,['let*',Lets,Body],RetVal):- !,
-            expand_let_star(Lets,Body,NewLet),!,
-                type_fit_childs(Eq,Depth,Self,RetType,CodeForArg,NewLet,RetVal).
+        type_fit_childs(eq,depth,self,rettype,codeforarg,['let*',lets,body],retval):- !,
+            expand_let_star(lets,body,newlet),!,
+                type_fit_childs(eq,depth,self,rettype,codeforarg,newlet,retval).
 
-        /*                                e,CodeForCond,['If',Cond,Then,Else],
-            pe_fit_childs(Eq,Depth,Self,RetType,CodeForCond,['If',Cond,Then,Else],
-                    ['If',ConVal,(CodeForThen),CodeForElse]):-
-            type_fit_childs(Eq,Depth,Self,'Bool',CodeForCond,Cond,ConVal).
-            type_fit_childs(Eq,Depth,Self,RetType,CodeForThen,Then,ThenVal).
-            type_fit_childs(Eq,Depth,Self,RetType,CodeForElse,Else,ElseVal).
+        /*                                e,codeforcond,['if',cond,then,else],
+            pe_fit_childs(eq,depth,self,rettype,codeforcond,['if',cond,then,else],
+                    ['if',conval,(codeforthen),codeforelse]):-
+            type_fit_childs(eq,depth,self,'bool',codeforcond,cond,conval).
+            type_fit_childs(eq,depth,self,rettype,codeforthen,then,thenval).
+            type_fit_childs(eq,depth,self,rettype,codeforelse,else,elseval).
         */
 
-        type_fit_childs(Eq,Depth,Self,RetType,FullCodeForArgs,[H|Args],Y):- H\==':',
-           ignore(get_operator_typedef1(Self,H,ParamTypes,RType)),
-           ignore(eager_for_type(RType,RetType)),!,
-           must_det_ll((maplist(type_fit_childs(Eq,Depth,Self),ParamTypes,CodeForArgs,Args,NewArgs),
-           into_arg_code(CodeForArgs,MCodeForArgs),
-           into_arg_code([MCodeForArgs,'eval_args'(XX,Y)],FullCodeForArgs),
+        type_fit_childs(eq,depth,self,rettype,fullcodeforargs,[h|args],y):- h\==':',
+           ignore(get_operator_typedef1(self,h,paramtypes,rtype)),
+           ignore(eager_for_type(rtype,rettype)),!,
+           must_det_ll((maplist(type_fit_childs(eq,depth,self),paramtypes,codeforargs,args,newargs),
+           into_arg_code(codeforargs,mcodeforargs),
+           into_arg_code([mcodeforargs,'eval_args'(xx,y)],fullcodeforargs),
 
-           XX = [H|NewArgs],
-           Y = _)).
-           %eval_args(Eq,RetType,CodeForArg,Depth,Self,XX,Y).
+           xx = [h|newargs],
+           y = _)).
+           %eval_args(eq,rettype,codeforarg,depth,self,xx,y).
 
-        type_fit_childs(Eq,Depth,Self,RetType,FullCodeForArgs,[H|Args],Y):-
-           must_det_ll((ignore(get_operator_typedef1(Self,H,ParamTypes,RetType)),
-           maplist(type_fit_childs(Eq,Depth,Self),ParamTypes,CodeForArgs,Args,NewArgs),
-           into_arg_code(CodeForArgs,FullCodeForArgs),
-           Y = [H|NewArgs])).
-        type_fit_childs(_Eq,_Depth,_Self,_RetType,true,X,Y):-!,must_det_ll((X=Y)).
+        type_fit_childs(eq,depth,self,rettype,fullcodeforargs,[h|args],y):-
+           must_det_ll((ignore(get_operator_typedef1(self,h,paramtypes,rettype)),
+           maplist(type_fit_childs(eq,depth,self),paramtypes,codeforargs,args,newargs),
+           into_arg_code(codeforargs,fullcodeforargs),
+           y = [h|newargs])).
+        type_fit_childs(_eq,_depth,_self,_rettype,true,x,y):-!,must_det_ll((x=y)).
 
-        eager_for_type(_RType,'Atom'):- !, fail.
-        eager_for_type(_RType,'Type'):- !, fail.
-        eager_for_type(RType,RetType):- RType==RetType,!.
-        eager_for_type(RType,'Expression'):- !, RType=='Expression'.
-        eager_for_type('Atom','Expression'):- !, fail.
-        eager_for_type('Symbol','Expression'):- !, fail.
-        eager_for_type(RType,Var):- var(Var),!,RType=Var.
-        eager_for_type(_RType,_):-!.
-        %eager_for_type(_RType,'Any'):- !.
-        %eager_for_type(_RType,'Number').
-        %eager_for_type(_RType,'Nat').
+        eager_for_type(_rtype,'atom'):- !, fail.
+        eager_for_type(_rtype,'type'):- !, fail.
+        eager_for_type(rtype,rettype):- rtype==rettype,!.
+        eager_for_type(rtype,'expression'):- !, rtype=='expression'.
+        eager_for_type('atom','expression'):- !, fail.
+        eager_for_type('symbol','expression'):- !, fail.
+        eager_for_type(rtype,var):- var(var),!,rtype=var.
+        eager_for_type(_rtype,_):-!.
+        %eager_for_type(_rtype,'any'):- !.
+        %eager_for_type(_rtype,'number').
+        %eager_for_type(_rtype,'nat').
 
 
-        eval_evals(_Eq,_Depth,_Self,_RetType,X,Y):-self_eval(X),!,Y=X.
-        eval_evals(_Eq,_Depth,_Self,_RetType,X,Y):- \+ is_list(X),!,Y=X.
-        eval_evals(Eq,Depth,Self,RetType,[Eval,X],Y):- Eval == 'eval_args',!,
-          eval_evals(Eq,Depth,Self,RetType,X,XX),
-          eval_args(Eq,RetType,Depth,Self,XX,Y).
-        eval_evals(Eq,Depth,Self,RetType,[Eval,SomeType,X],Y):- Eval == 'eval_args-for',!,
-          eval_evals(Eq,Depth,Self,RetType,X,XX),
-          eval_args(Eq,SomeType,Depth,Self,XX,Y).
-        eval_evals(Eq,Depth,Self,RetType,[H|Args],Y):-
-           ignore(get_operator_typedef1(Self,H,ParamTypes,RetType)),
-           maplist(eval_evals(Eq,Depth,Self),ParamTypes,Args,NewArgs),
-           XX = [H|NewArgs],Y=XX.
-        eval_evals(_Eq,_Depth,_Self,_RetType,X,X):-!.
+        eval_evals(_eq,_depth,_self,_rettype,x,y):-self_eval(x),!,y=x.
+        eval_evals(_eq,_depth,_self,_rettype,x,y):- \+ is_list(x),!,y=x.
+        eval_evals(eq,depth,self,rettype,[eval,x],y):- eval == 'eval_args',!,
+          eval_evals(eq,depth,self,rettype,x,xx),
+          eval_args(eq,rettype,depth,self,xx,y).
+        eval_evals(eq,depth,self,rettype,[eval,sometype,x],y):- eval == 'eval_args-for',!,
+          eval_evals(eq,depth,self,rettype,x,xx),
+          eval_args(eq,sometype,depth,self,xx,y).
+        eval_evals(eq,depth,self,rettype,[h|args],y):-
+           ignore(get_operator_typedef1(self,h,paramtypes,rettype)),
+           maplist(eval_evals(eq,depth,self),paramtypes,args,newargs),
+           xx = [h|newargs],y=xx.
+        eval_evals(_eq,_depth,_self,_rettype,x,x):-!.
 
 
 

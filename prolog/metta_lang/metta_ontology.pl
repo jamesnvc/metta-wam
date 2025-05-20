@@ -1,8 +1,34 @@
-:- module(metta_ontology, [ a/2 ]).
+:- module(metta_ontology, [ op(500,fx,~),
+                            op(1050,xfx,<-),
+                            op(1050,xfx,<==>),
+                            op(1050,xfx,=>),
+                            op(1100,fx,==>),
+                            op(1150,xfx,::::),
+                            a/2 ]).
 :- use_module(metta_interp, [ metta_atom_asserted/2,
                               pfcAdd_Now/1 ]).
-:- use_module(metta_pfc_base, [ pfcAdd/1 ]).
-:- use_module(metta_pfc_debug, [ pfcWhy1/1 ]).
+:- use_module(metta_pfc_base, [ pfcAdd/1,
+                                op(500,fx,~),
+                                op(1050,xfx,<-),
+                                op(1050,xfx,<==>),
+                                op(1050,xfx,==>),
+                                op(1100,fx,==>),
+                                op(1150,xfx,::::) ]).
+:- use_module(metta_pfc_debug, [ pfcWhy1/1,
+                                 op(500,fx,~),
+                                 op(1050,xfx,<-),
+                                 op(1050,xfx,<==>),
+                                 op(1050,xfx,==>),
+                                 op(1100,fx,==>),
+                                 op(1150,xfx,::::) ]).
+:- use_module(metta_ontology_pfc, [ metta_atom_asserted/4,
+                                    op(500,fx,~),
+                                    op(1050,xfx,<-),
+                                    op(1050,xfx,<==>),
+                                    op(1050,xfx,=>),
+                                    op(1100,fx,==>),
+                                    op(1150,xfx,::::) ]).
+
 
 
 
@@ -11,10 +37,8 @@
  * Description: This file is part of the source code for a transpiler designed to convert
  *              MeTTa language programs into Prolog, utilizing the SWI-Prolog compiler for
  *              optimizing and transforming function/logic programs. It handles different
- *              logical constructs and performs conversions between functions and predicates.
- *
- * Author: Douglas R. Miles
- * Contact: logicmoo@gmail.com / dmiles@logicmoo.org
+ *              logical constrct
+iomoo.org
  * License: LGPL
  * Repository: https://github.com/trueagi-io/metta-wam
  *             https://github.com/logicmoo/hyperon-wam
@@ -39,12 +63,12 @@
 
 :- must(\+ t_l:disable_px).
 
-:- op(500,fx,'~').
-:- op(1050,xfx,('=>')).
-:- op(1050,xfx,'<==>').
-:- op(1050,xfx,('<-')).
-:- op(1100,fx,('==>')).
-:- op(1150,xfx,('::::')).
+
+
+
+
+
+
 :-
  current_prolog_flag(access_level,Was),
  set_prolog_flag(access_level,system),

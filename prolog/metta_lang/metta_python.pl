@@ -1,3 +1,18 @@
+:- module(metta_python, [ ensure_mettalog_py/0,
+                          ensure_space_py/2,
+                          'extend-py!'/2,
+                          is_rust_operation/1,
+                          make_py_dot/3,
+                          make_py_dot/4,
+                          py_atom/2,
+                          py_call_method_and_args_sig/5,
+                          py_exec/1,
+                          py_is_callable/1,
+                          py_is_module/1,
+                          py_is_py/1,
+                          py_pp_str/2,
+                          py_ppp/1,
+                          rust_metta_run/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -88,11 +103,33 @@ Prolog Extensions with Python:
    functionality through Python (and Rust via Python). This allows Python and Rust
    developers to continue working with the system easily.
 */
- :- use_module(library(filesex)).
+:- use_module(library(filesex)).
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
- :- ensure_loaded(metta_interp).
+ 
+:- use_module(metta_compiler_roy, [ must_det_lls/1,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_debug, [ is_extreme_debug/0,
+                             ppt/1 ]).
+:- use_module(metta_eval, [ py_metta_return_value/3 ]).
+:- use_module(metta_self, [ current_self/1 ]).
+:- use_module(metta_interp, [ metta_root_dir/1 ]).
+:- use_module(metta_printer, [ py_is_enabled/0,
+                               write_src/1,
+                               write_src_nl/1 ]).
+:- use_module(metta_space, [ ensure_space/2,
+                             is_asserted_space/1,
+                             is_nb_space/1 ]).
+:- use_module(metta_utils, [ pp/1 ]).
+:- use_module(swi_support, [ if_t/2,
+                             fbug/1,
+                             must_det_ll/1,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbol_contains/2,
+                             symbolic/1,
+                             symbolic_list_concat/3 ]).
 
 %!  janus_initialization is det.
 %
@@ -111,6 +148,19 @@ Prolog Extensions with Python:
 %     false.
 %
  :- module_property(janus,file(_)) -> true; janus:ensure_loaded(library(janus)).
+
+%!  lazy_load_python is det.
+%
+%   This predicate represents a placeholder or a stub for lazily loading the Python
+%   integration. Currently, it does not contain any implementation logic.
+%   This would attempt to load Python-related resources or interfaces
+%   when needed, avoiding unnecessary overhead if Python is not required.
+%
+%   The implementation should be added to perform the actual lazy loading of
+%   the Python environment or integration.
+%
+:- dynamic(lazy_load_python/0).
+lazy_load_python.
 
 
 py_call_warg(G):- py_c_c(G,GG), py_call(GG).
@@ -206,6 +256,8 @@ py_catch((G1, G2)):-
     % Handle exceptions for two goals executed sequentially.
     !,py_catch(G1),py_catch(G2).
 
+
+:- meta_predicate py_catch(0).
 py_catch(Goal):-
     % Catch any exceptions during goal execution.
     catch(Goal, E,
@@ -608,6 +660,8 @@ list_to_set_member(List, Dir) :-
     list_to_set(List, Set),
     member(Dir, Set).
 
+
+:- dynamic user:is_metta_src_dir/1.
 
 search_py_module_src_dir0(Dir) :- user:is_metta_src_dir(Dir).
 search_py_module_src_dir0(Dir) :- metta_root_dir(Dir).

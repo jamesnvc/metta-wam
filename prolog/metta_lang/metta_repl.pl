@@ -1,3 +1,11 @@
+:- module(metta_repl, [ cls/0,
+                        eval/2,
+                        inside_assert/2,
+                        into_named_vars/2,
+                        maybe_set_var_names/1,
+                        repl/0,
+                        repl_read/1,
+                        term_dont_cares/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -59,7 +67,78 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
+:- use_module(metta_compiler_roy, [ compile_for_exec/3,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ if_trace/2,
+                             is_debugging/1,
+                             output_language/2,
+                             reset_eval_num/0,
+                             sub_var_safely/2,
+                             with_debug/2,
+                             woc/1 ]).
+:- use_module(metta_eval, [ is_returned/1 ]).
+:- use_module(metta_interp, [ always_exec/1,
+                              catch_err/3,
+                              current_self/1,
+                              default_depth/1,
+                              do_metta/5,
+                              do_show_options_values/0,
+                              eval_H/4,
+                              fbug/1,
+                              file_hides_results/1,
+                              find_missing_cuts/0,
+                              in_answer_io/1,
+                              is_compatio/0,
+                              is_conz/1,
+                              is_transpiling/0,
+                              is_win64/0,
+                              metta_atom/2,
+                              metta_interp_mode/2,
+                              not_in_eq/2,
+                              rtrace_on_error/1,
+                              switch_to_mettalog/0,
+                              switch_to_mettarust/0,
+                              top_self/1,
+                              use_metta_compiler/0,
+                              user_io/1,
+                              write_answer_output/0,
+                              writeqln/1 ]).
+:- use_module(metta_parser, [ metta_file_comment/5,
+                              parse_sexpr/2 ]).
+:- use_module(metta_printer, [ with_indents/2,
+                               write_dvar/1,
+                               write_src/1,
+                               write_src_woi/1 ]).
+:- use_module(metta_testing, [ color_g_mesg/2,
+                               string_replace/4 ]).
+:- use_module(metta_utils, [ intersection/5,
+                             pp_m/2,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ fbug/1,
+                             if_t/2,
+                             option_else/3,
+                             option_value/2,
+                             set_option_value/2,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbolic/1,
+                             symbolic_list_concat/3,
+                             symbolics_to_string/2,
+                             with_option/3 ]).
+:- use_module(metta_self, [ current_self/1 ]).
+
+
+
+
+
+
+
+
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED
@@ -1161,6 +1240,8 @@ u_do_metta_exec02(From,Self,TermV,BaseEval,Term,_X,NamedVarsList,Was,VOutput,FOu
    flag(need_prompt,_,1),
    ignore(Result = res(FOut)).
 
+
+:- meta_predicate print_result_output(0,?,?,?,?,?,?,?,?,?,?).
 print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Result,Seconds,Was,Output,Stepping):-
          set_option_value(interactive,WasInteractive),
          Control = contrl(InitialResultLeash,Max,DoLeap),
@@ -1213,6 +1294,8 @@ print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Re
 
 
 %old_not_compatio(_G):- \+ is_testing, !.
+
+:- meta_predicate old_not_compatio(0).
 old_not_compatio(G):- call(G),ttyflush.
 
 %! maybe_assign(+N_V) is det.
@@ -1302,12 +1385,16 @@ get_single_char_key(C, A):- name(A, [C]).
 %   @arg Complete indicates whether the goal reached a final result.
 %   @arg Goal is the main goal to be executed interactively.
 %   @arg After is the action to perform after the goal is executed.
+
+:- meta_predicate forall_interactive(?,?,?,0,0).
 forall_interactive(file(_), false, Complete, Goal, After) :- !,
     % Execute the goal.
     %format("%%%%%%%%%%%%%%%%%%%%%%%%%0 ~w\n",[Goal]),
     Goal,
     % If the goal is complete, execute 'After', otherwise skip it.
     (Complete == true -> (!, call(After), !) ; ( \+ quietly(After))).
+
+:- meta_predicate forall_interactive(?,?,?,0,?).
 forall_interactive(prolog, false, Complete, Goal, After) :- !,
     % Execute the goal.
     %format("%%%%%%%%%%%%%%%%%%%%%%%%%1 ~w\n",[Goal]),
@@ -1316,6 +1403,8 @@ forall_interactive(prolog, false, Complete, Goal, After) :- !,
     (Complete == true -> ! ; true),
     % Execute 'After' quietly (without trace output).
     quietly(After).
+
+:- meta_predicate forall_interactive(?,?,?,0,?).
 forall_interactive(From, WasInteractive, Complete, Goal, After) :-
     % Check if the source (From) is interactive.
     (is_interactive(From) -> WasInteractive = true ; WasInteractive = false),
@@ -1849,6 +1938,8 @@ vu(trace, _Value):-
 %
 
 % Entry point for a goal execution, tracing is turned off by default.
+
+:- meta_predicate toplevel_goal(0).
 toplevel_goal(Goal) :-
     % Extract variables from the goal.
     term_variables(Goal,Vars),
@@ -1871,11 +1962,15 @@ toplevel_goal(Goal) :-
 %
 
 % Entry point for executing a goal with tracing enabled by default.
+
+:- meta_predicate trace_goal(0).
 trace_goal(Goal) :-
     % By default, tracing is enabled.
     trace_goal(Goal, trace_on).
 
 % Execute a goal with optional tracing.
+
+:- meta_predicate trace_goal(0,?).
 trace_goal(Goal, Tracing) :-
     % If tracing is on, print the goal being entered.
     (Tracing == trace_on -> writeln('Entering goal:'), writeln(Goal) ; true),
@@ -1907,6 +2002,8 @@ trace_goal(Goal, Tracing) :-
 %
 
 % This predicate handles user interaction and command processing during execution.
+
+:- meta_predicate interact(?,0,?).
 interact(Variables, Goal, Tracing) :-
     % Call the goal and print the result.
     call(Goal), write('Solution: '), write_src(Variables),
@@ -2161,5 +2258,5 @@ print_debug_help :-
     %writeln('(I)  info             - Show information about the current state.'),
     !.
 
-:- find_missing_cuts.
+%:- find_missing_cuts.
 
