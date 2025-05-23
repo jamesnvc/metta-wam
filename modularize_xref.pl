@@ -551,6 +551,89 @@ zzz_look_at_min_cuts :-
                       format("     ~q -> ~q~n", [Pred, Neighbours]) ))
            )).
 
+zzz_look_at_paths(Path) :-
+    find_loops_in_file_graph(Loops),
+    Loops = [L|_],
+    L = loop(_F, Loop),
+    expand_graph_in_loop(Loop, LoopGraph),
+    maplist(file_module, Loop, ModLoop),
+    pred_graph_disjoint_paths(ModLoop, LoopGraph, Path).
+
+% if this fails, the predicates themselves don't loop.
+% so we can just cut out some preds that cross the boundary
+% so what's the smallest cut we can make to break the loop?
+pred_graph_disjoint_path(ModuleLoopPath, LoopGraph, Path) :-
+    cross_module_edges(LoopGraph, Crossings),
+    transpose_ugraph(LoopGraph, Transposed),
+    ModuleLoopPath = [FirstMod|_],
+    member(StartVertex-Dependencies, Crossings),
+    StartVertex = FirstMod:_,
+    transitive_closure(Transposed, TransposeClosure),
+    memberchk(StartVertex-DependedBy, TransposeClosure),
+    setof(DependedByMod,
+          Pred^member(DependedByMod:Pred, DependedBy),
+          DependendByMods
+         ),
+    DependendByMods = [FirstMod], % or is it okay if other mods, not in the loop, depend?
+    Path = [StartVertex|Next],
+    transitive_closure(LoopGraph, Closure),
+    pred_graph_path(LoopGraph, Closure, ModuleLoopPath, a([StartVertex]), Dependencies, Next-Next),
+    loop_in_path(Path).
+
+loop_in_path(Path) :-
+    Path = [Mod:_|Rest],
+    loop_in_path([], Mod, Rest).
+
+loop_in_path(_Seen, _Current, []) :- !, fail.
+loop_in_path(Seen, Current, [Current:_|Rest]) :-
+    !, loop_in_path(Seen, Current, Rest).
+loop_in_path(Seen, Current, [Mod:_|Rest]) :-
+    Mod \= Current,
+    ( member(Mod, Seen)
+    -> true
+    ;  loop_in_path([Current|Seen], Mod, Rest) ).
+
+pred_graph_path(LoopGraph, Closure, ModulePath, VisitedTerm, Deps, Path-PathTail) :-
+    member(NextVertex, Deps),
+    VisitedTerm = a(Visited0),
+    \+ member(NextVertex, Visited0),
+    ord_add_element(Visited0, NextVertex, Visited1),
+    nb_setarg(1, VisitedTerm, Visited1),
+    ModulePath = [ThisModule,NextModule|RestModules],
+    NextVertex = Mod:_,
+    memberchk(Mod, [ThisModule, NextModule]),
+    ( Mod = NextModule
+    -> ModulePath1 = [NextModule|RestModules]
+    ;  ModulePath1 = ModulePath ),
+    PathTail = [NextVertex|NewTail],
+    ( no_external_edges(Closure, NextVertex)
+    -> NewTail = []
+    ;  memberchk(NextVertex-NextDeps, LoopGraph),
+      pred_graph_path(LoopGraph, Closure, ModulePath1, VisitedTerm, NextDeps, Path-NewTail) ).
+
+no_external_edges(Closure, Vertex) :-
+    memberchk(Vertex-TransitiveDeps, Closure),
+    setof(DependencyMod,
+          Pred^member(DependencyMod:Pred, TransitiveDeps),
+          OtherModules),
+    Vertex = ThisMod:_,
+    % or is it okay if other non-loop mods, are here?
+    OtherModules = [ThisMod].
+
+zzz_find_predicate_call_loops(ExpandedLoops) :-
+    find_loops_in_file_graph(Loops),
+    Loops = [L|_],
+    L = loop(_F, Loop),
+    expand_graph_in_loop(Loop, LoopGraph),
+    cross_module_edges(LoopGraph, Crossings),
+    vertices_edges_to_ugraph([], Crossings, CrossingsGraph),
+    findall(ExpandedLoop,
+            loop_in_graph(CrossingsGraph, ExpandedLoop),
+            ExpandedLoops).
+% So if ExpandedLoops is [] (or remove the findall/3 and just see if it fails)
+% then there isn't mutual recursion across modules, so it should be possible to insert a cut somewhere
+% where best to insert it?
+
 cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
     % so we have the graph, degree of the edges
     % now what?
@@ -560,6 +643,14 @@ cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
     %  do we want to only get the edges that go to a specific other module? I guess so, just those that are in the cycle?
     %  or any cycle, I guess? Hm.
     % above we're considering loops seperately. I guess we need to merge loops? maybe?
+    % does it suffice to only count the edges that end in either this module or modules also in the loop?
+    % or do we only care about how many internal callees, since we need to pull those out?
+    %
+    % How are we making sure this isn't just adding a new node into the loop?
+    % want to write the predicates such that they don't have dependencies, or only depend on something that doesn't depend on it?
+    % so...how can we assure that?
+    % we can just pull out all the predicates that depend on "loop modules" & the internal ones they call, so that just imports the appropriate loop modules...but what if other modules depend on those predicates? Now we have a loop again.
+    % do we need to merge predicates from multiple modules?
     write([LoopGraph, ModuleToCut, NewModuleName]).
 
 move_predicates_to_new_module(OldModuleFile, PredIndicators, NewModulePath) :-
