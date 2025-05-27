@@ -524,8 +524,7 @@ cross_module_edges(Graph, CrossingEdges) :-
               OtherModVertices = [_|_],
               CrossingEdge = Vertex-OtherModVertices
             ),
-            CrossingEdges0),
-    sort(CrossingEdges0, CrossingEdges).
+            CrossingEdges).
 
 zzz_look_at_min_cuts :-
     find_loops_in_file_graph(Loops),
@@ -551,13 +550,74 @@ zzz_look_at_min_cuts :-
                       format("     ~q -> ~q~n", [Pred, Neighbours]) ))
            )).
 
-zzz_look_at_paths(Path) :-
-    find_loops_in_file_graph(Loops),
-    Loops = [L|_],
-    L = loop(_F, Loop),
+zzz_look_at_paths(Extract, AllToExtract) :-
+    find_loops_in_file_graph(Loops0),
+    maplist([loop(_, L), Len-L]>>length(L, Len), Loops0, Loops1),
+    sort(1, @=<, Loops1, Loops),
+    Loops = [_-Loop|_],
     expand_graph_in_loop(Loop, LoopGraph),
     maplist(file_module, Loop, ModLoop),
-    pred_graph_disjoint_paths(ModLoop, LoopGraph, Path).
+    %\+ pred_graph_disjoint_path(ModLoop, LoopGraph, _Path),
+    pick_preds_to_extract(LoopGraph, ModLoop, Extract),
+    transitive_closure(LoopGraph, Closure),
+    Extract = module_size_preds(ExtractMod, _, ExtractPreds),
+    findall(ToExtract,
+            ( member(ExtractPred, ExtractPreds),
+              memberchk((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
+              member(ToExtract, ExtractPredDeps),
+              ToExtract = ExtractMod:_
+            ),
+            AllToExtract),
+    findall(Module-Preds,
+            setof(Pred,
+                  ExtractMod^ExtractPredDeps^ExtractPred^(
+                      member(ExtractPred, ExtractPreds),
+                      member((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
+                      member(Module:Pred, ExtractPredDeps),
+                      Module \= ExtractMod
+                  ),
+                  Preds) ,
+            AllToImport),
+    length(AllToExtract, NToExtract),
+    debug(xxx, "IMPORTING ~q INTO NEW MOD", [AllToImport]),
+    format(user_output, "Name for module to extract ~q and its ~w dependencies to?: ",
+           [ExtractPreds, NToExtract]),
+    read_line_to_string(user_input, InputLine),
+    debug(xxx, "MOD NAME '~q'", [InputLine]),
+    once(( member(ThisModPath, Loop), file_module(ThisModPath, ExtractMod) )),
+    file_directory_name(ThisModPath, ThisModDir),
+    format(string(ExtractModPl), "~w.pl", [InputLine]),
+    directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
+    maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
+    move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath).
+
+pick_preds_to_extract(Graph, ModLoop, Extract) :-
+    transitive_closure(Graph, Closure),
+    % for each pair of adjacent modules in the ModLoop path
+    % find the number of dependencies between those two modules
+    % or the size of the transitive closure of the crosses between those two
+    % minimize that
+    ModLoop = [_|ModLoopRest],
+    once(append(ModLoopButLast, [_], ModLoop)),
+    maplist([A, B, A-B]>>true, ModLoopButLast, ModLoopRest, ModPairs),
+    debug(xxx, "LOOP ~q", [ModLoop]),
+    findall(
+        module_size_preds(FromMod, Degree, Preds),
+        aggregate(r(sum(Size), set(Pred)),
+                  Deps^OtherPred^TC^ToMod^(
+                      member(FromMod-ToMod, ModPairs),
+                      debug(xxx, "Checking ~q -> ~q", [FromMod, ToMod]),
+                      member((FromMod:Pred)-Deps, Graph),
+                      memberchk(ToMod:OtherPred, Deps),
+                      memberchk((FromMod:Pred)-TC, Closure),
+                      length(TC, Size)),
+                  r(Degree, Preds)
+                 ),
+        ExtractCandidates
+    ),
+    sort(2, @=<, ExtractCandidates, ExtractSorted),
+    %% Extract = ExtractSorted.
+    ExtractSorted = [Extract|_].
 
 % if this fails, the predicates themselves don't loop.
 % so we can just cut out some preds that cross the boundary
@@ -653,40 +713,56 @@ cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
     % do we need to merge predicates from multiple modules?
     write([LoopGraph, ModuleToCut, NewModuleName]).
 
-move_predicates_to_new_module(OldModuleFile, PredIndicators, NewModulePath) :-
+move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, NewModulePath) :-
     find_in_source(
         OldModuleFile,
         {PredIndicators}/[Term, Info, term_info(Term, Info)]>>
-            ( Term = (Head :- _),
+            ( once(( Term = (Head :- _) ; Term = Head)),
               head_pred(Head, Pred),
               memberchk(Pred, PredIndicators) ),
         Found),
     maplist([term_info(_, Info), Pos]>>
             ( get_dict(subterm_positions, Info, Pos),
               arg(2, Pos, End0), End is End0 + 1,
-              nb_setarg(2, Pos, End) ),
+              nb_setarg(2, Pos, End) ), % note that this changes =Found= too!
             Found, PositionsToExcise),
     read_file_to_string(OldModuleFile, OldFileContent, []),
-    % imports?
     file_module(NewModulePath, NewModule),
+    % TODO: handle operators
     setup_call_cleanup(
         open(NewModulePath, write, S),
         ( formatted_module(NewModule, PredIndicators, ModuleStr),
           format(S, "~s.~n~n", [ModuleStr]),
-          % TODO imports
+          forall(member(Module-Imports, ImportModulePreds),
+                 output_module_import(S, Module, Imports)),
           forall(member(term_info(_, Info), Found),
                  ( get_dict(subterm_positions, Info, SubPos),
                    arg(1, SubPos, TermStart),
-                   arg(2, SubPos, TermEnd0),
-                   TermEnd is TermEnd0 + 1, % for full-stop
+                   arg(2, SubPos, TermEnd),
                    Len is TermEnd - TermStart,
                    sub_string(OldFileContent, TermStart, Len, _, Extracted),
-                   write(S, Extracted) ))
+                   write(S, Extracted),
+                   write(S, "\n\n")
+                 )),
+          write(S, "\n")
         ),
         close(S)),
-    %
+    % TODO: change dependencies that were importing these predicates
+    % TODO: remove exports from original file
     splice_out_terms_in_file(OldModuleFile, PositionsToExcise),
     true.
+
+output_module_import(Output, Module, ImportPreds) :-
+    format(string(Begin), ":- use_module(~w, [ ", [Module]),
+    string_length(Begin, ImportIndent),
+    length(IndentCodes, ImportIndent),
+    maplist(=(0' ), IndentCodes),
+    format(Output, "~N~s", [Begin]),
+    [FirstPred|RestPreds] = ImportPreds,
+    format(Output, "~q", [FirstPred]),
+    forall(member(ImportPred, RestPreds),
+           format(Output, ",~n~s~q", [IndentCodes, ImportPred]) ),
+    format(Output, " ]).~n~n", []).
 
 zzz_make_graphs :-
     xxy_build_deps(Graph),
