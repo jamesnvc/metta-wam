@@ -557,6 +557,7 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     Loops = [_-Loop|_],
     expand_graph_in_loop(Loop, LoopGraph),
     maplist(file_module, Loop, ModLoop),
+    % checking that there isn't a mutual recursion
     %\+ pred_graph_disjoint_path(ModLoop, LoopGraph, _Path),
     pick_preds_to_extract(LoopGraph, ModLoop, Extract),
     transitive_closure(LoopGraph, Closure),
@@ -579,17 +580,19 @@ zzz_look_at_paths(Extract, AllToExtract) :-
                   Preds) ,
             AllToImport),
     length(AllToExtract, NToExtract),
-    debug(xxx, "IMPORTING ~q INTO NEW MOD", [AllToImport]),
     format(user_output, "Name for module to extract ~q and its ~w dependencies to?: ",
            [ExtractPreds, NToExtract]),
-    read_line_to_string(user_input, InputLine),
-    debug(xxx, "MOD NAME '~q'", [InputLine]),
+    read_line_to_string(user_input, NewModule),
     once(( member(ThisModPath, Loop), file_module(ThisModPath, ExtractMod) )),
     file_directory_name(ThisModPath, ThisModDir),
-    format(string(ExtractModPl), "~w.pl", [InputLine]),
+    format(string(ExtractModPl), "~w.pl", [NewModule]),
     directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
     maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
-    move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath).
+    move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath),
+    % import exported into old module
+    % re-write other dependencies
+    add_use_if_needed(ThisModPath, NewModule, PredsToExtract),
+    true.
 
 pick_preds_to_extract(Graph, ModLoop, Extract) :-
     transitive_closure(Graph, Closure),
