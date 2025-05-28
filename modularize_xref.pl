@@ -589,7 +589,8 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     format(string(ExtractModPl), "~w.pl", [NewModule]),
     directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
     maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
-    % Also need to get operator definitions
+    % TODO: Also need to get operator definitions
+    % check if defined predicates are in module/2 in op/3 terms, if so take to new
     move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath),
     % import exported into old module
     add_use_if_needed(ThisModPath, NewModule, PredsToExtract),
@@ -643,23 +644,26 @@ rewrite_imports(File, NewModule, OrdExtractedPreds, [Info|Next]) :-
     get_dict(expanded_term, Info, (:- use_module(OldModule, OldImports))),
     sort(OldImports, OrderedOldImports),
     ord_subtract(OrderedOldImports, OrdExtractedPreds, RemovedImports),
-    ( RemovedImports = []
+    ( ( RemovedImports = [] ; forall(member(Imp, RemovedImports), Imp = op(_, _, _)) )
     -> true
     ; format(string(BeginImport), ":- use_module(~w, [ ", [OldModule]),
       string_length(BeginImport, IndentLength),
       length(IndentCodes, IndentLength),
       maplist(=(0' ), IndentCodes),
-      setup_call_cleanup(
-          open(File, update, S),
-          ( seek(S, UseStart, bof, _),
-            write(S, BeginImport),
-            RemovedImports = [FirstImport|OtherImports],
-            format(S, "~q", [FirstImport]),
-            forall(member(Import, OtherImports),
-                   ( format(S, ",~n~s~q", [IndentCodes, Import]))),
-            write(S, " ]).\n\n")
-          ),
-          close(S)) ),
+      read_file_to_string(File, FileContentsString, []),
+      sub_string(FileContentsString, 0, UseStart, _After, BeforeContent),
+      sub_string(FileContentsString, UseStart, _, 0, AfterContent),
+      Contents = [BeforeContent, BeginImport|ContentsRest0],
+      RemovedImports = [FirstImport|OtherImports],
+      format(string(FirstImportString), "~q", [FirstImport]),
+      ContentsRest0 = [FirstImportString|ContentsRest1],
+      findall(ImportLine,
+              ( member(Import, OtherImports),
+                format(string(ImportLine), ",~n~s~q", [IndentCodes, Import]) ),
+              ContentsRest1, ContentsRest2),
+      ContentsRest2 = [" ]).\n\n", AfterContent],
+      atomics_to_string(Contents, "", ContentsString),
+      setup_call_cleanup(open(File, write, S), write(S, ContentsString), close(S)) ),
     rewrite_imports(File, NewModule, OrdExtractedPreds, Next).
 
 
