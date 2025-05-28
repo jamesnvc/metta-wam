@@ -582,17 +582,104 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     length(AllToExtract, NToExtract),
     format(user_output, "Name for module to extract ~q and its ~w dependencies to?: ",
            [ExtractPreds, NToExtract]),
-    read_line_to_string(user_input, NewModule),
+    read_line_to_string(user_input, NewModuleString),
+    atom_string(NewModule, NewModuleString),
     once(( member(ThisModPath, Loop), file_module(ThisModPath, ExtractMod) )),
     file_directory_name(ThisModPath, ThisModDir),
     format(string(ExtractModPl), "~w.pl", [NewModule]),
     directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
     maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
+    % Also need to get operator definitions
     move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath),
     % import exported into old module
-    % re-write other dependencies
     add_use_if_needed(ThisModPath, NewModule, PredsToExtract),
+    % re-write other dependencies
+    change_other_imports(ExtractMod, NewModule, PredsToExtract),
     true.
+
+change_other_imports(OldModule, NewModule, ExtractedPreds) :-
+    % TODO: pass in directory path
+    forall(directory_member("prolog", File, [ recursive(true), file_type(prolog) ]),
+           ( file_module(File, FileModule),
+             ( FileModule = NewModule
+             -> true
+             ; change_imports(OldModule, NewModule, ExtractedPreds, File) ) )).
+
+change_imports(OldModule, NewModule, ExtractedPreds, File) :-
+    sort(ExtractedPreds, OrdExtractedPreds),
+    find_in_source(
+        File,
+        {OldModule, OrdExtractedPreds}/[(:- use_module(OldModule, Imports)), Info, Info]>>(
+            sort(Imports, SortedImports),
+            ord_intersect(SortedImports, OrdExtractedPreds)
+        ),
+        Found),
+    Found = [_|_], !,
+    debug(xxx, "Extracting from ~w; Found ~q", [File, Found]),
+    % thought was to just excise the position selectively, but we don't know where the commas are
+    % and anyway we probably generated all this ourselves, so let's just rewrite the whole import
+    %find_old_import_locations(OrdExtractedPreds, Found, Positions),
+    %debug(xxx, "To change in ~q: ~q", [File, Positions]),
+    rewrite_imports(File, NewModule, OrdExtractedPreds, Found),
+    findall(UsedImport,
+            ( member(Info, Found),
+              get_dict(expanded_term, Info, (:- use_module(_, Imported))),
+              member(UsedImport, Imported),
+              ord_memberchk(UsedImport, OrdExtractedPreds) ),
+            UsedImports
+           ),
+    add_use_if_needed(File, NewModule, UsedImports).
+change_imports(_, _, _, _).
+
+rewrite_imports(_, _, _, []).
+rewrite_imports(File, NewModule, OrdExtractedPreds, [Info|Next]) :-
+    get_dict(subterm_positions, Info, Position),
+    arg(1, Position, UseStart),
+    arg(2, Position, UseEnd0),
+    % TODO: need to properly find the full-stop end position of the term
+    UseEnd is UseEnd0 + 1,
+    nb_setarg(2, Position, UseEnd),
+    splice_out_terms_in_file(File, [Position]),
+    get_dict(expanded_term, Info, (:- use_module(OldModule, OldImports))),
+    sort(OldImports, OrderedOldImports),
+    ord_subtract(OrderedOldImports, OrdExtractedPreds, RemovedImports),
+    ( RemovedImports = []
+    -> true
+    ; format(string(BeginImport), ":- use_module(~w, [ ", [OldModule]),
+      string_length(BeginImport, IndentLength),
+      length(IndentCodes, IndentLength),
+      maplist(=(0' ), IndentCodes),
+      setup_call_cleanup(
+          open(File, update, S),
+          ( seek(S, UseStart, bof, _),
+            write(S, BeginImport),
+            RemovedImports = [FirstImport|OtherImports],
+            format(S, "~q", [FirstImport]),
+            forall(member(Import, OtherImports),
+                   ( format(S, ",~n~s~q", [IndentCodes, Import]))),
+            write(S, " ]).\n\n")
+          ),
+          close(S)) ),
+    rewrite_imports(File, NewModule, OrdExtractedPreds, Next).
+
+
+find_old_import_locations(_, [], []).
+find_old_import_locations(ToExtract, [Info|Next], PosTail) :-
+    get_dict(expanded_term, Info, UseModuleTerm),
+    get_dict(subterm_positions, Info, UseModuleDeclPositions),
+    UseModuleTerm = (:- use_module(_, Imports)),
+    arg(5, UseModuleDeclPositions, [UseModulePositions]),
+    arg(5, UseModulePositions, [_, list_position(_, _, ImportListPositions, _)]),
+    maplist([Import, Position, import_pos(Import, Position)]>>true,
+            Imports, ImportListPositions, ImportPositions),
+    findall(
+        import_pos(Import, Position),
+        ( member(import_pos(Import, Position), ImportPositions),
+          ord_memberchk(Import, ToExtract) ),
+        PosTail,
+        NewTail
+    ),
+    find_old_import_locations(ToExtract, Next, NewTail).
 
 pick_preds_to_extract(Graph, ModLoop, Extract) :-
     transitive_closure(Graph, Closure),
