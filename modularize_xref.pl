@@ -564,9 +564,10 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     Extract = module_size_preds(ExtractMod, _, ExtractPreds),
     findall(ToExtract,
             ( member(ExtractPred, ExtractPreds),
-              memberchk((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
-              member(ToExtract, ExtractPredDeps),
-              ToExtract = ExtractMod:_
+              ( ToExtract = ExtractMod:ExtractPred ;
+                ( memberchk((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
+                  member(ToExtract, ExtractPredDeps),
+                  ToExtract = ExtractMod:_) )
             ),
             AllToExtract),
     findall(Module-Preds,
@@ -808,6 +809,7 @@ cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
     write([LoopGraph, ModuleToCut, NewModuleName]).
 
 move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, NewModulePath) :-
+    % find operators that should be moved over
     find_in_source(OldModuleFile,
                    [(:- module(_, Exports)), Info, Info-Exports]>>true,
                    [OldModuleInfo-OldModuleExports]),
@@ -815,11 +817,12 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
             ( member(op(A, B, C), OldModuleExports),
               memberchk(C/_, PredIndicators) ),
             OpsToExtract),
-    debug(xxx, "OPERATORS ~q", [OpsToExtract]),
+    % find locations of predicate definitions
+    % TODO: also find dynamic/1 and table/1 declarations involving these?
     find_in_source(
         OldModuleFile,
         {PredIndicators}/[Term, Info, term_info(Term, Info)]>>
-            ( once(( Term = (Head :- _) ; Term = Head)),
+            ( ( Term = (Head :- _) ; Term = Head ; Term = (:- dynamic(Pred))),
               head_pred(Head, Pred),
               memberchk(Pred, PredIndicators) ),
         Found),
@@ -829,6 +832,7 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
               stream_position_data(char_count, AfterPos, End),
               nb_setarg(2, Pos, End) ), % note that this changes =Found= too!
             Found, PositionsToExcise),
+    % write new module by extracting definitions from old module
     read_file_to_string(OldModuleFile, OldFileContent, []),
     file_module(NewModulePath, NewModule),
     append(PredIndicators, OpsToExtract, NewModuleExports),
@@ -850,11 +854,13 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
           write(S, "\n")
         ),
         close(S)),
+    % remove definitions & old exports from original file
     get_dict(subterm_positions, OldModuleInfo, OldModPositions),
     arg(1, OldModPositions, OldModStart),
     get_dict(after_term_position, OldModuleInfo, OldModAfterPos),
     stream_position_data(char_count, OldModAfterPos, OldModEnd),
     splice_out_terms_in_file(OldModuleFile, [p(OldModStart, OldModEnd)|PositionsToExcise]),
+    % add new exports to old module
     read_file_to_string(OldModuleFile, OldModuleContent, []),
     file_module(OldModuleFile, OldModule),
     findall(Export,
@@ -866,9 +872,9 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
     setup_call_cleanup(
         open(OldModuleFile, write, S1),
         ( write(S1, OldModuleUpdatedExports),
+          write(S1, ".\n\n"),
           write(S1, OldModuleContent) ),
-        close(S1)),
-    true.
+        close(S1)).
 
 output_module_import(Output, Module, ImportPreds) :-
     format(string(Begin), ":- use_module(~w, [ ", [Module]),
