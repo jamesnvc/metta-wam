@@ -808,6 +808,14 @@ cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
     write([LoopGraph, ModuleToCut, NewModuleName]).
 
 move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, NewModulePath) :-
+    find_in_source(OldModuleFile,
+                   [(:- module(_, Exports)), Info, Info-Exports]>>true,
+                   [OldModuleInfo-OldModuleExports]),
+    findall(op(A, B, C),
+            ( member(op(A, B, C), OldModuleExports),
+              memberchk(C/_, PredIndicators) ),
+            OpsToExtract),
+    debug(xxx, "OPERATORS ~q", [OpsToExtract]),
     find_in_source(
         OldModuleFile,
         {PredIndicators}/[Term, Info, term_info(Term, Info)]>>
@@ -817,15 +825,16 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
         Found),
     maplist([term_info(_, Info), Pos]>>
             ( get_dict(subterm_positions, Info, Pos),
-              arg(2, Pos, End0), End is End0 + 1,
+              get_dict(after_term_position, Info, AfterPos),
+              stream_position_data(char_count, AfterPos, End),
               nb_setarg(2, Pos, End) ), % note that this changes =Found= too!
             Found, PositionsToExcise),
     read_file_to_string(OldModuleFile, OldFileContent, []),
     file_module(NewModulePath, NewModule),
-    % TODO: handle operators
+    append(PredIndicators, OpsToExtract, NewModuleExports),
     setup_call_cleanup(
         open(NewModulePath, write, S),
-        ( formatted_module(NewModule, PredIndicators, ModuleStr),
+        ( formatted_module(NewModule, NewModuleExports, ModuleStr),
           format(S, "~s.~n~n", [ModuleStr]),
           forall(member(Module-Imports, ImportModulePreds),
                  output_module_import(S, Module, Imports)),
@@ -841,9 +850,24 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
           write(S, "\n")
         ),
         close(S)),
-    % TODO: change dependencies that were importing these predicates
-    % TODO: remove exports from original file
-    splice_out_terms_in_file(OldModuleFile, PositionsToExcise),
+    get_dict(subterm_positions, OldModuleInfo, OldModPositions),
+    arg(1, OldModPositions, OldModStart),
+    get_dict(after_term_position, OldModuleInfo, OldModAfterPos),
+    stream_position_data(char_count, OldModAfterPos, OldModEnd),
+    splice_out_terms_in_file(OldModuleFile, [p(OldModStart, OldModEnd)|PositionsToExcise]),
+    read_file_to_string(OldModuleFile, OldModuleContent, []),
+    file_module(OldModuleFile, OldModule),
+    findall(Export,
+            ( member(Export, OldModuleExports),
+              \+ memberchk(Export, OpsToExtract),
+              \+ memberchk(Export, PredIndicators) ),
+            OldModuleNewExports),
+    formatted_module(OldModule, OldModuleNewExports, OldModuleUpdatedExports),
+    setup_call_cleanup(
+        open(OldModuleFile, write, S1),
+        ( write(S1, OldModuleUpdatedExports),
+          write(S1, OldModuleContent) ),
+        close(S1)),
     true.
 
 output_module_import(Output, Module, ImportPreds) :-
@@ -962,8 +986,10 @@ find_in_source(Path, Find, Results) :-
           prolog_read_source_term(Stream, Term, ExTerm, [ term_position(TermPos),
                                                           comments(CommentPos),
                                                           subterm_positions(SubTermPos) ]),
+          stream_property(Stream, position(AfterPos)),
           ( call(Find, Term, _{term_position: TermPos, subterm_positions: SubTermPos,
-                               expanded_term: ExTerm, comments: CommentPos},
+                               expanded_term: ExTerm, comments: CommentPos,
+                               after_term_position: AfterPos},
                  ToInsert)
           -> arg(1, Acc, L), nb_setarg(1, Acc, [ToInsert|L])
           ; true ),
