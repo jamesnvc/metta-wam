@@ -145,7 +145,11 @@ maybe_add_definition(File, OldVal, NewVal) :-
     is_list(OldVal), !, NewVal = [File|OldVal].
 maybe_add_definition(_, V, V).
 
+clear_xref :-
+    forall(xref_current_source(Source), xref_clean(Source)).
+
 load_xrefs(DirPath, FileDefs) :-
+    clear_xref,
     findall(
         file_def_call_ex(File, Defns, Called, AlreadyExported),
         ( directory_member(DirPath, File, [ recursive(true), file_type(prolog) ]),
@@ -555,10 +559,15 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     maplist([loop(_, L), Len-L]>>length(L, Len), Loops0, Loops1),
     sort(1, @=<, Loops1, Loops),
     Loops = [_-Loop|_],
+    debug(xxx, "LOOP FOUND ~q", [Loop]),
     expand_graph_in_loop(Loop, LoopGraph),
     maplist(file_module, Loop, ModLoop),
     % checking that there isn't a mutual recursion
-    %\+ pred_graph_disjoint_path(ModLoop, LoopGraph, _Path),
+    ( pred_graph_disjoint_path(ModLoop, LoopGraph, Path)
+      % what what do if true?
+    -> debug(xxx, "No disjoint path in graph, need to merge instead: ~q", [Path]),
+       fail
+    ; true ),
     pick_preds_to_extract(LoopGraph, ModLoop, Extract),
     transitive_closure(LoopGraph, Closure),
     Extract = module_size_preds(ExtractMod, _, ExtractPreds),
@@ -590,11 +599,10 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     format(string(ExtractModPl), "~w.pl", [NewModule]),
     directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
     maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
+    debug(xxx, "preds to extract ~q", [PredsToExtract]),
     % TODO: Also need to get operator definitions
     % check if defined predicates are in module/2 in op/3 terms, if so take to new
     move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath),
-    % import exported into old module
-    add_use_if_needed(ThisModPath, NewModule, PredsToExtract),
     % re-write other dependencies
     change_other_imports(ExtractMod, NewModule, PredsToExtract),
     true.
@@ -617,7 +625,6 @@ change_imports(OldModule, NewModule, ExtractedPreds, File) :-
         ),
         Found),
     Found = [_|_], !,
-    debug(xxx, "Extracting from ~w; Found ~q", [File, Found]),
     % thought was to just excise the position selectively, but we don't know where the commas are
     % and anyway we probably generated all this ourselves, so let's just rewrite the whole import
     %find_old_import_locations(OrdExtractedPreds, Found, Positions),
@@ -701,7 +708,6 @@ pick_preds_to_extract(Graph, ModLoop, Extract) :-
         aggregate(r(sum(Size), set(Pred)),
                   Deps^OtherPred^TC^ToMod^(
                       member(FromMod-ToMod, ModPairs),
-                      debug(xxx, "Checking ~q -> ~q", [FromMod, ToMod]),
                       member((FromMod:Pred)-Deps, Graph),
                       memberchk(ToMod:OtherPred, Deps),
                       memberchk((FromMod:Pred)-TC, Closure),
@@ -874,7 +880,11 @@ move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, 
         ( write(S1, OldModuleUpdatedExports),
           write(S1, ".\n\n"),
           write(S1, OldModuleContent) ),
-        close(S1)).
+        close(S1)),
+    % import exported into old module
+    % TODO what to import? should do just what's needed
+    append(PredIndicators, OpsToExtract, OldModuleNewImports),
+    add_use_if_needed(OldModuleFile, NewModule, OldModuleNewImports).
 
 output_module_import(Output, Module, ImportPreds) :-
     format(string(Begin), ":- use_module(~w, [ ", [Module]),
