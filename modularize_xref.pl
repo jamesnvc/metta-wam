@@ -705,15 +705,24 @@ pick_preds_to_extract(Graph, ModLoop, Extract) :-
     debug(xxx, "LOOP ~q", [ModLoop]),
     findall(
         module_size_preds(FromMod, Degree, Preds),
-        aggregate(r(sum(Size), set(Pred)),
+        ( aggregate(r(sum(Size), set(Pred)),
                   Deps^OtherPred^TC^ToMod^(
                       member(FromMod-ToMod, ModPairs),
                       member((FromMod:Pred)-Deps, Graph),
                       memberchk(ToMod:OtherPred, Deps),
                       memberchk((FromMod:Pred)-TC, Closure),
                       length(TC, Size)),
-                  r(Degree, Preds)
-                 ),
+                  r(Degree, Preds)),
+          forall(( member(Pred, Preds),
+                   member(FromMod:Pred-TC, Closure),
+                   member(TransDep, TC) ),
+                 ( TransDep = TransDepMod:_,
+                   select(FromMod, ModLoop, OtherModsInLoop),
+                   (  memberchk(TransDepMod, OtherModsInLoop)
+                   -> debug(xxx, "Pred goes into loop ~q: ~q", [Pred, TransDep]),
+                      fail
+                   ; true ) ))
+        ),
         ExtractCandidates
     ),
     sort(2, @=<, ExtractCandidates, ExtractSorted),
