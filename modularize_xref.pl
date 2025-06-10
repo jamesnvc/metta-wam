@@ -230,6 +230,7 @@ export_defined_operators(Path, OpPoses) :-
 % Adding imports
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%! add_use_if_needed(+Path:atom, +Module:atom, +Predicates:list(term)) is det.
 add_use_if_needed(Path, Module, Predicates) :-
     LastModuleAt = acc(0),
     AlreadyImported = acc(false),
@@ -589,9 +590,29 @@ zzz_look_at_paths(Extract, AllToExtract) :-
                   ),
                   Preds) ,
             AllToImport),
+    ( append(_, [PrevMod, ExtractMod|_], ModLoop) -> true ; PrevMod = '???' ),
+    format(user_output, "Loop from ~q -> ~q via ~q~n", [PrevMod, ExtractMod, ExtractPreds]),
+    format(user_output, "Inline or extract? [i/e]: ", []),
+    ( repeat,
+      read_line_to_string(user_input, MethodInput),
+      memberchk(MethodInput, ["i", "e"]), ! ),
+    ( MethodInput = "e"
+    -> break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract)
+    ; break_loop_by_inlining(Loop, PrevMod, ExtractMod, AllToImport, AllToExtract) ).
+
+break_loop_by_inlining(Loop, PrevMod, ExtractMod, AllToImport, AllToExtract) :-
+    once(( member(ThisModPath, Loop), file_module(ThisModPath, ExtractMod) )),
+    once(( member(ParentModPath, Loop), file_module(ParentModPath, PrevMod) )),
+    copy_predicates_into_caller(ParentModPath, ThisModPath, AllToExtract),
+    % either also import AllToImport or inline those too?
+    forall(member(Mod-Preds, AllToImport),
+           add_use_if_needed(ParentModPath, Mod, Preds)).
+
+break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract) :-
     length(AllToExtract, NToExtract),
-    format(user_output, "Name for module to extract ~q and its ~w dependencies to?: ",
-           [ExtractPreds, NToExtract]),
+    % ask, then will need to follow the dependency chain for inlining?
+    format(user_output, "Name for module to extract ~q:~q and its ~w dependencies to?: ",
+           [ExtractMod, ExtractPreds, NToExtract]),
     read_line_to_string(user_input, NewModuleString),
     atom_string(NewModule, NewModuleString),
     once(( member(ThisModPath, Loop), file_module(ThisModPath, ExtractMod) )),
@@ -600,12 +621,9 @@ zzz_look_at_paths(Extract, AllToExtract) :-
     directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
     maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
     debug(xxx, "preds to extract ~q", [PredsToExtract]),
-    % TODO: Also need to get operator definitions
-    % check if defined predicates are in module/2 in op/3 terms, if so take to new
     move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath),
     % re-write other dependencies
-    change_other_imports(ExtractMod, NewModule, PredsToExtract),
-    true.
+    change_other_imports(ExtractMod, NewModule, PredsToExtract).
 
 change_other_imports(OldModule, NewModule, ExtractedPreds) :-
     % TODO: pass in directory path
@@ -822,6 +840,51 @@ cut_graph(LoopGraph, ModuleToCut, NewModuleName) :-
     % we can just pull out all the predicates that depend on "loop modules" & the internal ones they call, so that just imports the appropriate loop modules...but what if other modules depend on those predicates? Now we have a loop again.
     % do we need to merge predicates from multiple modules?
     write([LoopGraph, ModuleToCut, NewModuleName]).
+
+%! copy_predicates_into_caller(+CallerModuleFile:atom, +CalleeModuleFile:atom, +PredIndicators:list(atom)) is det.
+copy_predicates_into_caller(CallerModuleFile, CalleeModuleFile, PredIndicators) :-
+   find_in_source(
+        CalleeModuleFile,
+        {PredIndicators}/[Term, Info, term_pos(Start, End)]>>
+            ( ( Term = (Head :- _) ; Term = Head ; Term = (:- dynamic(Pred))),
+              head_pred(Head, Pred),
+              memberchk(Pred, PredIndicators),
+              get_dict(subterm_positions, Info, Pos),
+              arg(1, Pos, Start),
+              get_dict(after_term_position, Info, AfterPos),
+              stream_position_data(char_count, AfterPos, End)
+            ),
+        Found),
+   read_file_to_string(CalleeModuleFile, CalleeModuleContent, []),
+   maplist({CalleeModuleContent}/[term_pos(Start, End), PredContent]>>(
+               Len is End - Start,
+               sub_string(CalleeModuleContent, Start, Len, _, PredContent)
+           ),
+           Found, ExtractedPreds),
+   setup_call_cleanup(open(CallerModuleFile, append, S),
+                      ( seek(S, 0, eof, _),
+                        forall(member(PredContent, ExtractedPreds),
+                               format(S, "~n~s~n", [PredContent]))
+                      ),
+                      close(S)),
+   % Remove import from caller
+   file_module(CalleeModuleFile, CalleeModule),
+   find_in_source(
+       CallerModuleFile,
+       {CalleeModule}/[(:- use_module(CalleeModule, Imports)), Info, Imports-Info]>>true,
+       ModuleLocs),
+   sort(PredIndicators, OrdPredIndicators),
+   forall(member(Imports-Info, ModuleLocs),
+          ( get_dict(subterm_positions, Info, Pos),
+            arg(1, Pos, Start),
+            get_dict(after_term_position, Info, AfterPos),
+            stream_position_data(char_count, AfterPos, End),
+            sort(Imports, OrdImports),
+            ord_subtract(OrdImports, OrdPredIndicators, Remainder),
+            splice_out_terms_in_file(CallerModuleFile, [p(Start, End)]),
+            ( Remainder == []
+            -> true
+            ; add_use_if_needed(CallerModuleFile, CalleeModule, Remainder) ))).
 
 move_predicates_to_new_module(OldModuleFile, PredIndicators, ImportModulePreds, NewModulePath) :-
     % find operators that should be moved over
