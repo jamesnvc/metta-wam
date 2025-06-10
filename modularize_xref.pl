@@ -555,7 +555,7 @@ zzz_look_at_min_cuts :-
                       format("     ~q -> ~q~n", [Pred, Neighbours]) ))
            )).
 
-zzz_look_at_paths(Extract, AllToExtract) :-
+break_dependency_loop :-
     find_loops_in_file_graph(Loops0),
     maplist([loop(_, L), Len-L]>>length(L, Len), Loops0, Loops1),
     sort(1, @=<, Loops1, Loops),
