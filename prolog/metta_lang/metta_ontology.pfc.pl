@@ -1,31 +1,3 @@
-:- module(metta_ontology_pfc, [ op(500,fx,~),
-                                op(1050,xfx,<-),
-                                op(1050,xfx,<==>),
-                                op(1050,xfx,=>),
-                                op(1100,fx,==>),
-                                op(1150,xfx,::::),
-                                metta_atom_asserted/4 ]).
-:- use_module(metta_interp, [ metta_atom_asserted_hook/2,
-                              pfcAdd_Now/1 ]).
-:- use_module(metta_pfc_base, [ pfcAdd/1,
-                                op(500,fx,~),
-                                op(1050,xfx,<-),
-                                op(1050,xfx,<==>),
-                                op(1050,xfx,==>),
-                                op(1100,fx,==>),
-                                op(1150,xfx,::::) ]).
-:- use_module(metta_pfc_debug, [ pfcWhy1/1,
-                                 op(500,fx,~),
-                                 op(1050,xfx,<-),
-                                 op(1050,xfx,<==>),
-                                 op(1050,xfx,==>),
-                                 op(1100,fx,==>),
-                                 op(1150,xfx,::::) ]).
-:- use_module(metta_transpiled_header, [ metta_atom_asserted/2 ]).
-
-
-
-
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -33,7 +5,11 @@
  *              optimizing and transforming function/logic programs. It handles different
  *              logical constructs and performs conversions between functions and predicates.
  *
- * Author: Douglas R. Migseti    https://github.com/logicmoo/hyperon-wam
+ * Author: Douglas R. Miles
+ * Contact: logicmoo@gmail.com / dmiles@logicmoo.org
+ * License: LGPL
+ * Repository: https://github.com/trueagi-io/metta-wam
+ *             https://github.com/logicmoo/hyperon-wam
  * Created Date: 8/23/2023
  * Last Modified: $LastChangedDate$  # You will replace this with Git automation
  *
