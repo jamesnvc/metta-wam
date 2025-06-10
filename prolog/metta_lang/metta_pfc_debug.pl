@@ -1,3 +1,25 @@
+:- module(metta_pfc_debug, [ op(500,fx,~),
+                             op(1050,xfx,<-),
+                             op(1050,xfx,<==>),
+                             op(1050,xfx,==>),
+                             op(1100,fx,==>),
+                             op(1150,xfx,::::),
+                             brake/1,
+                             get_why_uu/1,
+                             lookup_spft/3,
+                             pfcError/2,
+                             pfcFact/1,
+                             pfcTF1/1,
+                             pfcTraceExecution/0,
+                             pfcTraceMsg/1,
+                             pfcTraceMsg/2,
+                             pfcTraceRem/1,
+                             pfcWarn/1,
+                             pfcWarn/2,
+                             pfcWhy/1,
+                             pfcWhy1/1,
+                             printLine/0,
+                             unwrap_litr0/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -141,13 +163,9 @@ pfc_listing_module :- nop(module(pfc_listing,
 :- endif.
 
 %   Operator declarations
-%
-%   This section defines custom operators to be used in the program.
-%
-%   - `~` (fx, precedence 500): Unary negation operator.
-%   - `==>` (xfx, precedence 1050): Defines an implication or rule operator used in logic programming.
-%   - `<==>` (xfx, precedence 1050): Represents bi-conditional equivalence.
-%   - `<-` (xfx, precedence 1050): Represents a backward implication or reverse rule.
+efines custom operators to be used in the precedence 500): Unary negation o, precedence 1050): Defines an implication or rulprogramming.
+%   - `<==>` (xfx, precedence itional equivalence.
+%   - `<-` (xfx, precedencard implication or reverse rule.
 %   - `::::` (xfx, precedence 1150): A specialized operator often used in Prolog for custom logic.
 %
 %   These operator declarations define how terms with these symbols are parsed and processed
@@ -193,7 +211,7 @@ pfc_listing_module :- nop(module(pfc_listing,
 lqu :- listing(que/2).
 
 % Ensure that the file `metta_pfc_base` is loaded.
-:- ensure_loaded(metta_pfc_base).
+
 %   File   : pfcdebug.pl
 %   Author : Tim Finin, finin@prc.unisys.com
 %   Author : Dave Matuszek, dave@prc.unisys.com
@@ -1844,6 +1862,8 @@ pp_DB :- prolog_load_context(module, M), pp_DB(M).
 %   @example Executing a goal in a specific module:
 %       ?- with_exact_kb(my_module, my_goal).
 %
+
+:- meta_predicate with_exact_kb(0,?).
 with_exact_kb(M, G) :-
     M:call(G).
 
@@ -1857,6 +1877,8 @@ with_exact_kb(M, G) :-
 %   @example Pretty printing the Pfc database for a module:
 %       ?- pp_DB(my_module).
 %
+
+:- meta_predicate pp_DB(0).
 pp_DB(M) :-
     with_exact_kb(M, M:must_det_ll((
         pp_db_facts,    % Pretty print facts.
@@ -1922,6 +1944,8 @@ pp_db_facts(MM) :- ignore(pp_db_facts(MM, _, true)).
 %   @arg Module The module context.
 %   @arg Pattern The pattern to match facts against.
 %
+
+:- meta_predicate pp_db_facts(0,?).
 pp_db_facts(MM, Pattern) :- pp_db_facts(MM, Pattern, true).
 
 %!  pp_db_facts(+Module, +Pattern, +Condition) is nondet.
@@ -1932,6 +1956,8 @@ pp_db_facts(MM, Pattern) :- pp_db_facts(MM, Pattern, true).
 %   @arg Pattern The pattern to match facts against.
 %   @arg Condition The condition to filter facts.
 %
+
+:- meta_predicate pp_db_facts(0,?,?).
 pp_db_facts(MM, P, C) :-
   pfc_facts_in_kb(MM, P, C, L),
   pfc_classifyFacts(L, User, Pfc, _ZRule),
@@ -2048,6 +2074,8 @@ pp_db_triggers(MM) :-
 %
 %   @arg Module The module context.
 %
+
+:- meta_predicate pp_db_supports(0).
 pp_db_supports(MM) :-
     % temporary hack to print supports
     format("~N~nSupports in [~w]...~n", [MM]),
@@ -2128,6 +2156,8 @@ has_cl(H) :- predicate_property(H, number_of_clauses(_)).
 % PFC2.0 clause_or_call(isa(I,C),true):-!,call_u(isa_asserted(I,C)).
 % PFC2.0 clause_or_call(genls(I,C),true):-!,on_x_log_throw(call_u(genls(I,C))).
 clause_or_call(H, B) :- clause(src_edit(_Before, H), B).
+
+:- meta_predicate clause_or_call(0,?).
 clause_or_call(H, B) :-
     predicate_property(H, number_of_clauses(C)),
     predicate_property(H, number_of_rules(R)),
@@ -2178,6 +2208,8 @@ no_side_effects(P) :- (\+ is_side_effect_disabled -> true;(get_functor(P, F, _),
 %   @arg Condition The condition to filter facts.
 %   @arg Facts The retrieved facts.
 %
+
+:- meta_predicate pfc_facts_in_kb(0,?,?,?).
 pfc_facts_in_kb(MM, P, C, L) :-
     with_exact_kb(MM, setof_or_nil(P, pfcFact(P, C), L)).
 
@@ -2413,6 +2445,50 @@ pfcWhy_sub_sub(P) :-
 
 % Import the lists library for list processing.
 :- use_module(library(lists)).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ locally_clause_asserted/1,
+                             sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_ontology, [ a/2 ]).
+:- use_module(metta_pfc_base, [ bagof_or_nil/3,
+                                call_u/1,
+                                is_file_ref/1,
+                                must_ex/1,
+                                pfcCallSystem/1,
+                                pfcDefault/2,
+                                pfcType/2,
+                                pfc_call/1,
+                                quietly_ex/1,
+                                setof_or_nil/3,
+                                op(500,fx,~),
+                                op(1050,xfx,<-),
+                                op(1050,xfx,<==>),
+                                op(1050,xfx,==>),
+                                op(1100,fx,==>),
+                                op(1150,xfx,::::) ]).
+:- use_module(metta_pfc_support, [ clear_proofs/0,
+                                   find_mfl/2,
+                                   justifications/2,
+                                   matches_why_UU/1,
+                                   nb_hasval/2,
+                                   nb_pushval/2,
+                                   pfcGetSupport/2,
+                                   reset_shown_justs/0 ]).
+:- use_module(metta_printer, [ write_src/1 ]).
+:- use_module(metta_testing, [ color_g_mesg_ok/2 ]).
+:- use_module(metta_utils, [ ibreak/0,
+                             my_maplist/2,
+                             pp/1 ]).
+:- use_module(swi_support, [ symbolic_list_concat/3 ]).
+
+
+
+
+
+
+
+
+
 
 % Declare `t_l:whybuffer/2` as a dynamic predicate, allowing it to be modified during runtime.
 :- dynamic(t_l:whybuffer/2).
