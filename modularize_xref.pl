@@ -146,7 +146,7 @@ maybe_add_definition(File, OldVal, NewVal) :-
 maybe_add_definition(_, V, V).
 
 clear_xref :-
-    forall(xref_current_source(Source), xref_clean(Source)).
+    forall(xref_current_source(Source), ignore(xref_clean(Source))).
 
 load_xrefs(DirPath, FileDefs) :-
     clear_xref,
