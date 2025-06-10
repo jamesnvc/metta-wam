@@ -721,10 +721,10 @@ For example:
 (@doc max-atom
   (@desc "Returns atom with maximum value in the expression (first argument). Only numbers are allowed.")
   (@params (
-    (@param "Expression containing atoms of Number type")))
+	(@param "Expression containing atoms of Number type")))
   (@return "Maximum value in the expression. Error if expression contains non-numeric value or is empty."))
 (: max-atom (-> Expression Number))
-(is-fn-1 max-atom max_list)
+(= (max-atom $L) (call-fn! max_list $L))
 
 (iz size-atom MeTTa)
 (@doc size-atom
@@ -905,6 +905,7 @@ For example:
 (is-pred isinf-math is_Inf)
 
 (: random-int (-> RandomGenerator Number Number Number))
+(iz random-int UseRust)
 (@doc random-int
   (@desc "Returns random int number from range defined by two numbers (second and third argument)")
   (@params (
@@ -913,6 +914,7 @@ For example:
     (@param "Range end")))
   (@return "Random int number from defined range"))
 
+(iz random-float UseRust)
 (: random-float (-> RandomGenerator Number Number Number))
 (@doc random-float
   (@desc "Returns random float number from range defined by two numbers (second and third argument)")
@@ -923,6 +925,7 @@ For example:
   (@return "Random float number from defined range"))
 
 (iz set-random-seed MeTTa)
+(iz set-random-seed UseRust)
 (: set-random-seed (-> RandomGenerator Number (->)))
 (@doc set-random-seed
   (@desc "Sets a new seed (second argument) for random number generator (first argument)")
@@ -932,6 +935,7 @@ For example:
   (@return "Unit atom"))
 
 (iz new-random-generator MeTTa)
+(iz new-random-generator UseRust)
 (: new-random-generator (-> Number RandomGenerator))
 (@doc new-random-generator
   (@desc "Creates new random number generator instance using seed as input (first argument)")
@@ -966,6 +970,22 @@ For example:
   (@return "Random float number from defined range"))
 (is-op-2 random-int random)
 
+(@doc file-read
+  (@desc "Function takes path to the file in form of string and reads file as string")
+  (@params (
+    (@param "Filepath (string atom)")))
+  (@return "Content of file (string atom), error if no file exists"))
+(= (file-read $filepath)
+   (call-fn file_read_content $filepath))
+
+(@doc file-write
+  (@desc "Function takes path to the file (string atom) and content to be written (string atom), creates file and puts content into it")
+  (@params (
+    (@param "Filepath (string atom)")
+    (@param "Content (string atom)")))
+  (@return "Unit atom if write successfull, error otherwise (if there is no such folder)"))
+(= (file-write $filepath $content)
+   (call-fn file_write_content $filepath $content))
 
 (iz collapse-bind MeTTa)
 (@doc collapse-bind
@@ -2686,7 +2706,7 @@ For example:
   (@params (
 	(@param "List of values")))
   (@return "Unique values from input set"))
-(= (unique-atom $L1)
+(ALT= (unique-atom $L1)
   (collapse (unique (superpose $L1))))
 (: unique-atom (-> Expression Expression))
 
@@ -2696,7 +2716,7 @@ For example:
 	(@param "List of values")
 	(@param "List of values")))
   (@return "Union of sets"))
-(= (union-atom $L1 $L2)
+(ALT= (union-atom $L1 $L2)
   (collapse (union (superpose $L1) (superpose $L2))))
 (: union-atom (-> Expression Expression Expression))
 
@@ -2706,7 +2726,7 @@ For example:
 	(@param "List of values")
 	(@param "List of values")))
   (@return "Intersection of sets"))
-(= (intersection-atom $L1 $L2)
+(ALT= (intersection-atom $L1 $L2)
   (collapse (intersection (superpose $L1) (superpose $L2))))
 (: intersection-atom (-> Expression Expression Expression))
 
@@ -2716,7 +2736,7 @@ For example:
 	(@param "List of values")
 	(@param "List of values")))
   (@return "Subtraction of sets"))
-(= (subtraction-atom $L1 $L2)
+(ALT= (subtraction-atom $L1 $L2)
   (collapse (subtraction (superpose $L1) (superpose $L2))))
 (: subtraction-atom (-> Expression Expression Expression))
 

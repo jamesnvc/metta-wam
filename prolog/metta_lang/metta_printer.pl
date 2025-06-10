@@ -1,18 +1,3 @@
-:- module(metta_printer, [ into_hyphens/2,
-                           once_writeq_nl_now/2,
-                           paren_pair_functor/3,
-                           pp_metta/1,
-                           ppc/2,
-                           print_pl_source/1,
-                           prolog_term_start/1,
-                           py_is_enabled/0,
-                           w_color/2,
-                           with_concepts/2,
-                           with_indents/2,
-                           write_dvar/1,
-                           write_src/1,
-                           write_src_nl/1,
-                           write_src_woi/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -77,54 +62,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-
-:- use_module(metta_compiler_roy, [ compound_name_list/3,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_convert, [ p2m/2,
-                               op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_debug, [ ppt/1,
-                             sub_term_safely/2,
-                             woc/1 ]).
-:- use_module(metta_eval, [ as_tf/2 ]).
-:- use_module(metta_interp, [ descend_and_transform/3,
-                              is_compatio/0 ]).
-:- use_module(metta_loader, [ mlog_sym/1,
-                              silent_loading/0 ]).
-:- use_module(metta_parser, [ parse_sexpr/2 ]).
-:- use_module(metta_python, [ py_is_py/1,
-                              py_ppp/1 ]).
-:- use_module(metta_repl, [ cls/0 ]).
-:- use_module(metta_space, [ has_type/2,
-                             is_an_arg_type/2 ]).
-:- use_module(metta_utils, [ subst001/4,
-                             write_src_uo/1 ]).
-:- use_module(swi_support, [ if_t/2,
-                             must_det_ll/1,
-                             option_else/3,
-                             symbol/1,
-                             symbol_chars/2,
-                             symbol_concat/3,
-                             symbol_contains/2,
-                             symbol_length/2,
-                             symbol_number/2,
-                             symbol_string/2,
-                             symbolic_list_concat/3,
-                             with_option/2,
-                             with_option/3 ]).
-
-
-
-
-
-
-
-
-
-
-
-
-
+:- ensure_loaded(metta_interp).
 
 % ===============================
 %       PRINTERS
@@ -306,9 +244,7 @@ print_pl_source(P) :-
     run_pl_source(print_pl_source0(P)).
 
 %pnotrace(G):- !, call(G).
-
-:- meta_predicate pnotrace(0).
-pnotrace(G):- notrace(G).
+pnotrace(G):- notrace(quietly(G)).
 %pnotrace(G):- quietly(G).
 
 %!  run_pl_source(+G) is det.
@@ -321,8 +257,6 @@ pnotrace(G):- notrace(G).
 %
 %   @arg G The goal to be executed.
 %
-
-:- meta_predicate run_pl_source(0).
 run_pl_source(G) :-
     % Fail silently on error.
     catch(G, E, (
@@ -382,7 +316,7 @@ print_pl_source0(P) :-
             member(Action, Actions),
             must_det_ll((
                 % Run Action and capture output in string form.
-                run_pl_source(with_output_to(string(Pt), call(Action, P))),
+                run_pl_source(with_output_to(string(Pt), w_no_crlf(call(Action, P)))),
                 % Attempt to determine string height; default to 0 on failure.
                 catch(string_height(Pt, H), _, H = 0)
             ))
@@ -471,8 +405,6 @@ pp_fb1_e(P) :-
 %     % Apply the available formatting function to the term.
 %     ?- pp_fb2(print, example_term).
 %
-
-:- meta_predicate pp_fb2(1,?).
 pp_fb2(F, P) :-
     % Ensure F is an atom and a defined predicate.
     atom(F), current_predicate(F / 1),
@@ -607,7 +539,8 @@ is_final_write('#\\'(S)) :- !, format("'~w'", [S]).
 is_final_write('rng'(Id,_,_)) :- !, format("~w", [Id]).
 is_final_write('rng'(Id,_)) :- !, format("~w", [Id]).
 % Big number use underscores betten them
-is_final_write(V) :- integer(V), V>900_000, catch(format('~I',[V]),_,fail),!.
+is_final_write(V) :- integer(V), !, ( (V<1_000_000;no_src_indents)-> catch(format('~w',[V]),_,fail); catch(format('~I',[V]),_,fail)).
+
 % If Python mode is enabled and V is a Python object, format with `py_ppp/1`.
 is_final_write(V) :- py_is_enabled, notrace(catch((py_is_py(V), !, py_ppp(V)),_,fail)), !.
 % For lists like ['$VAR', Value], write the variable if the tail is empty.
@@ -956,10 +889,11 @@ w_color(Color,Goal):-
            wots(Text,Goal),
            with_output_to(user_error,ansi_format([fg(Color)], '~w', [Text]))))).
 
-materialize_vns(Term,NewTerm):- term_attvars(Term,List), materialize_vnl(List,Term,MidTerm),!,term_variables(MidTerm,MList),materialize_vnl(MList,MidTerm,NewTerm),!.
-materialize_vnl([],IO,IO):-!.
-materialize_vnl([Var|List],Term,NewTerm):- get_vnamed(Var,VNamed), subst001(Term,Var,VNamed,MidTerm),!,materialize_vnl(List,MidTerm,NewTerm).
-materialize_vnl([_|List],Term,NewTerm):- materialize_vnl(List,Term,NewTerm).
+materialize_vns(Term,NewTerm):- materialize_vns(get_vnamed,Term,NewTerm).
+materialize_vns(P2,Term,NewTerm):- term_attvars(Term,List), materialize_vnl(P2,List,Term,MidTerm),!,term_variables(MidTerm,MList),materialize_vnl(P2,MList,MidTerm,NewTerm),!.
+materialize_vnl(_P2,[],IO,IO):-!.
+materialize_vnl(P2,[Var|List],Term,NewTerm):- call(P2,Var,VNamed), subst001(Term,Var,VNamed,MidTerm),!,materialize_vnl(P2,List,MidTerm,NewTerm).
+materialize_vnl(P2,[_|List],Term,NewTerm):- materialize_vnl(P2,List,Term,NewTerm).
 
 get_snamed(Var, SNamed):- attvar(Var), get_attr(Var,vn,NN), atom_string(NN,SNamed),!.
 get_snamed(Var, SNamed):- var(Var), get_var_name(Var, N), atom_string(N,SNamed),!.
@@ -971,7 +905,15 @@ get_vnamed(Var, _Named):- \+ compound(Var),!,fail.
 get_vnamed('$VAR'(N), VNamed):- into_vnamed(N,VNamed),!.
 get_vnamed('$'(N), VNamed):- into_vnamed(N,VNamed),!.
 
-into_vnamed(S,'$VAR'(NS)):- mvar_str(S,N),sformat(NS,'_~w',[N]).
+dvar_form(T):- \+ compound(T),!,fail.
+dvar_form('$VAR'(_)).
+
+into_plnamed(Term,NewTerm):- sub_term_safely(Sub,Term), \+ dvar_form(Sub), get_vnamed(Sub,VName),into_vnamed(VName,Replc),Replc\==Sub,!,subst001(Term,Sub,Replc,MidTerm),!,into_plnamed(MidTerm,NewTerm).
+into_plnamed(Term,NewTerm):- materialize_vns(into_vnamed,Term,NewTerm).
+
+into_vnamed(S,'$VAR'(NS)):- mvar_str(S,N), vn_format(N,NS).
+vn_format(N,NS):- integer(N),NS=N.
+vn_format(N,NS):- format(atom(NS),'_~w',[N]).
 
 %!  write_src_woi(+Term) is det.
 %
@@ -1146,8 +1088,14 @@ write_mobj(F, Args) :-
 %   @arg V The list to be printed.
 %
 pp_sex_l(V) :-
+    flag(pp_sex_l,D,D+1),
     % Delegate to `pp_sexi_l/1` for detailed list formatting.
-    pp_sexi_l(V), !.
+    (D>30->(write(' '),writeq(V),write(' '));pp_sexi_l(V)), !,
+    flag(pp_sex_l,_,D).
+
+
+is_simple_term(NC):- \+ compound(NC),!.
+is_simple_term(Cmpd):- forall(arg(_,Cmpd,Arg), \+ compound(Arg)).
 
 %!  pp_sexi_l(+V) is det.
 %
@@ -1170,26 +1118,31 @@ pp_sexi_l([F | V]) :-
     symbol(F), is_list(V), write_mobj(F, V), !.
 pp_sexi_l([H | T]) :- T == [], !,  % If `T` is an empty list, print `H` in parentheses.
     write_start(list), pp_sex_nc(H), write_end(list).
+pp_sexi_l([H, H2| T]) :- T ==[], is_simple_term(H2), !,
+    % If `V` has two elements, print `H` followed by `H2` in S-expression format.
+    write_start(list), pp_sex_nc(H), write(' '), with_indents(false, write_args_as_sexpression(list,[H2])),
+    write_end(list), !.
+
 pp_sexi_l([H, H2| T]) :- T ==[], !,
     % If `V` has two elements, print `H` followed by `H2` in S-expression format.
     write_start(list), pp_sex_nc(H), write(' '), with_indents(false, write_args_as_sexpression(list,[H2])),
     write_end(list), !.
 
-pp_sexi_l([H| T]) :- \+ is_list(T),!, pp_sexi_lc([H | T]).
+pp_sexi_l([H| T]) :- \+ is_list(T), pp_sexi_lc([H | T]), !.
 
-pp_sexi_l([H, S]) :-
+pp_sexi_l([H, S| Nil]) :- Nil == [],
     % If `H` is `'[...]'`, print `S` enclosed in square brackets.
     H == '[...]', write('['), write_args_as_sexpression(S), write(' ]').
-pp_sexi_l([H, S]) :-
+pp_sexi_l([H, S| Nil]) :- Nil == [],
     % If `H` is `'{...}'`, print `S` enclosed in curly braces.
     H == '{...}', write('{'), write_args_as_sexpression(S), write(' }').
 %pp_sex_l(X):- \+ compound(X),!,write_src(X).
 %pp_sex_l('$VAR'(S))):-
-pp_sexi_l([Eq, H, B]) :- Eq == '=',
+pp_sexi_l([Eq, H, B| Nil]) :- Nil == [], Eq == '=',
     % For lists in the format `[=, H, B]`, format using `pp_sexi_hb/2`.
     pp_sexi_hb(H, B), !.
 
-pp_sexi_l([H | T]):- pp_sexi_lc([H | T]).
+pp_sexi_l([H | T]):- pp_sexi_lc([H | T]), !.
 
 
 pp_sexi_lc([H | T]) :- \+ is_list(T),!,
@@ -1202,7 +1155,7 @@ pp_sexi_lc([H | T]) :-
     write_start(list), pp_sex_nc(H), write(' '), write_args_as_sexpression(list, T), write_end(list), !.
 pp_sexi_lc([H | T]) :-
     % If `H` is a control structure and indents are enabled, apply proper indentation.
-    \+ no_src_indents, symbol(H), member(H, ['If', 'cond', 'let', 'let*']), !,
+    \+ no_src_indents, symbol(H), member(H, ['If', 'cond', 'case', 'let', 'let*', 'Expression']), !,
     with_indents(true, w_proper_indent(2, w_in_p(pp_sex([H | T])))).
 
 pp_sexi_lc([H | T]) :-
@@ -1212,6 +1165,7 @@ pp_sexi_lc([H | T]) :-
     ((symbol_length(SS, Len), Len < 20) -> write(SS);
         with_indents(true, w_proper_indent(2, w_in_p(pp_sex_c([H | T]))))), !.
 
+pp_sexi_lc(HT) :- write('#{'), writeq(HT),!,write('}.').
 
 /*
 
@@ -1274,8 +1228,11 @@ write_src_inl(B) :-
 %   @arg V The compound term or list to be printed.
 %
 pp_sex_c(V) :-
-    % Delegate to `pp_sexi_c/1` for detailed formatting of `V`.
-    pp_sexi_c(V), !.
+    flag(pp_sex_c,D,D+1),
+    % Delegate to `pp_sexi_c/1` for detailed list formatting.
+    (D>30->(write(' '),writeq(V),write(' '));pp_sexi_c(V)), !,
+    flag(pp_sex_c,_,D).
+
 
 %!  pp_sexi_c(+V) is det.
 %
@@ -1458,8 +1415,6 @@ indent_len(Need) :-
 %     % Run a goal with 4 spaces of indentation.
 %     ?- w_proper_indent(4, writeln('Indented line')).
 %
-
-:- meta_predicate w_proper_indent(?,0).
 w_proper_indent(N, G) :-
     % Calculate indentation based on the `w_in_p` flag.
     flag(w_in_p, X, X),
@@ -1480,8 +1435,6 @@ w_proper_indent(N, G) :-
 %     % Run a goal with one level of increased indentation.
 %     ?- w_in_p(writeln('Indented by level')).
 %
-
-:- meta_predicate w_in_p(0).
 w_in_p(G) :-
     % Increment indentation flag, execute `G`, then reset flag.
     setup_call_cleanup(flag(w_in_p, X, X + 1), G, flag(w_in_p, _, X)).
@@ -1958,12 +1911,15 @@ symbol_glyph(A):- atom(A), upcase_atom(A,U),downcase_atom(A,D),!,U==D.
 
 
 compound_type_s_m_e(list,'(','.',')').
-compound_type_s_m_e(cmpd,S,E,M):- !, prolog_term_start(S),compound_type_s_m_e(ocmpd,S,E,M),!.
+compound_type_s_m_e(cmpd,S,E,M):- prolog_term_start(S),compound_type_s_m_e(ocmpd,S,E,M),!.
 compound_type_s_m_e(ocmpd,'#(','.',')').
 compound_type_s_m_e(ocmpd,'[','|',']').
 compound_type_s_m_e(ocmpd,'{','|','}').
 compound_type_s_m_e(ocmpd,'(','@',')').
 
+%prolog_term_start(_):- fail.
+%prolog_term_start('#(').
+%prolog_term_start('{').
 prolog_term_start('[').
 
 paren_pair_functor('(',')',_).

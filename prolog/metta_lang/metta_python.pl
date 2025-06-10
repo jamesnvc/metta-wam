@@ -1,18 +1,3 @@
-:- module(metta_python, [ ensure_mettalog_py/0,
-                          ensure_space_py/2,
-                          'extend-py!'/2,
-                          is_rust_operation/1,
-                          make_py_dot/3,
-                          make_py_dot/4,
-                          py_atom/2,
-                          py_call_method_and_args_sig/5,
-                          py_exec/1,
-                          py_is_callable/1,
-                          py_is_module/1,
-                          py_is_py/1,
-                          py_pp_str/2,
-                          py_ppp/1,
-                          rust_metta_run/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -103,33 +88,11 @@ Prolog Extensions with Python:
    functionality through Python (and Rust via Python). This allows Python and Rust
    developers to continue working with the system easily.
 */
-:- use_module(library(filesex)).
+ :- use_module(library(filesex)).
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
- 
-:- use_module(metta_compiler_roy, [ must_det_lls/1,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_debug, [ is_extreme_debug/0,
-                             ppt/1 ]).
-:- use_module(metta_eval, [ py_metta_return_value/3 ]).
-:- use_module(metta_self, [ current_self/1 ]).
-:- use_module(metta_interp, [ metta_root_dir/1 ]).
-:- use_module(metta_printer, [ py_is_enabled/0,
-                               write_src/1,
-                               write_src_nl/1 ]).
-:- use_module(metta_space, [ ensure_space/2,
-                             is_asserted_space/1,
-                             is_nb_space/1 ]).
-:- use_module(metta_utils, [ pp/1 ]).
-:- use_module(swi_support, [ if_t/2,
-                             fbug/1,
-                             must_det_ll/1,
-                             symbol/1,
-                             symbol_concat/3,
-                             symbol_contains/2,
-                             symbolic/1,
-                             symbolic_list_concat/3 ]).
+ :- ensure_loaded(metta_interp).
 
 %!  janus_initialization is det.
 %
@@ -148,19 +111,6 @@ Prolog Extensions with Python:
 %     false.
 %
  :- module_property(janus,file(_)) -> true; janus:ensure_loaded(library(janus)).
-
-%!  lazy_load_python is det.
-%
-%   This predicate represents a placeholder or a stub for lazily loading the Python
-%   integration. Currently, it does not contain any implementation logic.
-%   This would attempt to load Python-related resources or interfaces
-%   when needed, avoiding unnecessary overhead if Python is not required.
-%
-%   The implementation should be added to perform the actual lazy loading of
-%   the Python environment or integration.
-%
-:- dynamic(lazy_load_python/0).
-lazy_load_python.
 
 
 py_call_warg(G):- py_c_c(G,GG), py_call(GG).
@@ -256,8 +206,6 @@ py_catch((G1, G2)):-
     % Handle exceptions for two goals executed sequentially.
     !,py_catch(G1),py_catch(G2).
 
-
-:- meta_predicate py_catch(0).
 py_catch(Goal):-
     % Catch any exceptions during goal execution.
     catch(Goal, E,
@@ -661,8 +609,6 @@ list_to_set_member(List, Dir) :-
     member(Dir, Set).
 
 
-:- dynamic user:is_metta_src_dir/1.
-
 search_py_module_src_dir0(Dir) :- user:is_metta_src_dir(Dir).
 search_py_module_src_dir0(Dir) :- metta_root_dir(Dir).
 search_py_module_src_dir0(Dir) :- working_directory(Dir, Dir).
@@ -964,6 +910,7 @@ py_eval_object(VO,VO).
 %
 %   @arg O The input object to check.
 py_is_function(O):- \+ py_is_object(O),!,fail.
+%py_is_function(PyObject) :- maybe_py_deref(PyObject,PyObject2),!,py_is_function(PyObject2).
 py_is_function(PyObject) :-
     py_type(PyObject, Type),
     py_is_method_type(Type),!.
@@ -977,7 +924,7 @@ py_is_method_type(function).
 py_is_method_type(method).
 py_is_method_type('method-wrapper').
 
-py_is_callable(O):- py_is_function(O).
+py_is_callable(O):- atomic(O),py_is_function(O).
 
 %!  py_eval_from(+From, +I, -O) is det.
 %
@@ -1952,18 +1899,22 @@ self_extend_py(Self,Module,File,R):-
         (nonvar(File) -> Use = File ; Use = Module),
         pybug('extend-py!'(Use)),
         % py_call_warg(mettalog:use_mettalog()),
-        (Use == mettalog -> true ; py_load_modfile(Use)),
+        (assumed_loaded(Use) -> true ; py_load_modfile(Use)),
         % listing(ensure_rust_metta/1),
         % ensure_mettalog_py,
         nb_setval('$py_ready','true'),
         % working_directory(PWD,PWD),maybe_py_add_lib_dir(PWD),
         % replace_in_string(["/"="."],Module,ToPython),
         % py_mcall(mettalog:import_module_to_rust(ToPython)),
-        % sformat(S,'!(import! &self ~w)',[Use]),rust_metta_run(S,R),
+        % sformat(S,'!(import! &self ~w)',[Use]),rust_metta_exec(S,R),
         R = [],
         % py_module_exists(Module),
         % py_call_warg(MeTTa:load_py_module(ToPython),Result),
         true)),!.
+
+
+assumed_loaded(mettalog).
+assumed_loaded(random).
 
 %!  py_load_modfile(+Use) is det.
 %
@@ -2000,11 +1951,11 @@ file_to_modname(Filename,ModName):- symbol_concat(Name,'/_init_.py',Filename),!,
 file_to_modname(Filename,ModName):- symbol_concat(Name,'.py',Filename),!,file_to_modname(Name,ModName).
 file_to_modname(Filename,ModName):- replace_in_string(["/"="."],Filename,ModName).
 
-%import_module_to_rust(ToPython):- sformat(S,'!(import! &self ~w)',[ToPython]),rust_metta_run(S).
+%import_module_to_rust(ToPython):- sformat(S,'!(import! &self ~w)',[ToPython]),rust_metta_exec(S).
 
 %!  rust_metta_run(+S,-Run) is det.
 %
-%   Executes a metta command in the Rust environment by calling rust_metta_run1/2.
+%   Executes a metta command in the Rust environment by calling rust_metta_exec/2.
 %   If the command S is a variable, the execution is delayed using freeze/2 until S is
 %   instantiated.
 %
@@ -2015,11 +1966,10 @@ file_to_modname(Filename,ModName):- replace_in_string(["/"="."],Filename,ModName
 %       ?- rust_metta_run('command_string', Result).
 %
 rust_metta_run(S,Run):- var(S),!,freeze(S,rust_metta_run(S,Run)).
-%rust_metta_run(exec(S),Run):- \+ callable(S),string_concat('!',S,SS),!,rust_metta_run(SS,Run).
-rust_metta_run(S,Run):- coerce_string(S,R),!,rust_metta_run1(R,Run).
-%rust_metta_run(I,O):-
+rust_metta_run(RR,Res):- rust_metta_exec(RR,L),!,member(ResL,L),member(Res,ResL).
 
-%!  rust_metta_run1(+I, -Run) is det.
+
+%!  rust_metta_exec(+I, -Run) is det.
 %
 %   The actual implementation of rust_metta_run/2 that handles executing the Rust
 %   metta command via py_ocall/2. It loads the hyperon module and converts the result
@@ -2029,11 +1979,16 @@ rust_metta_run(S,Run):- coerce_string(S,R),!,rust_metta_run1(R,Run).
 %   @arg Run The result of the execution.
 %
 %   @example Run a command in Rust and retrieve the result:
-%       ?- rust_metta_run1('some_command',Result).
+%       ?- rust_metta_exec('some_command',Result).
 %
-rust_metta_run1(I,O):- ensure_py_loaded(hyperon_module),!,py_ocall(hyperon_module:rust_metta_run(I),M),!,
+rust_metta_exec(S,Run):- var(S),!,freeze(S,rust_metta_exec(S,Run)).
+%rust_metta_exec(exec(S),Run):- \+ callable(S),string_concat('!',S,SS),!,rust_metta_exec(SS,Run).
+rust_metta_exec(S,Run):- coerce_string(S,R),!,rust_metta_exec1(R,Run).
+%rust_metta_exec(I,O):-
+
+rust_metta_exec1(I,O):- ensure_py_loaded(hyperon_module),!,py_ocall(hyperon_module:rust_metta_exec(I),M),!,
     rust_return(M,O).
-rust_metta_run1(R,Run):-
+rust_metta_exec1(R,Run):-
     with_safe_argv((((
         % ensure_rust_metta(MeTTa),
         py_call_warg(mettalog:rust_metta_run(R),Run)
@@ -2086,25 +2041,29 @@ delist1(R,R).  % Optionally, log a warning here if necessary.
 %       ?- rust_to_pl([rust_atom1, rust_atom2], PrologTerm).
 %
 rust_to_pl(L,P):- var(L),!,L=P.
+% nb_current(last_debug_info, debug_info(always(porting), hyperon_throws_error(should_be(number, W)))), py_call(W:get_object(),O),py_call(O:value,OO).
 % rust_to_pl([],P):- !,P=[].
 rust_to_pl(L,P):- is_list(L),!,maplist(rust_to_pl,L,P).
 rust_to_pl(R,P):- compound(R),!,compound_name_arguments(R,F,RR),maplist(rust_to_pl,RR,PP),
     compound_name_arguments(P,F,PP).
 rust_to_pl(R,P):- \+ py_is_object(R),!,P = R.
+
+% rust_to_pl(R,PT):- py_type(R,'GroundedAtom'), py_call(W:get_grounded_type(),O), py_call(repr(O),OO).
+
+rust_to_pl(R,P):- py_type(R,'ValueObject'),py_ocall(R:'value',L),!,rust_to_pl(L,P).
+rust_to_pl(R,PT):-
+            py_type(R,'GroundedAtom'),
+            py_ocall(R:get_grounded_type(),T),
+            rust_to_pl(T,TT),
+            py_ocall(R:get_object(),L), L\==R,
+            rust_to_pl(L,P),
+            combine_term_l(TT,P,PT), !.
 rust_to_pl(R,P):- py_type(R,'ExpressionAtom'),py_mcall(R:get_children(),L),!,maplist(rust_to_pl,L,P).
 rust_to_pl(R,P):- py_type(R,'SymbolAtom'),py_acall(R:get_name(),P),!.
 rust_to_pl(R,P):- py_type(R,'VariableAtom'),py_scall(R:get_name(),N),!,as_var(N,P),!.
 %rust_to_pl(R,P):- py_type(R,'VariableAtom'),py_acall(R:get_name(),N),!,atom_concat('$',N,P).
 rust_to_pl(R,N):- py_type(R,'OperationObject'),py_acall(R:name(),N),!,cache_op(N,R).
 rust_to_pl(R,P):- py_type(R,'SpaceRef'),!,P = R.
-rust_to_pl(R,P):- py_type(R,'ValueObject'),py_ocall(R:'value'(),L),!,rust_to_pl(L,P).
-rust_to_pl(R,PT):-
-    py_type(R,'GroundedAtom'),
-    py_ocall(R:get_grounded_type(),T),
-    rust_to_pl(T,TT),
-    py_ocall(R:get_object(),L),!,
-    rust_to_pl(L,P),
-    combine_term_l(TT,P,PT).
 rust_to_pl(R,P):- py_is_list(R),py_m(R,L),R \== L,!,rust_to_pl(L,P).
 rust_to_pl(R,PT):- py_type(R,T),combine_term_l(T,R,PT),!.
 %rust_to_pl(R,P):- py_acall(R:'__repr__'(),P),!.
@@ -2128,7 +2087,7 @@ to_py_char(R,Py):- load_hyperon_module,!,py_ocall(hyperon_module:rust_to_py_char
 as_var('_',_):- !.
 as_var(N,'$VAR'(S)):- sformat(S,'_~w',[N]),!.
 
-%!  rust_metta_run(+S) is det.
+%!  rust_metta_exec(+S) is det.
 %
 %   Executes a metta command S in the Rust environment and prints the result.
 %   After executing the command, it converts the Python object result into a Prolog
@@ -2137,9 +2096,9 @@ as_var(N,'$VAR'(S)):- sformat(S,'_~w',[N]),!.
 %   @arg S The metta command to be executed.
 %
 %   @example Run a command in the Rust metta environment:
-%       ?- rust_metta_run('command_string').
+%       ?- rust_metta_exec('command_string').
 %
-rust_metta_run(S):-rust_metta_run(S,Py),print_py(Py).
+rust_metta_exec(S):-rust_metta_exec(S,Py),print_py(Py).
 
  :-volatile(cached_py_op/2).
 
@@ -2193,8 +2152,9 @@ print_py(Py):- py_to_pl(Py,R), pp(R).
 %       ?- combine_term_l('Number', 42, PrologTerm).
 %
 combine_term_l('OperationObject',P,P):-!.
-combine_term_l('Number',P,P):-!.
+combine_term_l(_,P,V):- py_is_object(P), py_type(P,'ValueObject'),py_call(P:value,V),!.
 combine_term_l('Bool',P,P):-!.
+combine_term_l('Number',P,P):-!.
 combine_term_l('ValueObject',R,P):-R=P,!. %rust_to_pl(R,P),!.
 combine_term_l('%Undefined%',R,P):-rust_to_pl(R,P),!.
 combine_term_l('hyperon::space::DynSpace',P,P):-!.
@@ -2215,7 +2175,7 @@ combine_term_l(T,P,ga(P,T)).
 
 %coerce_string(S,R):- atom(S),sformat(R,'~w',[S]),!.
 coerce_string(S,R):- string(S),!,S=R.
-coerce_string(S,R):- with_output_to(string(R),write_src(S)),!.
+coerce_string(S,R):- with_output_to(string(R),write_src_woi(S)),!.
 
 %!  load_functions_motto is det.
 %

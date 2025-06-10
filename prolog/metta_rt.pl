@@ -1,4 +1,3 @@
-:- module(metta_rt, []).
 
 
 :- (prolog_load_context(directory, Value);Value='.'), absolute_file_name('../libraries/',Dir,[relative_to(Value)]),
@@ -10,5 +9,5 @@
     pack_attach(LU,[duplicate(replace),search(first)]),
     pack_attach(LSP,[duplicate(replace),search(first)]).
 
-:- ensure_loaded(library(metta_lang/metta_interp)).
+%:- ensure_loaded(library(metta_lang/metta_interp)).
 

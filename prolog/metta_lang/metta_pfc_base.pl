@@ -1,28 +1,3 @@
-:- module(metta_pfc_base, [ op(500,fx,~),
-                            op(1050,xfx,<-),
-                            op(1050,xfx,<==>),
-                            op(1050,xfx,==>),
-                            op(1100,fx,==>),
-                            op(1150,xfx,::::),
-                            bagof_or_nil/3,
-                            call_u/1,
-                            is_file_ref/1,
-                            mpred_why/1,
-                            must_ex/1,
-                            pfcAdd/1,
-                            pfcAddType1/1,
-                            pfcCallSystem/1,
-                            pfcDefault/2,
-                            pfcRetractOrQuietlyFail/1,
-                            pfcRetractOrWarn/1,
-                            pfcType/2,
-                            pfcUnion/3,
-                            pfc_call/1,
-                            pfc_term_expansion/2,
-                            pfc_unnegate/2,
-                            quietly_ex/1,
-                            setof_or_nil/3,
-                            supports/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -139,8 +114,6 @@ must_ex(X) :-
 %     X = 2 ;
 %     X = 3.
 %
-
-:- meta_predicate quietly_ex(0).
 quietly_ex(X) :-
     % Simply call the Goal without any logging or tracing.
     call(X).
@@ -553,8 +526,6 @@ call_u(G) :- pfcCallSystem(G).
 %     ?- clause_u(foo(X), Body).
 %     Body = bar(X).
 %
-
-:- meta_predicate clause_u(0,?).
 clause_u(H, B) :- clause(H, B).
 
 %!  mpred_ain(+Predicate) is det.
@@ -571,8 +542,6 @@ clause_u(H, B) :- clause(H, B).
 %     % Assert a rule into the PFC system.
 %     ?- mpred_ain((foo(X) :- bar(X))).
 %
-
-:- meta_predicate mpred_ain(0).
 mpred_ain(P) :- arc_assert(P).
 
 %!  arc_assert(+Clause) is det.
@@ -600,8 +569,6 @@ mpred_ain(P) :- arc_assert(P).
 arc_assert(P :- True) :-
     % If the body is `true`, only the head is asserted.
     True == true, !, arc_assert(P).
-
-:- meta_predicate arc_assert(0).
 arc_assert(P) :-
     % Ensure that `current_why_UU/1` provides a reason for the assertion.
     must_ex(current_why_UU(UU)),
@@ -973,30 +940,6 @@ thread_pool:create_pool(ain_pool) :-
 :- use_module(library(http/thread_httpd)).
 % Provides predicates to manage and create thread pools for concurrent task execution.
 :- use_module(library(thread_pool)).
-:- use_module(metta_compiler_roy, [ iz_conz/1,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_interp, [ fbugio/1 ]).
-:- use_module(metta_pfc_base, [ pfcAdd/1,
-                                pfcCallSystem/1 ]).
-:- use_module(metta_pfc_debug, [ pfcTF1/1,
-                                 pfcWhy/1,
-                                 printLine/0,
-                                 op(500,fx,~),
-                                 op(1050,xfx,<-),
-                                 op(1050,xfx,<==>),
-                                 op(1050,xfx,==>),
-                                 op(1100,fx,==>),
-                                 op(1150,xfx,::::) ]).
-:- use_module(metta_pfc_support, [ pfcChildren/2 ]).
-:- use_module(metta_utils, [ my_maplist/2 ]).
-
-
-
-
-
-
-
 
 %!  is_ain_pool_empty is nondet.
 %
@@ -1164,18 +1107,24 @@ pfcVersion(3.0).
 pfcFile('pfcsyntax').   % operator declarations.
 pfcFile('pfccore'). % core of Pfc.
 pfcFile('pfcsupport').  % support maintenance
-pfcFile('pfcdb').anipulate database.
-pfcFile('pfcdebug').    % debugging aids (e.g. t). % predicates to manipulate justifications.
-pfcFile('pfcwhy').  %of justifications.
+pfcFile('pfcdb').   % predicates to manipulate database.
+pfcFile('pfcdebug').    % debugging aids (e.g. tracing).
+pfcFile('pfcjust'). % predicates to manipulate justifications.
+pfcFile('pfcwhy').  % interactive exploration of justifications.
 
 pfcLoad :- pfcFile(F), ensure_loaded(F), fail.
- :- pfcFile(F), compile(F), fail.
+pfcLoad.
+*/
+
+%pfcFcompile :- pfcFile(F), compile(F), fail.
 %pfcFcompile.
 
 %:- pfcLoad.
 
-%     Author : Tim Finin, finin@prc.unisys.com
-%   Updated: 10/11/87, ..em file for Pfc
+%   File   : pfccompile.pl
+%   Author : Tim Finin, finin@prc.unisys.com
+%   Updated: 10/11/87, ...
+%   Purpose: compile system file for Pfc
 /*
 :- compile(pfcsyntax).
 :- compile(pfccore).
@@ -1441,49 +1390,6 @@ termf_subst(Subst, F, F2) :-
 %   Purpose: core Pfc predicates.
 
 :- use_module(library(lists)).
-:- use_module(metta_compiler_roy, [ iz_conz/1,
-                                    strip_m/2,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_interp, [ fbugio/1,
-                              once_writeq_nl/1,
-                              true_flag/0 ]).
-:- use_module(metta_pfc_debug, [ brake/1,
-                                 pfcError/2,
-                                 pfcFact/1,
-                                 pfcTF1/1,
-                                 pfcTraceMsg/1,
-                                 pfcTraceMsg/2,
-                                 pfcTraceRem/1,
-                                 pfcWarn/1,
-                                 pfcWarn/2,
-                                 pfcWhy/1,
-                                 printLine/0,
-                                 op(500,fx,~),
-                                 op(1050,xfx,<-),
-                                 op(1050,xfx,<==>),
-                                 op(1050,xfx,==>),
-                                 op(1100,fx,==>),
-                                 op(1150,xfx,::::) ]).
-:- use_module(metta_pfc_support, [ assumption/1,
-                                   axiom/1,
-                                   current_why_U/1,
-                                   matches_why_UU/1,
-                                   matterialize_support_term/2,
-                                   pfcAddSupport/2,
-                                   pfcChildren/2,
-                                   pfcGetSupport/2,
-                                   pfcRemOneSupport/2,
-                                   pfcRemOneSupportOrQuietlyFail/2,
-                                   pfc_spft/3 ]).
-:- use_module(metta_utils, [ my_maplist/2,
-                             my_maplist/3 ]).
-
-
-
-
-
-
 
 %==>(_).
 

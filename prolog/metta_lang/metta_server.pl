@@ -1,8 +1,3 @@
-:- module(metta_server, [ metta_concurrent_maplist/3,
-                          metta_concurrent_maplist/5,
-                          metta_concurrent_maplist/6,
-                          metta_concurrent_maplist/7,
-                          metta_hyperpose/6 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -61,7 +56,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-
+:- ensure_loaded(metta_interp).
 
 %!  call_wdet(+Goal, -WasDet) is nondet.
 %
@@ -69,8 +64,6 @@
 %
 %   @arg Goal is the goal to execute.
 %   @arg WasDet is true if the Goal was deterministic, false otherwise.
-
-:- meta_predicate call_wdet(0,?).
 call_wdet(Goal,WasDet):-
     % Execute the provided Goal
     call(Goal),
@@ -544,8 +537,6 @@ unregister_remote_code(MSpace, EntryPoint, Server) :-
 %   @example Execute a goal:
 %       ?- execute_goal(my_goal).
 %
-
-:- meta_predicate execute_goal(0).
 execute_goal(Goal) :-
     % Retrieve the current module space.
     current_self(MSpace),
@@ -604,8 +595,6 @@ execute_goal(_Self, fail, IsDet) :-
     (was_t(IsDet) -> throw(cut_fail); fail).
 
 % If the goal has associated clauses, process it by retrieving and executing the body.
-
-:- meta_predicate execute_goal(?,0,?).
 execute_goal(MSpace, Goal, _) :-
     % Check if the goal has clauses.
     predicate_property(Goal, number_of_clauses(_)),
@@ -799,8 +788,6 @@ metta_concurrent_maplist(P2, InList, OutList) :-
              % Cleanup the results after processing.
              cleanup_results(Tag)).
 
-
-:- meta_predicate metta_concurrent_maplist(2,?,?).
 metta_concurrent_maplist(P2, InList, OutList) :-
     % Fallback to standard maplist if threading isn't used.
     maplist(P2, InList, OutList).
@@ -1088,24 +1075,6 @@ cleanup_results(Tag) :-
 
 :- use_module(library(socket)).
 :- use_module(library(thread)).
-:- use_module(metta_debug, [ if_trace/2 ]).
-:- use_module(metta_eval, [ eval_20/6 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              is_compiling/0 ]).
-:- use_module(metta_repl, [ repl/0 ]).
-:- use_module(metta_utils, [ maplist/6,
-                             maplist/7,
-                             maplist/8,
-                             max_min/4 ]).
-:- use_module(swi_support, [ symbolic_list_concat/3 ]).
-:- use_module(metta_self, [ current_self/1 ]).
-
-
-
-
-
-
-
 
 % Start the Telnet server in a background thread on the given Port
 start_dbg_telnet(Port) :-

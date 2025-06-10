@@ -1,11 +1,3 @@
-:- module(metta_repl, [ cls/0,
-                        eval/2,
-                        inside_assert/2,
-                        into_named_vars/2,
-                        maybe_set_var_names/1,
-                        repl/0,
-                        repl_read/1,
-                        term_dont_cares/2 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -67,78 +59,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-
-:- use_module(metta_compiler_roy, [ compile_for_exec/3,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_debug, [ if_trace/2,
-                             is_debugging/1,
-                             output_language/2,
-                             reset_eval_num/0,
-                             sub_var_safely/2,
-                             with_debug/2,
-                             woc/1 ]).
-:- use_module(metta_eval, [ is_returned/1 ]).
-:- use_module(metta_interp, [ always_exec/1,
-                              catch_err/3,
-                              current_self/1,
-                              default_depth/1,
-                              do_metta/5,
-                              do_show_options_values/0,
-                              eval_H/4,
-                              fbug/1,
-                              file_hides_results/1,
-                              find_missing_cuts/0,
-                              in_answer_io/1,
-                              is_compatio/0,
-                              is_conz/1,
-                              is_transpiling/0,
-                              is_win64/0,
-                              metta_atom/2,
-                              metta_interp_mode/2,
-                              not_in_eq/2,
-                              rtrace_on_error/1,
-                              switch_to_mettalog/0,
-                              switch_to_mettarust/0,
-                              top_self/1,
-                              use_metta_compiler/0,
-                              user_io/1,
-                              write_answer_output/0,
-                              writeqln/1 ]).
-:- use_module(metta_parser, [ metta_file_comment/5,
-                              parse_sexpr/2 ]).
-:- use_module(metta_printer, [ with_indents/2,
-                               write_dvar/1,
-                               write_src/1,
-                               write_src_woi/1 ]).
-:- use_module(metta_testing, [ color_g_mesg/2,
-                               string_replace/4 ]).
-:- use_module(metta_utils, [ intersection/5,
-                             pp_m/2,
-                             write_src_uo/1 ]).
-:- use_module(swi_support, [ fbug/1,
-                             if_t/2,
-                             option_else/3,
-                             option_value/2,
-                             set_option_value/2,
-                             symbol/1,
-                             symbol_concat/3,
-                             symbolic/1,
-                             symbolic_list_concat/3,
-                             symbolics_to_string/2,
-                             with_option/3 ]).
-:- use_module(metta_self, [ current_self/1 ]).
-
-
-
-
-
-
-
-
-
-
-
+:- ensure_loaded(metta_interp).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IMPORTANT:  DO NOT DELETE COMMENTED-OUT CODE AS IT MAY BE UN-COMMENTED AND USED
@@ -203,6 +124,8 @@ check_directory_exists(Dir) :-
 %     ?- check_file_exists_for_append('/home/user/.config/metta/repl_history.txt').
 %     true.
 %
+
+check_file_exists_for_append(_):- skip_cmd_history, !.
 check_file_exists_for_append(HistoryFile) :-
     % Check if the file exists and is accessible for appending.
     exists_file(HistoryFile),
@@ -233,8 +156,7 @@ check_file_exists_for_append(HistoryFile) :-
 %
 
 % Dummy to avoid errors on windows.
-save_history:- is_win64, !.
-save_history:- is_docker, !.
+save_history:- skip_cmd_history, !.
 save_history :-
     % Get the current input stream.
     current_input(Input),
@@ -254,6 +176,8 @@ save_history :-
 %     ?- load_and_trim_history.
 %     true.
 %
+
+load_and_trim_history :- skip_cmd_history, !.
 load_and_trim_history :-
     % Disable tracing for the following operations.
     notrace((
@@ -311,6 +235,7 @@ repl1 :-
 %     metta>
 %
 repl2 :-
+    if_t(option_value(repl,disable),throw('$aborted')),
     % Load the REPL history and clean it up if necessary.
     ignore(catch(load_and_trim_history,_,true)),
 
@@ -1143,8 +1068,8 @@ u_do_metta_exec02(From,Self,TermV,BaseEval,Term,_X,NamedVarsList,Was,VOutput,FOu
     notrace((
      if_t(is_interactive(From), \+ \+ maybe_add_history(Self, BaseEval, NamedVarsList)),
      % Was --exec=skip but this is the type of directive we'd do anyways
-     if_t((From = file(_), option_value('exec',skip)), \+ \+ color_g_mesg('#da7036', (write('\n; Always-Exec: '), write_src_woi(TermV),nl,
-        write_w_attvars(Term)))),
+     if_t((From = file(_), option_value('exec',skip)), \+ \+ color_g_mesg('#da7036',
+      (write('\n; Always-Exec: '), write_src_woi(TermV),nl, write_w_attvars(Term)))),
 
     % Initialize the result variable, with FOut to hold the final output
     Result = res(FOut),
@@ -1173,6 +1098,7 @@ u_do_metta_exec02(From,Self,TermV,BaseEval,Term,_X,NamedVarsList,Was,VOutput,FOu
     in_answer_io(format('~N[')))),!,
 
    % Interactive looping with possible timing and stepping control
+   %TODO TIME time profile
    (
     forall_interactive(
     From, WasInteractive,Complete, %may_rtrace
@@ -1240,8 +1166,6 @@ u_do_metta_exec02(From,Self,TermV,BaseEval,Term,_X,NamedVarsList,Was,VOutput,FOu
    flag(need_prompt,_,1),
    ignore(Result = res(FOut)).
 
-
-:- meta_predicate print_result_output(0,?,?,?,?,?,?,?,?,?,?).
 print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Result,Seconds,Was,Output,Stepping):-
          set_option_value(interactive,WasInteractive),
          Control = contrl(InitialResultLeash,Max,DoLeap),
@@ -1283,7 +1207,7 @@ print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Re
                   InitialResultLeash =< ResNum, ResNum < Max) -> Stepping = true ; Stepping = false),
 
          %if_debugging(time,with_output_to(user_error,give_time('Execution',Seconds))),
-           if_t((Stepping==true;Complete==true),if_trace(time,color_g_mesg_ok(yellow,(user_io(give_time('Execution',Seconds)))))),
+           if_t((Stepping==true;Complete==true),if_trace(time,user_err(color_g_mesg_ok(yellow,(give_time('Execution',Seconds)))))),
 
            color_g_mesg(green,
               ignore((NamedVarsList \=@= Was ->(not_compatio((
@@ -1294,8 +1218,6 @@ print_result_output(WasInteractive,Complete,ResNum,Prev,NamedVarsList,Control,Re
 
 
 %old_not_compatio(_G):- \+ is_testing, !.
-
-:- meta_predicate old_not_compatio(0).
 old_not_compatio(G):- call(G),ttyflush.
 
 %! maybe_assign(+N_V) is det.
@@ -1385,16 +1307,12 @@ get_single_char_key(C, A):- name(A, [C]).
 %   @arg Complete indicates whether the goal reached a final result.
 %   @arg Goal is the main goal to be executed interactively.
 %   @arg After is the action to perform after the goal is executed.
-
-:- meta_predicate forall_interactive(?,?,?,0,0).
 forall_interactive(file(_), false, Complete, Goal, After) :- !,
     % Execute the goal.
     %format("%%%%%%%%%%%%%%%%%%%%%%%%%0 ~w\n",[Goal]),
     Goal,
     % If the goal is complete, execute 'After', otherwise skip it.
     (Complete == true -> (!, call(After), !) ; ( \+ quietly(After))).
-
-:- meta_predicate forall_interactive(?,?,?,0,?).
 forall_interactive(prolog, false, Complete, Goal, After) :- !,
     % Execute the goal.
     %format("%%%%%%%%%%%%%%%%%%%%%%%%%1 ~w\n",[Goal]),
@@ -1403,8 +1321,6 @@ forall_interactive(prolog, false, Complete, Goal, After) :- !,
     (Complete == true -> ! ; true),
     % Execute 'After' quietly (without trace output).
     quietly(After).
-
-:- meta_predicate forall_interactive(?,?,?,0,?).
 forall_interactive(From, WasInteractive, Complete, Goal, After) :-
     % Check if the source (From) is interactive.
     (is_interactive(From) -> WasInteractive = true ; WasInteractive = false),
@@ -1831,7 +1747,11 @@ prolog_only(Goal):-
 %     ?- write_compiled_exec(Result, my_goal).
 %     #114411: answer2(Result) :- my_goal
 %
+
 write_compiled_exec(Exec, Goal):-
+  notrace((ignore(catch(write_compiled_exec_unsafe(Exec, Goal),_,true)))).
+
+write_compiled_exec_unsafe(Exec, Goal):-
     % Compile the goal for execution and store the result in Res.
     compile_for_exec(Res, Exec, Goal),
     % Print the compiled goal with formatting.
@@ -1938,8 +1858,6 @@ vu(trace, _Value):-
 %
 
 % Entry point for a goal execution, tracing is turned off by default.
-
-:- meta_predicate toplevel_goal(0).
 toplevel_goal(Goal) :-
     % Extract variables from the goal.
     term_variables(Goal,Vars),
@@ -1962,15 +1880,11 @@ toplevel_goal(Goal) :-
 %
 
 % Entry point for executing a goal with tracing enabled by default.
-
-:- meta_predicate trace_goal(0).
 trace_goal(Goal) :-
     % By default, tracing is enabled.
     trace_goal(Goal, trace_on).
 
 % Execute a goal with optional tracing.
-
-:- meta_predicate trace_goal(0,?).
 trace_goal(Goal, Tracing) :-
     % If tracing is on, print the goal being entered.
     (Tracing == trace_on -> writeln('Entering goal:'), writeln(Goal) ; true),
@@ -2002,8 +1916,6 @@ trace_goal(Goal, Tracing) :-
 %
 
 % This predicate handles user interaction and command processing during execution.
-
-:- meta_predicate interact(?,0,?).
 interact(Variables, Goal, Tracing) :-
     % Call the goal and print the result.
     call(Goal), write('Solution: '), write_src(Variables),
@@ -2030,6 +1942,7 @@ interact(Variables, Goal, Tracing) :-
 :- dynamic(is_installed_readline_editline/1).
 :- volatile(is_installed_readline_editline/1).
 
+install_readline_editline :-  skip_cmd_history, !.
 install_readline_editline :-  is_win64,!.
 install_readline_editline :-  is_docker,!.
 install_readline_editline :-
@@ -2055,6 +1968,7 @@ install_readline_editline :-
 %   Note: This setup is specific to the mettalog environment and does not use the default SWI-Prolog completions.
 %
 %   @see editline:el_wrap/4 for more details on wrapping input streams in editline.
+el_wrap_metta(_Input) :- skip_cmd_history, !.
 el_wrap_metta(Input) :-
     % If the input is already wrapped, do nothing.
     el_wrapped(Input),
@@ -2084,6 +1998,8 @@ el_wrap_metta(_NoTTY) :-
 %   File completions are commented out for potential future use.
 %
 /* previously: It would be nice to include file name completion here, but it was skipped for atom completion */
+
+add_metta_commands(_Input):- skip_cmd_history, !.
 add_metta_commands(Input) :-
     % TODO: File name completion would be useful, but it is currently skipped for Prolog atom completion.
     % Bind a function for atom and file completion. Commented out.
@@ -2119,8 +2035,11 @@ add_metta_commands(Input) :-
 %
 is_docker :- exists_file('/.dockerenv'),!.
 
-install_readline(_Input):- is_docker,!. % too chancy
-install_readline(_Input):- is_win64,!. % already installed
+skip_cmd_history:- current_prolog_flag(mettalog_rt, true),!.
+skip_cmd_history:- is_docker,!. % too chancy
+skip_cmd_history:- is_win64, !. % already installed
+
+install_readline(_Input):- skip_cmd_history, !.
 install_readline(Input):-
     % Check if readline is already installed for this Input.
     is_installed_readline_editline(Input), !.
@@ -2180,6 +2099,12 @@ add_history_file_string(Line):-
   string_replace(String,'\\t','\t',Str),
   add_history_string(Str), !.
 
+:- abolish(add_history1/1).
+add_history1(Hist):- atomic(Hist),!,add_history_string(Hist).
+add_history1(Hist):- add_history_src(Hist).
+
+:- abolish(add_history/1).
+add_history(Hist):- add_history1(Hist).
 
 
 %!  install_readline_editline1 is det.
@@ -2258,5 +2183,5 @@ print_debug_help :-
     %writeln('(I)  info             - Show information about the current state.'),
     !.
 
-%:- find_missing_cuts.
+:- find_missing_cuts.
 

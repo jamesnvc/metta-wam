@@ -1,15 +1,3 @@
-:- module(metta_testing, [ color_g_mesg/2,
-                           color_g_mesg_ok/2,
-                           file_answers/3,
-                           has_loonit_results/0,
-                           load_answer_file/1,
-                           loonit_asserts/3,
-                           loonit_report/0,
-                           loonit_reset/0,
-                           set_exec_num/2,
-                           string_replace/4,
-                           test_alarm/0,
-                           tst_call_limited/1 ]).
 /*
   this is part of (H)MUARC  https://logicmoo.org/xwiki/bin/view/Main/ARC/
 
@@ -31,58 +19,8 @@
 
 % Ensure that the `metta_interp` library is loaded.
 % This loads all the predicates called from this file.
-
-
-:- use_module(metta_compiler_roy, [ must_det_lls/1,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_debug, [ if_trace/2,
-                             sub_var_safely/2 ]).
-:- use_module(metta_interp, [ always_exec/1,
-                              fbug/1,
-                              is_compatio/0,
-                              metta_root_dir/1,
-                              pfcAdd_Now/1 ]).
-:- use_module(metta_loader, [ load_metta/1 ]).
-:- use_module(metta_parser, [ parse_sexpr_untyped/2 ]).
-:- use_module(metta_printer, [ write_src/1 ]).
-:- use_module(metta_repl, [ inside_assert/2 ]).
-:- use_module(metta_space, [ 'add-atom'/2,
-                             'add-atom'/3,
-                             'atom-count'/2,
-                             'clear-atoms'/1,
-                             fetch_or_create_space/1,
-                             fetch_or_create_space/2,
-                             'get-atoms'/2,
-                             init_space/1,
-                             match/3,
-                             'remove-atom'/2,
-                             'remove-atom'/3,
-                             'replace-atom'/3,
-                             space_original_name/2 ]).
-:- use_module(metta_utils, [ disable_arc_expansion/0,
-                             enable_arc_expansion/0,
-                             max_min/4,
-                             write_src_uo/1 ]).
-:- use_module(swi_support, [ fbug/1,
-                             if_t/2,
-                             must_det_ll/1,
-                             option_else/3,
-                             option_value/2,
-                             symbol/1,
-                             symbol_concat/3,
-                             symbolic_list_concat/3 ]).
-
-
-
-
-
-
-
-
-
-
-
+:- ensure_loaded(metta_interp).
+:- ensure_loaded(metta_utils).
 
 % Reset loonit counters
 
@@ -99,6 +37,7 @@ loonit_reset :-
     flush_output,
     % Calls a report function.
     loonit_report,
+    retractall((gave_loonit_report)),
     % Flushes output again after reporting.
     flush_output,
     % Resets the failure counter to zero.
@@ -285,8 +224,6 @@ color_g_mesg(C, G) :-
 %   @example
 %     % Execute a message with color formatting if allowed:
 %     ?- color_g_mesg_ok(red, writeln('Important message')).
-
-:- meta_predicate color_g_mesg_ok(?,0).
 color_g_mesg_ok(_, G) :-
     % In compatibility mode, simply execute the Goal without formatting.
     is_compatio, !, call(G).
@@ -359,7 +296,9 @@ print_current_test :-
     % Generates the test name based on the current number.
     get_test_name(Number, TestName),
     % Prints the test name in an HTML heading format.
-    format('~N~n;<h3 id="~w">;; ~w</h3>~n', [TestName, TestName]).
+    format('~N~n;<h3 id="~w">;; ~w</h3>~n', [TestName, TestName]),
+    flush_output.
+
 
 %!  ensure_increments(:Goal) is det.
 %
@@ -372,8 +311,6 @@ print_current_test :-
 %   @example
 %     % Track a goal and increment failure count if it fails:
 %     ?- ensure_increments(writeln('Running test goal...')).
-
-:- meta_predicate ensure_increments(0).
 ensure_increments(Goal) :-
     % Sets up initial conditions and executes Goal, adjusting counters afterward.
     setup_call_cleanup(
@@ -435,8 +372,6 @@ loonit_asserts(S, Pre, G) :-
 %   @example
 %     % Perform assertion with tracking, assuming precondition holds:
 %     ?- loonit_asserts0('source', true, writeln('Executing goal')).
-
-:- meta_predicate loonit_asserts0(?,0,?).
 loonit_asserts0(S, Pre, G) :-
     % Increments the test number.
     flag(loonit_test_number, X, X + 1),
@@ -453,6 +388,58 @@ loonit_asserts0(S, Pre, G) :-
     % wots(S, ((((nb_current(exec_src, WS), WS \== []) -> writeln(WS); write_src(exec(TestSrc)))))),
     % Evaluates the main assertion goal.
     once(loonit_asserts1(Exec, Pro, G)).
+
+
+with_output_and_error_to(Out, Err, Goal) :-
+    current_input(OrigIn),
+    current_output(OrigOut),
+    current_error(OrigErr),
+    setup_call_cleanup(
+        set_prolog_IO(OrigIn, Out, Err),
+        Goal,
+        set_prolog_IO(OrigIn, OrigOut, OrigErr)
+    ).
+
+with_disabled_writing(Goal) :-
+    setup_call_cleanup(disable_writing,Goal,enable_writing).
+
+:- dynamic saved_io/3.
+
+disable_writing :- saved_io(_, _, _),!.
+disable_writing :-
+    \+ saved_io(_, _, _),  % prevent double disable
+    current_input(In),
+    current_output(Out),
+    stream_property(Err, alias(user_error)),
+    assertz(saved_io(In, Out, Err)),
+    disabled_stream(Null),
+    set_prolog_IO(In, Null, Null),
+    set_stream(Null, alias(disabled_output)).
+
+enable_writing :-
+    \+ saved_io(_, _, _), !.
+enable_writing :-
+    retract(saved_io(In, Out, Err)),!,
+    set_prolog_IO(In, Out, Err),
+    current_output(WasOut),
+    (   catch(close(WasOut), _, true)
+    ->  true
+    ;   true
+    ),
+    set_prolog_IO(In, Out, Err).
+/*
+enable_writing:- original_user_error(Err),
+   current_input(In),
+   set_prolog_IO(In, Err, Err).
+*/
+
+disabled_stream(Stream):-
+   open_prolog_stream(oops, write, Stream, []).
+
+oops:stream_write(_,S2):- S2=="\n", nb_current(lw,S1),S1==S2,!, enable_writing,trace,disable_writing. %,original_user_error(Err), writeq(Err,S2),  write(Err,S2).
+oops:stream_write(_,S2):- nb_setval(lw,S2), !, original_user_error(Err), write(Err,S2).
+%oops(S):- trace,writeln(S).
+:- set_prolog_flag(gc,false).
 
 %!  give_pass_credit(+TestSrc, +Precondition, +Goal) is det.
 %
@@ -717,11 +704,7 @@ trim_gstring_bar_I(Goal, MaxLen) :-
 %    ?- tst_cwdl(member(X, [1,2,3]), 0).
 %    ERROR: Unhandled exception: over_test_resource_limit(depth_limit, 0, 1)
 %
-
-:- meta_predicate tst_cwdl(0,?).
 tst_cwdl(Goal, _MaxDepth) :- !, call(Goal).
-
-:- meta_predicate tst_cwdl(0,?).
 tst_cwdl(Goal, MaxDepth) :-
     call_with_depth_limit(Goal, MaxDepth, Result),
     cwdl_handle_result(Result, MaxDepth).
@@ -772,11 +755,7 @@ cwdl_handle_result(_, _).
 %    ?- tst_cwil(member(X, [1,2,3]), 0).
 %    ERROR: Unhandled exception: over_test_resource_limit(inference_limit, 0, 1)
 %
-
-:- meta_predicate tst_cwil(0,?).
 tst_cwil(Goal, _MaxInference) :- !, call(Goal).
-
-:- meta_predicate tst_cwil(0,?).
 tst_cwil(Goal, MaxInference) :-
     call_with_inference_limit(Goal, MaxInference, Result),
     cwil_handle_result(Result, MaxInference).
@@ -996,6 +975,9 @@ loonit_report :-
 loonit_report :-
     % Mark the report as generated.
     assert(gave_loonit_report),
+    give_loonit_report.
+
+give_loonit_report :-
     % Retrieve current counts of successes and failures.
     flag(loonit_success, Successes, Successes),
     flag(loonit_failure, Failures, Failures),
@@ -1003,7 +985,7 @@ loonit_report :-
     loonit_report(Successes, Failures),
     % If no successes or any failures, open REPL if settings permit.
     if_t((Successes == 0 ; Failures > 0),
-         if_t(option_value(repl, failures) ; option_value(frepl, true), repl)).
+         if_t((option_value(repl, failures) ; option_value(frepl, true)), if_t( \+ option_value(repl,disable), repl))).
 
 % Ensure loonit report runs at program halt.
 :- at_halt(loonit_report).
@@ -1080,6 +1062,13 @@ set_exec_num(SFileName, Val) :-
     ),
     % Assert the new execution number for FileName.
     asserta(file_exec_num(FileName, Val)).
+
+set_exec_num(Val) :-
+    % Get the absolute path of the current file.
+    if_t(current_exec_file_abs(FileName),
+    % Retrieve the execution number for FileName, stopping after one result.
+    set_exec_num(FileName, Val)).
+
 
 %!  get_exec_num(-Val) is det.
 %
