@@ -1,25 +1,3 @@
-:- module(metta_space, [ 'add-atom'/2,
-                         'add-atom'/3,
-                         'atom-count'/2,
-                         'clear-atoms'/1,
-                         ensure_space/2,
-                         fetch_or_create_space/1,
-                         fetch_or_create_space/2,
-                         'get-atoms'/2,
-                         has_type/2,
-                         init_space/1,
-                         is_an_arg_type/2,
-                         is_asserted_space/1,
-                         is_nb_space/1,
-                         match/3,
-                         metta_final/0,
-                         py_named_space/1,
-                         'remove-atom'/2,
-                         'remove-atom'/3,
-                         'replace-atom'/3,
-                         'save-space!'/2,
-                         space_original_name/2,
-                         was_asserted_space/1 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -84,9 +62,9 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-
-
-
+:- ensure_loaded(metta_interp).
+:- ensure_loaded(metta_compiler).
+:- ensure_loaded(metta_compiler_lib).
 
 :- discontiguous(user:metta_file_buffer/7).
 :-     multifile(user:metta_file_buffer/7).
@@ -190,8 +168,6 @@ call_match([G]) :- !, call(G).
 % Call the first goal in the list, then recursively call the rest of the goals.
 call_match([G | GG]) :- !, call(G), call_match(GG).
 % Call a single goal that is not part of a list.
-
-:- meta_predicate call_match(0).
 call_match(G) :- call(G).
 
 %!  'save-space!'(+Space, +File) is det.
@@ -359,35 +335,6 @@ decl_fb_pred(Fn, A) :-
 
 % Import necessary libraries
 :- use_module(library(readutil)).
-:- use_module(metta_compiler_roy, [ for_all/2,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ o_f_v/3 ]).
-:- use_module(metta_debug, [ sub_term_safely/2,
-                             sub_var_safely/2 ]).
-:- use_module(metta_eval, [ eval_args/2 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              into_top_self/2,
-                              metta_atom/2,
-                              nocut/0,
-                              once_writeq_nl/1,
-                              pfcAdd_Now/1 ]).
-:- use_module(metta_loader, [ mangle_iz/2 ]).
-:- use_module(metta_parser, [ subst_vars/2 ]).
-:- use_module(metta_printer, [ write_src/1,
-                               write_src_nl/1 ]).
-:- use_module(metta_python, [ ensure_space_py/2 ]).
-:- use_module(metta_utils, [ if_t/2,
-                             must_det_ll/1 ]).
-
-
-
-
-
-
-
-
-
-
 
 %!  skip(+X) is det.
 %
