@@ -1,20 +1,4 @@
-:- module(metta_compiler, [ op(700,xfx,=~),
-                            op(700,xfx,@..),
-                            op(700,xfx,~..),
-                            assign_or_direct_var_only/4,
-                            f2p/8,
-                            f2p_do_group/6,
-                            format_e/2,
-                            lazy_impedance_match/8,
-                            non_arg_violation/3,
-                            ok_to_append/1,
-                            p2s/2,
-                            send_to_pl_file/1,
-                            setup_library_call/7,
-                            trace_break/1,
-                            transpiler_apply/9,
-                            write_new_plfile/2 ]).
-/*
+﻿/*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
  *              MeTTa language programs into Prolog, utilizing the SWI-Prolog compiler for
@@ -82,13 +66,13 @@
 % Setting the Rust backtrace to Full
 :- setenv('RUST_BACKTRACE',full).
 % Loading various library files
-
-
-
+:- ensure_loaded(swi_support).
+:- ensure_loaded(metta_testing).
+:- ensure_loaded(metta_utils).
 %:- ensure_loaded(metta_reader).
-
-
-
+:- ensure_loaded(metta_interp).
+:- ensure_loaded(metta_space).
+:- ensure_loaded(metta_compiler_print).
 :- dynamic(transpiler_clause_store/9).
 :- multifile(transpiler_predicate_store/7).
 :- dynamic(transpiler_predicate_store/7).
@@ -96,7 +80,7 @@
 :- discontiguous transpiler_predicate_nary_store/9.
 :- discontiguous(compile_flow_control/8).
 :- multifile(compile_flow_control/8).
-
+:- ensure_loaded(metta_compiler_lib).
 %:- ensure_loaded(metta_compiler_lib_stdlib).
 
 non_arg_violation(_,_,_).
@@ -183,8 +167,6 @@ debug_format(Fmt,Args):- transpiler_debug(1,format_e(Fmt,Args)).
 % format to go out the visable error console since stdout can be sometimes redirected like in the case of the LSP server
 format_e(Fmt,Args):- stream_property(StdErr, file_no(2)), format(StdErr,Fmt,Args),flush_output(StdErr).
 
-
-:- meta_predicate transpiler_debug(?,0).
 transpiler_debug(Level,Code) :- (option_value('debug-level',DLevel),DLevel>=Level -> call(Code) ; true).
 %transpiler_debug(_Level,Code) :- call(Code).
 
@@ -352,15 +334,9 @@ must_use_compiler(Fn,only_compiler(Fn)):- use_evaluator(fa(Fn, _), compiler, onl
 must_use_compiler(Fn,disable_interp(Fn)):- nb_current(disable_interp,WasDC), member(Fn,WasDC).
 must_use_compiler(Fn,interp_disabled(Fn)):- use_evaluator(fa(Fn, _), interp, disabled).
 
-
-:- meta_predicate ci(?,?,?,0).
 ci(_,_,_,G):- call(G).
-
-:- meta_predicate ci(?,?,?,?,?,?,0).
 ci(_,_,_, _,_,_,G):- !, call(G).
 % Compiler is Disabled for Fn
-
-:- meta_predicate ci(0,?,?,?,?,?,?).
 ci(PreInterp,Fn,Len,Eval,RetVal,_PreComp,_Compiled):- fail,
     once(must_use_interp(Fn,Why,TF)),
     TF \== unknown, TF \== never,
@@ -376,8 +352,6 @@ ci(PreInterp,Fn,Len,Eval,RetVal,_PreComp,_Compiled):- fail,
     debug_info(Why,eval_args(Src,RetVal)),!,
     eval_args(Src,RetVal).
 
-
-:- meta_predicate ci(?,?,?,?,?,0,0).
 ci(_PreInterp,Fn,Len,_Eval,_RetVal,PreComp,Compiled):-
     %(nb_current(disable_interp,WasDI),member(Fn,WasDI);
     %\+ nb_current(disable_compiler,WasDC),member(Fn,WasDC)),!,
@@ -832,8 +806,6 @@ determine_eager_vars(_,eager,_,[]).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile_maplist_p2(_,[],[],[]).
-
-:- meta_predicate compile_maplist_p2(2,?,?,?).
 compile_maplist_p2(P2,[Var|Args],[Res|NewArgs],PreCode):- \+ fullvar(Var), call(P2,Var,Res), !,
   compile_maplist_p2(P2,Args,NewArgs,PreCode).
 compile_maplist_p2(P2,[Var|Args],[Res|NewArgs],TheCode):-
@@ -1276,22 +1248,14 @@ transpiler_apply(Prefix,Fn,RetResults,RetResult,RetResultsParts, RetResultsParts
 % eager -> eager, lazy -> lazy
 runtime_lazy_impedance_match(x(_,X,_),x(doeval,X,_),ValE,[],_ValN,_CodeN,ValE) :- !.
 runtime_lazy_impedance_match(x(_,X,_),x(noeval,X,_),_ValE,_CodeE,ValN,[],ValN) :- !.
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,0,?,?,?).
 runtime_lazy_impedance_match(x(_,eager,_),x(doeval,eager,_),ValE,CodeE,_ValN,_CodeN,ValE) :- call(CodeE).
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,?,?,0,?).
 runtime_lazy_impedance_match(x(_,eager,_),x(noeval,eager,_),_ValE,_CodeE,ValN,CodeN,ValN) :- call(CodeN).
 runtime_lazy_impedance_match(x(_,lazy,_),x(_,lazy,_),ValE,CodeE,ValN,CodeN,Code) :- !, Code=ispeEnN(ValE,CodeE,ValN,CodeN).
 %lazy_impedance_match(x(_,lazy,_),x(_,lazy,_),ValE,CodeE,ValN,CodeN,Val,Code) :- !,
 %   append(CodeE,[[native(as_p1_exec),ValE,RetResultE]],CodeAE),
 %   append(CodeN,[[native(as_p1_expr),ValN,RetResultN]],CodeAN),
 % lazy -> eager
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,0,?,?,?).
 runtime_lazy_impedance_match(x(_,lazy,_),x(doeval,eager,_),ValE,CodeE,_ValN,_CodeN,RetResult) :- !,call(CodeE),RetResult=ValE.
-
-:- meta_predicate runtime_lazy_impedance_match(?,?,?,?,?,0,?).
 runtime_lazy_impedance_match(x(_,lazy,_),x(noeval,eager,_),_ValE,_CodeE,ValN,CodeN,RetResult) :- !,call(CodeN),RetResult=ValN.
 % eager -> lazy
 runtime_lazy_impedance_match(x(_,eager,_),x(doeval,lazy,_),ValE,CodeE,ValN,CodeN,Code) :- Code=ispeEnN(ValE,CodeE,ValN,CodeN).
@@ -2042,19 +2006,13 @@ into_fa(FnArity,_Fn,_Arity):- throw(type_error(f/a,FnArity)).
 %must_det_lls(G):- rtrace(G),!.
 %user:numbervars(Term):- varnumbers:numbervars(Term).
 
-
-:- meta_predicate must_det_lls(0).
 must_det_lls(G):- tracing,!,call(G). % already tracing
 must_det_lls((A,B)):- !, (A, B).
-
-:- meta_predicate must_det_lls(0).
 must_det_lls(G):- !,call(G). % already tracing
 must_det_lls((A,B)):- !, must_det_lls(A),must_det_lls(B).
 %must_det_lls((G,B)):- catch(G,E,(wdmsg(E),fail)),!,must_det_lls(B).
 %must_det_lls((A,B)):- !, must_det_lls(A),must_det_lls(B).
 %must_det_lls(G):- tracing,!,(real_notrace(G)*->true;fail).
-
-:- meta_predicate must_det_lls(0).
 must_det_lls(G):- catch(G,E,(wdmsg(E),trace,rtrace(G),fail)),!.
 %must_det_lls(G):- must_det_ll(G).
 must_det_lls(G):- ignore((notrace,nortrace,trace)),rtrace(G),!.
@@ -2152,81 +2110,7 @@ precompute_typeinfo(HResult,HeadIs,AsBodyFn,Ast,Result) :-
 
 :- use_module(library(gensym)).          % for gensym/2
 :- use_module(library(pairs)).           % for group_pair_by_key/2
-:- use_module(library(logicmoo_utils)).
-
-:- use_module(metta_compiler_lib, [ is_If/1,
-                                    metta_to_metta_body_macro_recurse/3,
-                                    setup_library_calls/0,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_convert, [ p2m/2,
-                               sexpr_s2p/2,
-                               op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_debug, [ clause_occurs_warning/3,
-                             debug_info/2,
-                             functor_chkd/3,
-                             locally_clause_asserted/1,
-                             ppt/1,
-                             sub_term_safely/2,
-                             sub_var_safely/2,
-                             woc/1,
-                             wocf/1,
-                             woct/1 ]).
-:- use_module(metta_eval, [ as_tf/2,
-                            catch_warn/1,
-                            eval_args/2,
-                            eval_args/6,
-                            get_type/2,
-                            is_valid_nb_state/1,
-                            metta_atom_iter/5,
-                            nb_bound/2,
-                            peek_scope/4,
-                            self_eval/1 ]).
-:- use_module(metta_improve, [ eval_in_only/2,
-                               eval_in_only/3,
-                               use_evaluator/3 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              metta_type/3 ]).
-:- use_module(metta_parser, [ subst_vars/2 ]).
-:- use_module(metta_printer, [ into_plnamed/2 ]).
-:- use_module(metta_python, [ py_is_py/1 ]).
-:- use_module(metta_repl, [ eval/2 ]).
-:- use_module(metta_testing, [ color_g_mesg/2 ]).
-:- use_module(metta_utils, [ if_t/2,
-                             map_fold1/5,
-                             maplist/6,
-                             maplist/7,
-                             maplist/8,
-                             maplist/9,
-                             subst001/4 ]).
-:- use_module(swi_support, [ option_value/2,
-                             set_option_value/2,
-                             symbol/1 ]).
-:- use_module(metta_compiler_douglas, [ assertable_head/2,
-                                        compile_test_then_else/7,
-                                        f2p/6,
-                                        subst_varnames/2,
-                                        op(700,xfx,=~) ]).
-:- use_module(metta_compiler, [ into_list_args/2,
-                                ok_to_append/1,
-                                p2s/2 ]).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  % for ppt/1 (pretty-print)
+:- use_module(library(logicmoo_utils)).  % for ppt/1 (pretty-print)
 
 /** <module> combine_transform_and_collect_subterm
 
@@ -2631,11 +2515,7 @@ prefix_impl_preds_pp(Prefix,F,A):- predicate_property('mc__1_2_:'(_,_,_),file(Fi
 maplist_and_conj(_,A,B):- fullvar(A),!,B=A.
 maplist_and_conj(_,A,B):- \+ compound(A),!,B=A.
 maplist_and_conj(P2,(A,AA),[B|BB]):- !, maplist_and_conj(P2,A,B), maplist_and_conj(P2,AA,BB).
-
-:- meta_predicate maplist_and_conj(2,?,?).
 maplist_and_conj(P2,[A|AA],[B|BB]):- !, call(P2,A,B), maplist_and_conj(P2,AA,BB).
-
-:- meta_predicate maplist_and_conj(2,?,?).
 maplist_and_conj(P2,A,B):- call(P2,A,B), !.
 
 notice_callee(Caller,Callee):-
@@ -2846,20 +2726,10 @@ inline_var(Var, 2, (Right = Left), Body, BodyNew):- Var == Left , Var \== Right,
 
 de_eval(eval(X),X):- compound(X),!.
 
-
-:- meta_predicate call1(0).
 call1(G):- call(G).
-
-:- meta_predicate call2(0).
 call2(G):- call(G).
-
-:- meta_predicate call3(0).
 call3(G):- call(G).
-
-:- meta_predicate call4(0).
 call4(G):- call(G).
-
-:- meta_predicate call5(0).
 call5(G):- call(G).
 
 trace_break:- trace_break((trace,break)).
@@ -2874,8 +2744,6 @@ trace_break(G):- nl, writeq(call(G)), trace,break.
     :- set_prolog_flag(gc,false).
 :- endif.
 
-
-:- meta_predicate call_fr(1,?,?).
 call_fr(G,Result,FA):- current_predicate(FA),!,call(G,Result).
 call_fr(G,Result,_):- Result=G.
 
@@ -3173,8 +3041,6 @@ u_assign_c(FList,RR):-
 u_assign_c(FList,RR):- as_tf(FList,RR),!.
 u_assign_c(FList,R):- compound(FList), !, FList=~R.
 
-
-:- meta_predicate quietlY(0).
 quietlY(G):- call(G).
 
 

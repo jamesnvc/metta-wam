@@ -1,30 +1,3 @@
-:- module(metta_improve, [ eval_in_only/2,
-                           eval_in_only/3,
-                           eval_use_right_thing/6,
-                           record_subchain/3,
-                           use_evaluator/3 ]).
-:- use_module(metta_compiler_roy, [ transpile_eval/2,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_debug, [ debug_info/2,
-                             ppt/1,
-                             woc/1,
-                             woct/1 ]).
-:- use_module(metta_eval, [ eval_09/6,
-                            peek_scope/4,
-                            with_scope/5 ]).
-:- use_module(metta_interp, [ user_io/1 ]).
-:- use_module(metta_printer, [ write_src_wi/1 ]).
-:- use_module(metta_python, [ rust_metta_run/2 ]).
-:- use_module(metta_utils, [ if_t/2 ]).
-:- use_module(swi_support, [ option_value/2 ]).
-
-
-
-
-
-
-
-
 
 
 assumed_functor(X, fa(F, A)):- is_list(X), X=[F|Args], atom(F), length(Args, A),!.
@@ -190,8 +163,6 @@ only_interpreted_eval(FA, X, Y) :-
 
 % --- Temporarily override evaluator status ---
 
-
-:- meta_predicate with_evaluator_status(?,?,0).
 with_evaluator_status(Flag=Status, FA, Goal) :-
     ( use_evaluator(FA, Flag, OldStatus) -> true ; OldStatus = unset ),
     set_use_evaluator(FA, Flag, Status),
@@ -276,8 +247,6 @@ on_finish_load_metta(Filename):-
 
 
 %record_subchain(Goal,_X,_Y):-!, call(Goal).
-
-:- meta_predicate record_subchain(0,?,?).
 record_subchain(Goal,_X,_Y):- \+ option_value(subtests,true), !, call(Goal).
 record_subchain(Goal,X,Y):-
    term_variables(X,XVs),

@@ -1,4 +1,3 @@
-:- module(metta_threads, []).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -66,7 +65,7 @@
 :- use_module(library(record)).
 % Ensure that the `metta_interp` library is loaded.
 % This loads all the predicates called from this file
-
+:- ensure_loaded(metta_interp).
 
 % Define options for async/3 with a default policy.
 % The `opts` record includes a `policy` field, which can be `ephemeral`
@@ -159,8 +158,6 @@ spawn(Goal) :-
 %
 %   @see async/3 for more fine-grained control when no free variables are present.
 %
-
-:- meta_predicate spawn(0,?).
 spawn(Goal, Options) :-
     term_variables(Goal, Vars),          % Collect free variables in Goal
     async(Goal, Token, Options),         % Start async execution with options
@@ -260,8 +257,6 @@ spawn_thaw(Id, Token, Opts) :-
 %   the `lazy` policy prevents `i_am_slow/3` from executing at all, avoiding 
 %   unnecessary computation.
 %
-
-:- meta_predicate lazy(0).
 lazy(Goal) :-
     spawn(Goal, [policy(lazy)]).
 

@@ -1,21 +1,3 @@
-:- module(metta_loader, [ cache_file/2,
-                          check_silent_loading/0,
-                          connl/0,
-                          dvar_name/2,
-                          import_metta/2,
-                          include_metta/2,
-                          load_metta/1,
-                          load_metta/2,
-                          mangle_iz/2,
-                          mlog_sym/1,
-                          no_cons_reduce/0,
-                          register_module/2,
-                          register_module/3,
-                          silent_loading/0,
-                          svar_fixvarname_dont_capitalize/2,
-                          untyped_to_metta/2,
-                          use_cache_file/2,
-                          use_corelib_file/0 ]).
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -81,7 +63,7 @@
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-
+:- ensure_loaded(metta_interp).
 
 %!  when_tracing(+Goal) is det.
 %
@@ -99,8 +81,6 @@
 %     ?- trace, when_tracing(writeln('This runs without trace output')).
 %     % Trace is turned off temporarily, executes the goal, then restores tracing.
 %
-
-:- meta_predicate when_tracing(0).
 when_tracing(Goal) :-
     % Check if tracing is active
     tracing,
@@ -156,8 +136,6 @@ path_chars(A, C) :- symbol_chars(A, C).
 %     % Apply wild path setup for a specific directory.
 %     ?- with_wild_path(my_fnicate, '/home/user/docs').
 %
-
-:- meta_predicate with_wild_path(1,?).
 with_wild_path(Fnicate, Dir) :-
     % Retrieve the current working directory.
     working_directory(PWD, PWD),
@@ -319,8 +297,6 @@ wwp(Fnicate, Dir) :-
     exists_directory(Dir),
     quietly(afn_from('__init__.py', PyFile, [access(read), file_errors(fail), relative_to(Dir)])),
     wwp(Fnicate, PyFile).
-
-:- meta_predicate wwp(1,?).
 wwp(Fnicate, File) :-
     % If File doesnâ€™t exist as file or directory, search for it with predefined extensions.
     \+ exists_directory(File), \+ exists_file(File),
@@ -328,8 +304,6 @@ wwp(Fnicate, File) :-
     symbolic_list_concat([File|Ext], MeTTafile),
     exists_file(MeTTafile),
     call(Fnicate, MeTTafile).
-
-:- meta_predicate wwp(1,?).
 wwp(Fnicate, File) :-
     % For files containing '..', search with alternative extensions and process if found.
     \+ exists_directory(File), \+ exists_file(File), symbol_contains(File, '..'),
@@ -338,8 +312,6 @@ wwp(Fnicate, File) :-
     afn_from(MeTTafile0, MeTTafile, [access(read), file_errors(fail)]),
     exists_file(MeTTafile),
     call(Fnicate, MeTTafile).
-
-:- meta_predicate wwp(1,?).
 wwp(Fnicate, File) :-
     % If File is a directory, process all files matching '*.*sv' in that directory.
     exists_directory(File),
@@ -670,8 +642,6 @@ is_metta_module_path('.').
 %   @arg Item  The item being processed (e.g., a file name or goal).
 %   @arg DoThis The action to take when a circular dependency is detected (e.g., throwing an error).
 %
-
-:- meta_predicate when_circular(?,?,?,0).
 when_circular(Key, Goal, Item, DoThis) :-
     % Retrieve the current list of items being processed from the global variable (if it exists).
     (nb_current(Key, CurrentItems) -> true; CurrentItems = []),
@@ -877,8 +847,8 @@ import_metta1(Self, RelFilename):-
     include_metta_directory_file(Self, Directory, Filename)))).
 
 % Ensure Metta persistency and parsing functionalities are loaded.
-
-
+:- ensure_loaded(metta_persists).
+:- ensure_loaded(metta_parser).
 
 %!  include_metta(+Self, +Filename) is det.
 %
@@ -1880,73 +1850,6 @@ make_metta_file_buffer(TFMakeFile, FileName, InStream) :-
 :- use_module(library(system)).   % for absolute_file_name/3
 :- use_module(library(filesex)).  % For make_directory_path/1, etc.
 :- use_module(library(lists)).
-:- use_module(metta_compiler, [ write_new_plfile/2,
-                                op(700,xfx,=~),
-                                op(700,xfx,@..),
-                                op(700,xfx,~..) ]).
-:- use_module(metta_compiler_lib, [ setup_library_calls/0,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_compiler_roy, [ must_det_lls/1,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_corelib, [ nop/1 ]).
-:- use_module(metta_interp, [ catch_err/3,
-                              current_self/1,
-                              fbug/1,
-                              fbugio/1,
-                              gen_interp_stubs/3,
-                              is_compatio/0,
-                              is_converting/0,
-                              is_devel/0,
-                              maybe_into_top_self/2,
-                              metta_dir/1,
-                              metta_type/3,
-                              not_compat_io/1,
-                              pfcAdd_Now/1,
-                              set_option_value_interp/2,
-                              user_err/1 ]).
-:- use_module(metta_parser, [ process_expressions/3,
-                              read_metta/2,
-                              svar_fixvarname/2 ]).
-:- use_module(metta_printer, [ write_src_nl/1 ]).
-:- use_module(metta_python, [ assumed_loaded/1,
-                              py_is_module/1 ]).
-:- use_module(metta_repl, [ eval/2,
-                            repl/0 ]).
-:- use_module(metta_space, [ 'get-atoms'/2 ]).
-:- use_module(metta_testing, [ load_answer_file/1,
-                               loonit_report/0,
-                               loonit_reset/0,
-                               set_exec_num/2,
-                               test_alarm/0 ]).
-:- use_module(metta_utils, [ if_t/2,
-                             must_det_ll/1,
-                             write_src_uo/1 ]).
-:- use_module(swi_support, [ atom_contains/2,
-                             is_scryer/0,
-                             option_value/2,
-                             symbol/1,
-                             symbol_chars/2,
-                             symbol_concat/3,
-                             symbol_contains/2,
-                             symbol_length/2,
-                             symbolic/1,
-                             symbolic_list_concat/2,
-                             symbolic_list_concat/3,
-                             with_cwd/2,
-                             with_option/3 ]).
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /** cache_file(+Original, -CachedFile) is det.
 
@@ -3267,11 +3170,7 @@ really_use_corelib_file(Dir, File) :-
      debug(lsp(main), "~q", [end_really_use_corelib_file(Dir, File)]))),
      nb_delete(compiler_context).
 
-
-:- meta_predicate without_output(0).
 without_output(G):- is_devel,!,call(G).
-
-:- meta_predicate without_output(0).
 without_output(G):- with_output_to(string(_), G).
 :- nb_setval(debug_context, 'init').
 

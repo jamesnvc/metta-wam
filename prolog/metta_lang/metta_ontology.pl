@@ -28,8 +28,6 @@
                                     op(1050,xfx,=>),
                                     op(1100,fx,==>),
                                     op(1150,xfx,::::) ]).
-:- use_module(metta_transpiled_header, [ metta_atom_asserted/2 ]).
-
 
 
 
