@@ -88,7 +88,8 @@ files_imported([], _, []).
 files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileImports) :-
     findall(file_import(File, Call, ExporterFile),
             ( member(Call, Calls),
-              rb_lookup(Call, ExporterFile, PredToDefFile) ),
+              rb_lookup(Call, ExporterFile, PredToDefFile),
+              ExporterFile \= File ),
             FileImports, ImportsTail),
     files_imported(Rest, PredToDefFile, ImportsTail).
 
