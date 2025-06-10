@@ -50,6 +50,7 @@ main([DirPath]) :-
     % Remove ensure_loaded/1 decls for things that are now use_module/1'd
     maplist(file_module, AllFiles, AllModules),
     forall(member(File, AllFiles),
+           % XXX: this is breaking things, malforming file
            remove_ensure_loaded(File, AllModules)),
     add_all_missing_meta_preds(AllFiles).
 
@@ -85,9 +86,10 @@ files_exported(Imports, Exports) :-
             Exports).
 
 files_imported([], _, []).
-files_imported([file_def_call_ex(File, _, Calls, _)|Rest], PredToDefFile, FileImports) :-
+files_imported([file_def_call_ex(File, Defs, Calls, _)|Rest], PredToDefFile, FileImports) :-
+    sort(Defs, OrdDefs),
     findall(file_import(File, Call, ExporterFile),
-            ( member(Call, Calls),
+            ( member(Call, Calls), \+ ord_memberchk(Call, OrdDefs), % don't import if we define
               rb_lookup(Call, ExporterFile, PredToDefFile),
               ExporterFile \= File ),
             FileImports, ImportsTail),
@@ -256,23 +258,26 @@ add_use_if_needed__(LastModuleAt, AlreadyImported, Stream, Path, Module, Predica
     ( Term = end_of_file
     -> !
     ; ( Term = (:- module(_, _))
-      -> arg(2, SubTermPos, ModuleEndAt0),
-         succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+      -> stream_property(Stream, position(AfterPos)),
+         stream_position_data(char_count, AfterPos, ModuleEndAt),
          nb_setarg(1, LastModuleAt, ModuleEndAt),
          fail
       ; (  nonvar(ImpModule), ImpModule = Module
          -> debug(loading_message, "Already imported", []),
             arg(1, SubTermPos, ImportStart),
-            arg(2, SubTermPos, ImportEnd0), ImportEnd is ImportEnd0 + 1, % to get the full-stop
+            stream_property(Stream, position(AfterPos)),
+            stream_position_data(char_count, AfterPos, ImportEnd),
             update_existing_use_module_if_needed(Term, t(ImportStart, ImportEnd), Path, Module, Predicates),
             nb_setarg(1, AlreadyImported, true), !
-         ; arg(2, SubTermPos, ModuleEndAt0),
-           succ(ModuleEndAt0, ModuleEndAt), % skip the period at the end
+         ; stream_property(Stream, position(AfterPos)),
+           stream_position_data(char_count, AfterPos, ModuleEndAt),
            nb_setarg(1, LastModuleAt, ModuleEndAt),
            fail  ) ) ).
 
-% remove ensure_loaded/1
 
+%! remove_ensure_loaded(+Path:atom, +Modules:list(atom)) is det.
+%
+%  remove ensure_loaded/1 for =Modules= in =Path=
 remove_ensure_loaded(Path, Modules) :-
     find_in_source(Path,
                    {Modules}/[Term, Dict, Result]>>
@@ -281,8 +286,8 @@ remove_ensure_loaded(Path, Modules) :-
                            memberchk(M, Modules),
                            get_dict(subterm_positions, Dict, TermPos),
                            arg(1, TermPos, Start),
-                           arg(2, TermPos, End0),
-                           End is End0 + 1, % include full stop
+                           get_dict(after_term_position, Dict, AfterPos),
+                           stream_position_data(char_count, AfterPos, End),
                            Result = position(Start, End)
                        ),
                    Locations),
@@ -604,9 +609,11 @@ break_dependency_loop :-
 break_loop_by_inlining(Loop, PrevMod, ExtractMod, AllToImport, AllToExtract) :-
     once(( member(ThisModPath, Loop), file_module(ThisModPath, ExtractMod) )),
     once(( member(ParentModPath, Loop), file_module(ParentModPath, PrevMod) )),
-    copy_predicates_into_caller(ParentModPath, ThisModPath, AllToExtract),
+    debug(xxx, "INLINING ~q FROM ~q into ~q", [AllToExtract, ThisModPath, ParentModPath]),
+    maplist([_:Pred, Pred]>>true, AllToExtract, ExtractPreds),
+    copy_predicates_into_caller(ParentModPath, ThisModPath, ExtractPreds),
     % either also import AllToImport or inline those too?
-    forall(member(Mod-Preds, AllToImport),
+    forall(( member(Mod-Preds, AllToImport), Mod \= PrevMod),
            add_use_if_needed(ParentModPath, Mod, Preds)).
 
 break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract) :-
