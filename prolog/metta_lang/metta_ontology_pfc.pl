@@ -5,8 +5,7 @@
                                 op(1100,fx,==>),
                                 op(1150,xfx,::::),
                                 metta_atom_asserted/4 ]).
-:- use_module(metta_interp, [ metta_atom_asserted/2,
-                              metta_atom_asserted_hook/2,
+:- use_module(metta_interp, [ metta_atom_asserted_hook/2,
                               pfcAdd_Now/1 ]).
 :- use_module(metta_pfc_base, [ pfcAdd/1,
                                 op(500,fx,~),
@@ -22,6 +21,8 @@
                                  op(1050,xfx,==>),
                                  op(1100,fx,==>),
                                  op(1150,xfx,::::) ]).
+:- use_module(metta_transpiled_header, [ metta_atom_asserted/2 ]).
+
 
 
 
@@ -32,8 +33,7 @@
  *              optimizing and transforming function/logic programs. It handles different
  *              logical constructs and performs conversions between functions and predicates.
  *
- * Author: Douglas R. Miles
- * Contact:m so hub.com/logicmoo/hyperon-wam
+ * Author: Douglas R. Migseti    https://github.com/logicmoo/hyperon-wam
  * Created Date: 8/23/2023
  * Last Modified: $LastChangedDate$  # You will replace this with Git automation
  *
@@ -55,12 +55,12 @@
 
 :- must(\+ t_l:disable_px).
 
-
-
-
-
-
-
+:- op(500,fx,'~').
+:- op(1050,xfx,('=>')).
+:- op(1050,xfx,'<==>').
+:- op(1050,xfx,('<-')).
+:- op(1100,fx,('==>')).
+:- op(1150,xfx,('::::')).
 :-
  current_prolog_flag(access_level,Was),
  set_prolog_flag(access_level,system),
