@@ -34,6 +34,8 @@ main([DirPath]) :-
           UniqueFileImports),
     maplist([File, File-OpPositions]>>defined_operators(File, OpPositions),
             AllFiles, FileDefinedOps),
+    forall( member(File-DefOps, FileDefinedOps),
+            export_defined_operators(File, DefOps) ),
     maplist([File-OpPoses, Mod-OpPoses]>>file_module(File, Mod), FileDefinedOps,
             ModuleDefinedOps),
     list_to_rbtree(ModuleDefinedOps, ModDefOps),
@@ -45,8 +47,6 @@ main([DirPath]) :-
               ;  true ) ) ),
     forall( member(file_exports(File, Exports), FileExports),
             add_to_export(File, Exports) ),
-    forall( member(File-DefOps, FileDefinedOps),
-            export_defined_operators(File, DefOps) ),
     % Remove ensure_loaded/1 decls for things that are now use_module/1'd
     maplist(file_module, AllFiles, AllModules),
     forall(member(File, AllFiles),
@@ -218,7 +218,8 @@ defined_operators(Path, Ops) :-
                            Term = (:- op(A, B, C)),
                            get_dict(subterm_positions, Dict, TermPos),
                            arg(1, TermPos, Start),
-                           arg(2, TermPos, End0), End is End0 + 1, % period
+                           get_dict(after_term_position, Dict, AfterPos),
+                           stream_position_data(char_count, AfterPos, End),
                            Result = op(A, B, C)-position(Start, End)
                        ),
                    Ops).
