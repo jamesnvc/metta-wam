@@ -1,3 +1,21 @@
+:- module(metta_proof, []).
+:- use_module(metta_debug, [ locally_clause_asserted/1,
+                             ppt/1 ]).
+:- use_module(metta_interp, [ metta_atom/2 ]).
+:- use_module(metta_pfc_base, [ mpred_why/1,
+                                op(500,fx,~),
+                                op(1050,xfx,<-),
+                                op(1050,xfx,<==>),
+                                op(1050,xfx,==>),
+                                op(1100,fx,==>),
+                                op(1150,xfx,::::) ]).
+:- use_module(metta_repl, [ cls/0 ]).
+:- use_module(metta_utils, [ if_t/2 ]).
+
+
+
+
+
 
 
 metta_why(True):- forall(mpred_why(True),true),fail.
@@ -42,6 +60,8 @@ everything_is_good(Goal) :- callable(Goal).
 % Usage:
 %   interpB(P1, Test, Visited, Caller, Callee, _OldDetInfo, Proof).
 %
+
+:- meta_predicate interpB(1,?,?,?,?,?,?).
 interpB(P1, Test, Visited, Caller, Callee, _OldDetInfo, Proof) :-
     interpD(P1, Test, Visited, Caller, Callee, DetInfo, Proof),
     % DetInfo is expected to be of the form detinfo(Cutted, Failed)
@@ -49,6 +69,8 @@ interpB(P1, Test, Visited, Caller, Callee, _OldDetInfo, Proof) :-
     (Cutted == cutted -> ! ; true),
     (Failed == failed -> fail ; true).
 
+
+:- meta_predicate interpD(1,?,?,?,?,?,?).
 interpD(P1, Test, Visited, Caller, _OldCallee, DetInfo, Proof) :-
     interpC(P1, Test, Visited, Caller, _Callee, DetInfo, Proof).
 
@@ -90,6 +112,8 @@ interpC(_P1, Goal, _Visited, _Caller, _Callee, _DetInfo, _NoProofReturned) :-
 % P1 is our little sanity test that we call before continuing.
 % If call(P1, Goal) succeeds, we force a failure (to trigger backtracking)
 % else we break out (using break) and continue.
+
+:- meta_predicate interpC(1,?,?,?,?,?,?).
 interpC(P1, Goal, _Visited, _Caller, _Callee, _DetInfo, _Proof) :-
     (call(P1, Goal) -> fail ; (!, break)).
 
@@ -261,6 +285,8 @@ interpC(P1, catch(Goal, Catcher, Recovery), Visited, Caller, Callee, DetInfo, ca
 % If Goal's functor and arity match a mod_meta declaration, then
 % meta_spec_matches/4 extracts the positions of meta-arguments (those marked '?'),
 % and meta_args/7 recursively computes proofs for those arguments.
+
+:- meta_predicate interpC(?,0,?,?,?,?,?).
 interpC(P1, Goal, Visited, Caller, Callee, DetInfo, meta_decl(Caller, Callee, DetInfo, Goal, MetaProof)) :- fail,
     functor(Goal, Fun, Arity),
     % Look for a mod_meta declaration for this predicate.
@@ -293,6 +319,8 @@ meta_spec_matches(Fun, Arity, Spec, MetaPositions) :-
 % For each position in MetaPositions, extract the corresponding argument from Goal and
 % recursively call interpD/7 to obtain its proof.
 meta_args(_P1, _Goal, [], _Visited, _Caller, _Callee, _DetInfo, []).
+
+:- meta_predicate meta_args(1,?,?,?,?,?,?,?).
 meta_args(P1, Goal, [Pos|Rest], Visited, Caller, Callee, DetInfo, [Proof|Proofs]) :-
     arg(Pos, Goal, Arg),
     interpD(P1, Arg, Visited, Caller, Callee, DetInfo, Proof),
@@ -304,6 +332,8 @@ interpC(_OldP1, pre_call(P1, Goal), Visited, Caller, Callee, DetInfo, Proof) :- 
 
 % Built-in predicate call:
 % If the goal is built-in, record it as such and execute it.
+
+:- meta_predicate interpC(?,?,?,0,?,?,?).
 interpC(_P1, Goal, _Visited, Caller, Callee, DetInfo, builtin(Caller, Callee, DetInfo, Goal)) :-
     predicate_property(Caller:Goal, built_in),
     Caller:call(Goal).
@@ -317,6 +347,8 @@ interpC(_P1, Goal, _Visited, Caller, _OldCallee, DetInfo, non_builtin_call(Calle
 
 % Undefined predicate detection:
 % If the goal is not built-in and is_undefined/1 succeeds, then simply call the goal.
+
+:- meta_predicate interpC(?,?,?,0,?,?,?).
 interpC(_P1, Goal, _Visited, Caller, _Callee, _DetInfo, called(Goal)) :-
     is_undefined(Caller:Goal), !,
     %throw(error(existence_error(procedure, Caller:Goal), interpD/6)).

@@ -1,3 +1,4 @@
+:- module(metta_rt, []).
 
 
 :- (prolog_load_context(directory, Value);Value='.'), absolute_file_name('../libraries/',Dir,[relative_to(Value)]),

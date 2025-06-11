@@ -1,3 +1,14 @@
+:- module(metta_parser, [ memorize_varnames/1,
+                          metta_file_comment/5,
+                          parse_sexpr/2,
+                          parse_sexpr_untyped/2,
+                          process_expressions/3,
+                          read_metta/2,
+                          subst_vars/2,
+                          subst_vars/3,
+                          subst_vars/4,
+                          svar/2,
+                          svar_fixvarname/2 ]).
 /* <not-a-module> Metta File Processor
 
 This module provides utilities to process `.metta` files by reading S-expressions and comments from an input stream
@@ -32,7 +43,7 @@ handling of lists and individual items.s * *
 
 % Ensure that the `metta_interp` library is loaded,
 % That loads all the predicates called from this file
-:- ensure_loaded(metta_interp).
+
 
 %!  read_metta(+In, -Expr) is det.
 %
@@ -532,6 +543,8 @@ ok_varname_or_int(Name) :-
 %
 %   @arg Name The name to validate.
 %
+
+:- meta_predicate quietly_sreader(0).
 quietly_sreader(G):- notrace(G).
 ok_var_name(Name):-
     % Ensure the name follows valid Prolog variable naming rules.
@@ -564,6 +577,8 @@ atom_upper(A,U):-string_upper(A,S),quietly_sreader(((atom_string(U,S)))).
 %   @example Redirect the output of a simple print goal:
 %       ?- io_to_err(write('Error message')).
 %
+
+:- meta_predicate io_to_err(0).
 io_to_err(Goal):-
     with_output_to(user_error, Goal).
 
@@ -650,6 +665,8 @@ show_input_files(Output, InputFile) :-
 %
 % Handles the regeneration of buffer files for the specified input file.
 % @arg InputFile The name of the input file.
+
+:- meta_predicate gen_tmp_file(0,?).
 gen_tmp_file(Forced, InputFile) :-
     file_name_extension(InputFile, 'buffer~', OutputFile),  % Formulate the output file name.
     check_input_file(InputFile),  % Ensure the input file exists and is readable.
@@ -728,6 +745,38 @@ needs_regeneration(InputFile, _OutputFile) :-
 
 :- use_module(library(process)).
 :- use_module(library(time)).
+:- use_module(metta_compiler_roy, [ must_det_lls/1,
+                                    op(700,xfx,=~) ]).
+:- use_module(metta_corelib, [ nop/1 ]).
+:- use_module(metta_debug, [ sub_term_safely/2,
+                             sub_var_safely/2 ]).
+:- use_module(metta_interp, [ is_win64/0 ]).
+:- use_module(metta_loader, [ cache_file/2,
+                              dvar_name/2,
+                              svar_fixvarname_dont_capitalize/2,
+                              untyped_to_metta/2,
+                              use_cache_file/2 ]).
+:- use_module(metta_printer, [ paren_pair_functor/3,
+                               prolog_term_start/1 ]).
+:- use_module(metta_repl, [ maybe_set_var_names/1,
+                            repl_read/1 ]).
+:- use_module(metta_utils, [ if_t/2,
+                             must_det_ll/1,
+                             write_src_uo/1 ]).
+:- use_module(swi_support, [ atom_contains/2,
+                             non_empty_atom/1,
+                             symbol/1,
+                             symbol_concat/3,
+                             symbolic/1 ]).
+
+
+
+
+
+
+
+
+
 :- dynamic ok_to_stop/1.
 
 %! count_lines_in_file(+FileName:atom, -LineCount:int) is det.
@@ -841,6 +890,8 @@ get_percent_done(InStream, TotalLines, Percent):-
 %
 % This predicate assumes the `CalcPercent` predicate handles all necessary file stream interactions to determine the progress.
 %
+
+:- meta_predicate report_progress_so_far(?,1,?,?).
 report_progress_so_far(FileName, CalcPercent, StartTime, RemainingTime):-
     call(CalcPercent, PercentDone),  % Call the provided predicate to calculate the percentage completed
     remaining_time(PercentDone, StartTime, RemainingTime),
@@ -1013,6 +1064,8 @@ write_readably(_, _).
 % @arg EndChar that denotes the end of a symbol.
 % @arg Stream Stream from which to read.
 % @arg Item The item read from the stream.
+
+:- meta_predicate cont_sexpr(1,?,?).
 cont_sexpr(EndChar,  Stream, Item):-
    skip_spaces(Stream),  % Ignore whitespace before reading the expression.
    read_line_char(Stream, StartRange),
@@ -1022,6 +1075,8 @@ cont_sexpr(EndChar,  Stream, Item):-
    push_item_range(Item, Range).
 
 
+
+:- meta_predicate cont_sexpr_once(1,?,?).
 cont_sexpr_once(EndChar, Stream, Item) :-
     skip_spaces(Stream),
     get_char(Stream, Char),
@@ -1109,6 +1164,8 @@ cont_sexpr_from_char(_EndChar, Stream, '`', Item) :-
     read_quoted_symbol(Stream, '`', Item).
 
 % Otherwise, read a symbolic expression.
+
+:- meta_predicate cont_sexpr_from_char(1,?,?,?).
 cont_sexpr_from_char(EndChar, Stream, Char, Item) :-
     read_symbolic(EndChar, Stream, Char, Item).
 
@@ -1461,6 +1518,8 @@ read_list(EndChar,  Stream, List):-
         throw(stream_error(Line:Col:CharPos,Why))),
   nb_setval('$file_src_depth', LvL)).
 
+
+:- meta_predicate read_list_cont(1,?,?).
 read_list_cont(EndChar,  Stream, List) :-
     skip_spaces(Stream),  % Skip any leading spaces before reading.
 
@@ -1483,6 +1542,8 @@ read_list_cont(EndChar,  Stream, List) :-
 % @arg Stream Stream from which to read.
 % @arg EndChar that denotes the end of the quoted string.
 % @arg String The string read from the stream.
+
+:- meta_predicate read_quoted_string(?,1,?).
 read_quoted_string(Stream, EndChar,  String) :-
     read_until_char(Stream, EndChar,  Chars),  % Read characters until the ending quote.
     string_chars(String, Chars).  % Convert the list of characters to a string.
@@ -1507,6 +1568,8 @@ read_quoted_symbol(Stream, EndChar,  Symbol) :-
 % @arg Stream Stream from which to read.
 % @arg EndChar that indicates the end of the reading.
 % @arg Chars List of characters read until the end character.
+
+:- meta_predicate read_until_char(?,1,?).
 read_until_char(Stream, EndChar,  Chars) :-
     get_char(Stream, Char),
     (   Char = end_of_file -> throw_stream_error(Stream, unexpected_end_of_file(read_until_char(EndChar)))
@@ -1520,6 +1583,8 @@ read_until_char(Stream, EndChar,  Chars) :-
     ).
 
 chall(Test,Char):- \+ compound(Test),!, Test == Char.
+
+:- meta_predicate chall(1,?).
 chall(Test,Char):- call(Test,Char),!.
 was_end(X,Y):- X==Y.
 
@@ -1537,6 +1602,8 @@ maybe_escape(_Char, NextChar, NextChar).
 % @arg Stream Stream from which to read.
 % @arg FirstChar The first character of the symbolic expression.
 % @arg Symbolic The complete symbolic expression read.
+
+:- meta_predicate read_symbolic(1,?,?,?).
 read_symbolic(EndChar,  Stream, FirstChar, Symbolic) :-
     read_symbolic_cont(EndChar,  Stream, RestChars),
     classify_and_convert_charseq([FirstChar| RestChars], Symbolic), !.
@@ -1596,6 +1663,8 @@ classify_and_convert_charseq_(Chars, Symbolic) :-
 % @arg EndChar that indicates the end of the reading unless escaped.
 % @arg Stream Stream from which to read.
 % @arg Chars List of characters read, forming part of a symbolic expression.
+
+:- meta_predicate read_symbolic_cont(1,?,?).
 read_symbolic_cont(EndChar,  Stream, Chars) :-
     peek_char(Stream, NextChar),
     (   is_delimiter(NextChar) -> Chars = []  % Stop when a delimiter is found.

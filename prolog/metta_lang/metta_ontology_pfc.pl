@@ -1,3 +1,31 @@
+:- module(metta_ontology_pfc, [ a/2,
+                                op(500,fx,~),
+                                op(1050,xfx,<-),
+                                op(1050,xfx,<==>),
+                                op(1050,xfx,=>),
+                                op(1100,fx,==>),
+                                op(1150,xfx,::::) ]).
+:- use_module(metta_interp, [ metta_atom_asserted_hook/2,
+                              pfcAdd_Now/1 ]).
+:- use_module(metta_pfc_base, [ pfcAdd/1,
+                                op(500,fx,~),
+                                op(1050,xfx,<-),
+                                op(1050,xfx,<==>),
+                                op(1050,xfx,==>),
+                                op(1100,fx,==>),
+                                op(1150,xfx,::::) ]).
+:- use_module(metta_pfc_debug, [ pfcWhy1/1,
+                                 op(500,fx,~),
+                                 op(1050,xfx,<-),
+                                 op(1050,xfx,<==>),
+                                 op(1050,xfx,==>),
+                                 op(1100,fx,==>),
+                                 op(1150,xfx,::::) ]).
+:- use_module(metta_transpiled_header, [ metta_atom_asserted/2 ]).
+
+
+
+
 /*
  * Project: MeTTaLog - A MeTTa to Prolog Transpiler/Interpreter
  * Description: This file is part of the source code for a transpiler designed to convert
@@ -31,12 +59,12 @@
 
 :- must(\+ t_l:disable_px).
 
-:- op(500,fx,'~').
-:- op(1050,xfx,('=>')).
-:- op(1050,xfx,'<==>').
-:- op(1050,xfx,('<-')).
-:- op(1100,fx,('==>')).
-:- op(1150,xfx,('::::')).
+
+
+
+
+
+
 :-
  current_prolog_flag(access_level,Was),
  set_prolog_flag(access_level,system),

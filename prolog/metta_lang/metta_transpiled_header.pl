@@ -1,3 +1,5 @@
+:- module(metta_transpiled_header, [ metta_atom_asserted/2,
+                                     metta_function_asserted/3 ]).
 
 
 :- set_prolog_flag(source_search_working_directory, false).
@@ -94,7 +96,10 @@ history_file(Path) :-
 %:- initialization(maybe_load_history, now).
 
     %:- ensure_loaded(library(metta_lang/metta_interp)).
-:- ensure_loaded(library(metta_rt)). % avoids starting the REPL
+:- ensure_loaded(library(metta_rt)).
+:- use_module(metta_compiler_lib, [ setup_library_calls/0,
+                                    op(700,xfx,=~) ]).
+ % avoids starting the REPL
 :- setup_library_calls.
 :- dynamic(top_call/0).
 :- multifile(top_call/0).

@@ -1,3 +1,4 @@
+:- module(metta_runtime, []).
 % This file initializes and configures the runtime environment for MeTTaLog .. it is for non RELP user such as
 % From the LSP server and transpiled MeTTa files.
 % It sets the required directories, attaches necessary packages, configures Prolog flags for mettalog and
