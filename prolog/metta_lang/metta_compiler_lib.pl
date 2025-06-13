@@ -1,87 +1,4 @@
-:- module(metta_compiler_lib, [ is_If/1,
-                                'mc__1_1_car-atom'/2,
-                                'mc__1_1_cdr-atom'/2,
-                                mc__1_1_collapse/2,
-                                mc__1_1_eval/2,
-                                'mc__1_1_get-metatype'/2,
-                                'mc__1_1_println!'/2,
-                                'mc__1_2_=='/3,
-                                'mc__1_2_add-atom'/3,
-                                'mc__1_2_cons-atom'/3,
-                                mc__1_4_unify/5,
-                                'mc_n_1__call-fn!'/3,
-                                metta_to_metta_body_macro_recurse/3,
-                                setup_library_calls/0,
-                                transpiler_predicate_nary_store/9,
-                                op(700,xfx,=~) ]).
-
-:- use_module(metta_compiler, [ assign_or_direct_var_only/4,
-                                f2p/8,
-                                f2p_do_group/6,
-                                format_e/2,
-                                lazy_impedance_match/8,
-                                setup_library_call/7,
-                                trace_break/1,
-                                op(700,xfx,=~),
-                                op(700,xfx,@..),
-                                op(700,xfx,~..) ]).
-:- use_module(metta_compiler_douglas, [ f2p_assign/4,
-                                        list_to_disjuncts/2,
-                                        transpile_impl_prefix/3,
-                                        op(700,xfx,=~) ]).
-:- use_module(metta_compiler_roy, [ =~ / 2,
-                                    arg_properties_widen/3,
-                                    as_p1_exec/2,
-                                    as_p1_expr/2,
-                                    cname_var/2,
-                                    get_operator_typedef_props/5,
-                                    must_det_lls/1,
-                                    transpile_eval/2,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_debug, [ debug_info/2 ]).
-:- use_module(metta_eval, [ as_tf/2,
-                            'get-metatype'/2,
-                            is_make_new_kb/3,
-                            loonit_assert_source_tf_empty/6,
-                            nb_bind/2,
-                            nb_bound/2,
-                            println_impl/1,
-                            should_be/2,
-                            specialize_res/3,
-                            with_output_to_str/2 ]).
-:- use_module(metta_improve, [ eval_in_only/3 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              do_metta/5,
-                              eval_string/2,
-                              is_metta_space/1,
-                              metta_atom/2,
-                              on_metta_setup/1,
-                              user_io/1,
-                              wtime_eval/1 ]).
-:- use_module(metta_python, [ make_py_dot/3,
-                              py_atom/2,
-                              py_call_method_and_args_sig/5,
-                              rust_metta_run/2 ]).
-:- use_module(metta_repl, [ eval/2 ]).
-:- use_module(metta_transpiled_header, [ metta_atom_asserted/2 ]).
-:- use_module(metta_types, [ get_type/4,
-                             into_typed_arg/5 ]).
-:- use_module(metta_utils, [ if_t/2,
-                             maplist/7 ]).
-:- use_module(swi_support, [ option_value/2 ]).
-
-
-
-
-
-
-
-
-
-
-
-
-
+:- ensure_loaded(metta_compiler).
 :- dynamic(transpiler_predicate_store/7).
 :- discontiguous(transpiler_predicate_store/7).
 :- dynamic(transpiler_predicate_nary_store/9).
@@ -391,7 +308,7 @@ lazy_member(P,R2) :- as_p1_exec(R2,P).
 'mc__1_1_superpose'(S,R) :- is_list(S), should_be(is_list,S), member(E,S), as_p1_exec(E,R).
 
 
-
+:- op(700,xfx,'=~').
 
 % old way to use the interpreted version
 todo_compile_flow_control(_HeadIs, _LazyVars, RetResult, _RetResultN, _ResultLazy, Convert, [inline(Converted)], _ConvertedN) :-
@@ -722,11 +639,7 @@ random_float_between(Min, Max, R_):-
 %
 %     keep RNGId changes local to the term being passed about.
 %
-
-:- meta_predicate with_random_generator(?,0).
 with_random_generator('&rng', Call):- !, call(Call).
-
-:- meta_predicate with_random_generator(?,0).
 with_random_generator(RNGId, Call):-
     Setup = (getrand(OLD),
              into_rng(RNGId, Current),
@@ -872,8 +785,6 @@ metta_body_macro(HeadIs, AsBodyFn, AsBodyFnOut):-
      metta_body_macro(HeadIs, AsBodyFnMid, AsBodyFnOut)),
     nop((ss_unfreeze_vars(Vars,Copy))))).
 
-
-:- meta_predicate with_ss_unify(?,0).
 with_ss_unify(Inp,Goal):-
     term_variables(Inp,Vars),copy_term(Inp+Vars,InpC+Copy),ss_freeze_vars(Vars,Copy),
     call(Goal),Inp=@=InpC,

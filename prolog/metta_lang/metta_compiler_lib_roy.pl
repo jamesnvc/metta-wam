@@ -1,23 +1,3 @@
-:- module(metta_compiler_lib_roy, []).
-:- use_module(metta_compiler_roy, [ fullvar/1,
-                                    get_operator_typedef_props/5,
-                                    transpile_eval/2,
-                                    u_assign/2,
-                                    op(700,xfx,=~) ]).
-:- use_module(metta_eval, [ 'get-metatype'/2,
-                            println_impl/1 ]).
-:- use_module(metta_interp, [ current_self/1,
-                              metta_atom/2,
-                              wtime_eval/1 ]).
-:- use_module(metta_space, [ 'add-atom'/2,
-                             'remove-atom'/2 ]).
-:- use_module(metta_types, [ get_type/4,
-                             into_typed_arg/5 ]).
-
-
-
-
-
 :- dynamic(transpiler_predicate_store/4).
 :- discontiguous transpiler_predicate_store/4.
 
@@ -156,8 +136,6 @@ transpiler_predicate_store('decons-atom', 2,  [x(noeval,eager)], x(noeval,eager)
 
 %%%%%%%%%%%%%%%%%%%%% set
 
-
-:- meta_predicate lazy_member(?,0,?).
 lazy_member(R1,Code2,R2) :- call(Code2),R1=R2.
 
 transpiler_predicate_store(subtraction, 3, [x(doeval,lazy),x(doeval,lazy)], x(doeval,eager)).
