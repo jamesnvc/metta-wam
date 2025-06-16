@@ -41,8 +41,10 @@ main([DirPath]) :-
     list_to_rbtree(ModuleDefinedOps, ModDefOps),
     forall( member(file_import(File, Module, Predicates), UniqueFileImports),
             ( add_use_if_needed(File, Module, Predicates),
-              % TODO: Exclude operators this module already has
-              ( rb_lookup(Module, Ops, ModDefOps), Ops \= []
+              operators_in_file(File, AlreadyDefdOps),
+              ( rb_lookup(Module, Ops0, ModDefOps),
+                include({AlreadyDefdOps}/[Op-_]>>( \+ ord_memberchk(Op, AlreadyDefdOps) ), Ops0, Ops),
+                Ops \= []
               -> pairs_keys_values(Ops, Os, _),
                  add_use_if_needed(File, Module, Os)
               ;  true ) ) ),
@@ -54,6 +56,18 @@ main([DirPath]) :-
            % XXX: this is breaking things, malforming file
            remove_ensure_loaded(File, AllModules)),
     add_all_missing_meta_preds(AllFiles).
+
+operators_in_file(File, Ops) :-
+    find_in_source(File,
+                    [Term, _Info, Result]>>(
+                        ( ( Term = (:- module(_, PredsOrOps));
+                            Term = (:- use_module(_, PredsOrOps)) ),
+                          include([op(_, _, _)]>>true, PredsOrOps, Result)
+                        )
+                    ),
+                    Ops0),
+    append(Ops0, Ops1),
+    sort(Ops1, Ops).
 
 add_all_missing_meta_preds(AllFiles) :-
     debug(modularize_xref, "Searching for missing meta_predicate_decls...", []),
