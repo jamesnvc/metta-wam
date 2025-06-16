@@ -615,7 +615,6 @@ break_dependency_loop :-
             ( member(ExtractPred, ExtractPreds),
               ( ToExtract = ExtractMod:ExtractPred ;
                 ( memberchk((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
-                  debug(xxx, "~q:~q depends on ~q", [ExtractMod, ExtractPred, ExtractPredDeps]),
                   member(ToExtract, ExtractPredDeps),
                   ToExtract = ExtractMod:_) )
             ),
@@ -644,7 +643,7 @@ break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtrac
     file_directory_name(ThisModPath, ThisModDir),
     format(string(ExtractModPl), "~w.pl", [NewModule]),
     directory_file_path(ThisModDir, ExtractModPl, NewModulePath),
-    maplist([_:Pred, Pred]>>true, AllToExtract, PredsToExtract),
+    setof(Pred, member(ExtractMod:Pred, AllToExtract), PredsToExtract),
     debug(xxx, "preds to extract ~q", [PredsToExtract]),
     move_predicates_to_new_module(ThisModPath, PredsToExtract, AllToImport, NewModulePath),
     % re-write other dependencies
