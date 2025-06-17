@@ -604,8 +604,13 @@ break_dependency_loop :-
                   ),
                   Preds) ,
             AllToImport),
+    findall(Path,
+            ( member(Pred, ExtractPreds),
+              path_for_predicate(LoopGraph, ExtractMod:Pred, Path) ),
+            Dependencies),
     ( append(_, [ExtractMod, DependedOnMod|_], ModLoop) -> true ; DependedOnMod = '???' ),
     format(user_output, "Loop from ~q -> ~q via ~q~n", [ExtractMod, DependedOnMod, ExtractPreds]),
+    print_out_dependency_path(Dependencies),
     format(user_output, "Inline or extract? [i/e]: ", []),
     ( repeat,
       read_line_to_string(user_input, MethodInput),
@@ -621,6 +626,34 @@ break_dependency_loop :-
             AllToExtract),
        break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract)
     ; break_loop_by_inlining(Loop, ExtractMod, DependedOnMod, AllToImport) ).
+
+path_for_predicate(CallGraph, ModPredicate, Path) :-
+    path_for_predicate(CallGraph, a([]), ModPredicate, Path).
+path_for_predicate(CallGraph, Seen, ModPredicate, Path) :-
+    memberchk(ModPredicate-Deps, CallGraph),
+    Path = [ModPredicate|PathRest],
+    Seen = a(Seen0),
+    ord_add_element(Seen0, ModPredicate, Seen1),
+    nb_setarg(1, Seen, Seen1),
+    ( ord_memberchk(ModPredicate, Seen0)
+    -> PathRest = []
+    ; maplist(path_for_predicate(CallGraph, Seen), Deps, PathRest)
+    ).
+
+print_out_dependency_path(Path) :-
+    print_out_dependency_path(0, Path).
+print_out_dependency_path(_, []).
+print_out_dependency_path(Depth, [Pred|Rest]) :-
+    is_list(Pred), !,
+    succ(Depth, Depth1),
+    print_out_dependency_path(Depth1, Pred),
+    print_out_dependency_path(Depth, Rest).
+print_out_dependency_path(Depth, [Pred|Rest]) :-
+    \+ is_list(Pred),
+    length(Spaces, Depth),
+    maplist(=(0' ), Spaces),
+    format("~s~q~n", [Spaces, Pred]),
+    print_out_dependency_path(Depth, Rest).
 
 break_loop_by_inlining(Loop, InlineToMod, DefiningMod, AllToImportExtract) :-
     once(( member(ThisModPath, Loop), file_module(ThisModPath, DefiningMod) )),
