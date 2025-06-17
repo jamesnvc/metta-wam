@@ -502,13 +502,13 @@ build_file_graph(File, Graph) :-
             ),
             Graph).
 
-xxy_build_deps(Graph) :-
+build_file_dependency_graph(Graph) :-
     load_xrefs("prolog", FileDefs),
     files_imported_exported(FileDefs, FileImports, _FileExports),
     build_graph(FileImports, Graph).
 
 find_loops_in_file_graph(Loops) :-
-    xxy_build_deps(Graph),
+    build_file_dependency_graph(Graph),
     setof(Loop, loop_in_graph(Graph, Loop), Loops).
 
 expand_graph_in_loop(Loop, LoopGraph) :-
@@ -997,7 +997,7 @@ output_module_import(Output, Module, ImportPreds) :-
     format(Output, " ]).~n~n", []).
 
 zzz_make_graphs :-
-    xxy_build_deps(Graph),
+    build_file_dependency_graph(Graph),
     forall(loop_in_graph(Graph, loop(_From, LoopF)),
            ( format(string(Cmd), "dot -Tpng -O ~w", [LoopF]),
              shell(Cmd) )).
