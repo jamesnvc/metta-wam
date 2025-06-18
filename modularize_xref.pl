@@ -502,9 +502,26 @@ build_file_graph(File, Graph) :-
             ),
             Graph).
 
+file_imports_xref(FileDefs, FileImports) :-
+    % using xref now instead of files_imported_exported/3 to build graph
+    % because this is being run after modularizing
+    working_directory(Here, Here),
+    findall(
+        file_import(File, Call, ImportFrom),
+        ( member(file_def_call_ex(File, Defs, Calls, _), FileDefs),
+          member(Call, Calls),
+          \+ memberchk(Call, Defs),
+          Call = Pred/Arity, functor(Term, Pred, Arity),
+          xref_defined(File, Term, How),
+          How = imported(ImportFrom0),
+          % to match other file names
+          relative_file_name(ImportFrom0, Here, ImportFrom)
+        ),
+        FileImports).
+
 build_file_dependency_graph(Graph) :-
     load_xrefs("prolog", FileDefs),
-    files_imported_exported(FileDefs, FileImports, _FileExports),
+    file_imports_xref(FileDefs, FileImports),
     build_graph(FileImports, Graph).
 
 find_loops_in_file_graph(Loops) :-
@@ -592,6 +609,7 @@ break_dependency_loop :-
        fail
     ; true ),
     pick_preds_to_extract(LoopGraph, ModLoop, Extract),
+    debug(xxx, "picked preds to extract ~q", [Extract]),
     transitive_closure(LoopGraph, Closure),
     Extract = module_size_preds(ExtractMod, _, ExtractPreds),
     findall(Module-Preds,
@@ -610,7 +628,7 @@ break_dependency_loop :-
             Dependencies),
     ( append(_, [ExtractMod, DependedOnMod|_], ModLoop) -> true ; DependedOnMod = '???' ),
     format(user_output, "Loop from ~q -> ~q via ~q~n", [ExtractMod, DependedOnMod, ExtractPreds]),
-    print_out_dependency_path(Dependencies),
+    % print_out_dependency_path(Dependencies),
     format(user_output, "Inline or extract? [i/e]: ", []),
     ( repeat,
       read_line_to_string(user_input, MethodInput),
@@ -801,6 +819,7 @@ pick_preds_to_extract(Graph, ModLoop, Extract) :-
         ExtractCandidates
     ),
     sort(2, @=<, ExtractCandidates, ExtractSorted),
+    debug(xxx, "Extract candidates: ~q", [ExtractSorted]),
     %% Extract = ExtractSorted.
     ExtractSorted = [Extract|_].
 
