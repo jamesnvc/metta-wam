@@ -331,6 +331,11 @@ remove_ensure_loaded(Path, Modules) :-
                    Locations),
     splice_out_terms_in_file(Path, Locations).
 
+%! splice_out_terms_in_file(+Path:string, +Positions:list(term)) is det.
+%
+%  For every =Position= term in =Positions= (assuming the first
+%  argument is the start, second is the end), remove the content from
+%  the file at =Path=.
 splice_out_terms_in_file(Path, Positions) :-
     read_file_to_string(Path, FileContent, []),
     sort(1, @=<, Positions, Positions1),
@@ -655,10 +660,10 @@ break_dependency_loop :-
             Dependencies),
     print_out_dependency_path(Dependencies),
     */
-    format(user_output, "Inline or extract? [i/e]: ", []),
+    format(user_output, "Inline, extract, or merge? [i/e/m]: ", []),
     ( repeat,
       read_line_to_string(user_input, MethodInput),
-      memberchk(MethodInput, ["i", "e"]), ! ),
+      memberchk(MethodInput, ["i", "e", "m"]), ! ),
     ( MethodInput = "e"
     -> findall(ToExtract,
                ( member(ExtractPred, ExtractPreds),
@@ -669,6 +674,8 @@ break_dependency_loop :-
                ),
                AllToExtract),
        break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract)
+    ; MethodInput = "m"
+    -> break_loop_by_merging(Loop, ExtractMod, DependedOnMod)
     ; break_loop_by_inlining(Loop, ExtractMod, DependedOnMod, AllToImport) ).
 
 path_for_predicate(CallGraph, ModPredicate, Path) :-
@@ -698,6 +705,73 @@ print_out_dependency_path(Depth, [Pred|Rest]) :-
     maplist(=(0' ), Spaces),
     format("~s~q~n", [Spaces, Pred]),
     print_out_dependency_path(Depth, Rest).
+
+break_loop_by_merging(Loop, Mod1, Mod2) :-
+    once(( member(Mod1Path, Loop), file_module(Mod1Path, Mod1) )),
+    once(( member(Mod2Path, Loop), file_module(Mod2Path, Mod2) )),
+    format(user_output, "Name for combined module containing ~q and ~q?: ", [Mod1, Mod2]),
+    read_line_to_string(user_input, NewModuleString),
+    NewModuleString \= "",
+    atom_string(NewModule, NewModuleString),
+    file_directory_name(Mod1Path, ModDir),
+    format(string(NewModPl), "~w.pl", [NewModule]),
+    directory_file_path(ModDir, NewModPl, NewModulePath),
+    find_in_source(Mod1Path, finder_for_module_position_exports, Mod1ModuleLocExports),
+    find_in_source(Mod2Path, finder_for_module_position_exports, Mod2ModuleLocExports),
+    splice_out_terms_in_file(Mod1Path, Mod1ModuleLocExports),
+    splice_out_terms_in_file(Mod2Path, Mod2ModuleLocExports),
+    find_in_source(Mod1Path, finder_for_use_module_to_remove(Mod2), Mod1UseMod2Loc),
+    find_in_source(Mod2Path, finder_for_use_module_to_remove(Mod1), Mod2UseMod1Loc),
+    splice_out_terms_in_file(Mod1Path, Mod1UseMod2Loc),
+    splice_out_terms_in_file(Mod2Path, Mod2UseMod1Loc),
+    findall(Export,
+            ( member(termpos_exports(_, _, Exports), Mod1ModuleLocExports),
+              member(Export, Exports) ),
+            NewModuleExports, ExportsTail),
+    findall(Export,
+            ( member(termpos_exports(_, _, Exports), Mod2ModuleLocExports),
+              member(Export, Exports) ),
+            ExportsTail),
+    read_file_to_string(Mod1Path, Mod1Content0, []),
+    maybe_trim_to_end_of_file(Mod1Content0, Mod1Content),
+    read_file_to_string(Mod2Path, Mod2Content0, []),
+    maybe_trim_to_end_of_file(Mod2Content0, Mod2Content),
+    setup_call_cleanup(open(NewModulePath, write, S, []),
+                       ( formatted_module(NewModule, NewModuleExports, NewModuleString),
+                         write(S, NewModuleString),
+                         write(S, ".\n\n"),
+                         write(S, Mod1Content),
+                         write(S, Mod2Content)
+                       ),
+                       close(S)),
+    delete_file(Mod1Path),
+    delete_file(Mod2Path),
+    maplist([termpos_exports(_, Exports), Exports]>>true, Mod1ModuleLocExports, Mod1Exports0),
+    append(Mod1Exports0, Mod1Exports),
+    change_other_imports(Mod1, NewModule, Mod1Exports),
+    maplist([termpos_exports(_, Exports), Exports]>>true, Mod2ModuleLocExports, Mod2Exports0),
+    append(Mod2Exports0, Mod2Exports),
+    change_other_imports(Mod2, NewModule, Mod2Exports).
+
+maybe_trim_to_end_of_file(ContentStr, RealContentStr) :-
+    % TODO: should actually parse to know if end_of_file is in a comment or something?
+    ( sub_string(ContentStr, Before, _Length, _After, "\nend_of_file.")
+    -> sub_string(ContentStr, 0, Before, _, RealContentStr)
+    ; RealContentStr = ContentStr ).
+
+finder_for_module_position_exports((:- module(_, Exports)), Info, Result) :-
+    get_dict(subterm_positions, Info, SubTermPos),
+    get_dict(after_term_position, Info, AfterTermPos),
+    arg(1, SubTermPos, TermStart),
+    stream_position_data(char_count, AfterTermPos, TermEnd),
+    Result = termpos_exports(TermStart, TermEnd, Exports).
+
+finder_for_use_module_to_remove(Module, (:- use_module(Module, _)), Info, Result) :-
+    get_dict(subterm_positions, Info, SubTermPos),
+    get_dict(after_term_position, Info, AfterTermPos),
+    arg(1, SubTermPos, TermStart),
+    stream_position_data(char_count, AfterTermPos, TermEnd),
+    Result = TermStart-TermEnd.
 
 break_loop_by_inlining(Loop, InlineToMod, DefiningMod, AllToImportExtract) :-
     once(( member(ThisModPath, Loop), file_module(ThisModPath, DefiningMod) )),
@@ -828,6 +902,7 @@ pick_preds_to_extract(Graph, ModLoop, Extract) :-
                     Deps^OtherPred^TC^ToMod^(
                         member(FromMod-ToMod, ModPairs),
                         member((FromMod:Pred)-Deps, Graph),
+                        Pred \= '<directive>'(_),
                         memberchk(ToMod:OtherPred, Deps),
                         memberchk((FromMod:Pred)-TC, Closure),
                         length(TC, Size)),
@@ -1170,6 +1245,13 @@ map_kv(black(L, K, V, R), Goal, NewTree, Nil) =>
 
 :- meta_predicate find_in_source(+, 3, -).
 
+%! find_in_source(+Path:string, +Find:callable(3), -Results:list) is det.
+%
+%  Call =Find= for each term in the prolog file =Path=. The first
+%  argument to =Find= is the term; the second is a dictionary of the
+%  term position, sub-term position, the expanded term, comments, and
+%  the position after the term; the value the third argument is
+%  unified with on success is added to =Results=.
 find_in_source(Path, Find, Results) :-
     Acc = a([]),
     setup_call_cleanup(
