@@ -1,4 +1,5 @@
-:- module(modularize_xref, []).
+:- module(modularize_xref, [ main/1,
+                             break_dependency_loop/0 ]).
 
 :- use_module(library(apply)).
 :- use_module(library(apply_macros)).
@@ -635,48 +636,49 @@ break_dependency_loop :-
     ( pred_graph_disjoint_path(ModLoop, LoopGraph, Path)
     % what what do if true? must break by inlining
     -> debug(xxx, "No disjoint path in graph, must merge: ~q", [Path]),
-       fail
-    ; true ),
-    pick_preds_to_extract(LoopGraph, ModLoop, Extract),
-    debug(xxx, "picked preds to extract ~q", [Extract]),
-    transitive_closure(LoopGraph, Closure),
-    Extract = module_size_preds(ExtractMod, _, ExtractPreds),
-    findall(Module-Preds,
-            setof(Pred,
-                  ExtractMod^ExtractPredDeps^ExtractPred^(
-                      member(ExtractPred, ExtractPreds),
-                      member((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
-                      member(Module:Pred, ExtractPredDeps),
-                      Module \= ExtractMod
-                  ),
-                  Preds),
-            AllToImport),
-    ( append(_, [ExtractMod, DependedOnMod|_], ModLoop) -> true ; DependedOnMod = '???' ),
-    format(user_output, "Loop from ~q -> ~q via ~q~n", [ExtractMod, DependedOnMod, ExtractPreds]),
-    /*
+       setof(Mod, P^A^member(Mod:P/A, Path), [Mod1, Mod2|_]),
+       debug(xxx, "MODS ~q ~q", [Mod1, Mod2]),
+       break_loop_by_merging(Loop, Mod1, Mod2)
+    ; pick_preds_to_extract(LoopGraph, ModLoop, Extract),
+      debug(xxx, "picked preds to extract ~q", [Extract]),
+      transitive_closure(LoopGraph, Closure),
+      Extract = module_size_preds(ExtractMod, _, ExtractPreds),
+      findall(Module-Preds,
+              setof(Pred,
+                    ExtractMod^ExtractPredDeps^ExtractPred^(
+                        member(ExtractPred, ExtractPreds),
+                        member((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
+                        member(Module:Pred, ExtractPredDeps),
+                        Module \= ExtractMod
+                    ),
+                    Preds),
+              AllToImport),
+      ( append(_, [ExtractMod, DependedOnMod|_], ModLoop) -> true ; DependedOnMod = '???' ),
+      format(user_output, "Loop from ~q -> ~q via ~q~n", [ExtractMod, DependedOnMod, ExtractPreds]),
+      /*
     findall(Path,
             ( member(Pred, ExtractPreds),
               path_for_predicate(LoopGraph, ExtractMod:Pred, Path) ),
             Dependencies),
     print_out_dependency_path(Dependencies),
     */
-    format(user_output, "Inline, extract, or merge? [i/e/m]: ", []),
-    ( repeat,
-      read_line_to_string(user_input, MethodInput),
-      memberchk(MethodInput, ["i", "e", "m"]), ! ),
-    ( MethodInput = "e"
-    -> findall(ToExtract,
-               ( member(ExtractPred, ExtractPreds),
-                 ( ToExtract = ExtractMod:ExtractPred ;
-                   ( memberchk((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
-                     member(ToExtract, ExtractPredDeps),
-                     ToExtract = ExtractMod:_) )
-               ),
-               AllToExtract),
-       break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract)
-    ; MethodInput = "m"
-    -> break_loop_by_merging(Loop, ExtractMod, DependedOnMod)
-    ; break_loop_by_inlining(Loop, ExtractMod, DependedOnMod, AllToImport) ).
+      format(user_output, "Inline, extract, or merge? [i/e/m]: ", []),
+      ( repeat,
+        read_line_to_string(user_input, MethodInput),
+        memberchk(MethodInput, ["i", "e", "m"]), ! ),
+      ( MethodInput = "e"
+      -> findall(ToExtract,
+                 ( member(ExtractPred, ExtractPreds),
+                   ( ToExtract = ExtractMod:ExtractPred ;
+                     ( memberchk((ExtractMod:ExtractPred)-ExtractPredDeps, Closure),
+                       member(ToExtract, ExtractPredDeps),
+                       ToExtract = ExtractMod:_) )
+                 ),
+                 AllToExtract),
+         break_loop_by_splitting(Loop, ExtractMod, ExtractPreds, AllToImport, AllToExtract)
+      ; MethodInput = "m"
+        -> break_loop_by_merging(Loop, ExtractMod, DependedOnMod)
+      ; break_loop_by_inlining(Loop, ExtractMod, DependedOnMod, AllToImport) ) ).
 
 path_for_predicate(CallGraph, ModPredicate, Path) :-
     path_for_predicate(CallGraph, a([]), ModPredicate, Path).
